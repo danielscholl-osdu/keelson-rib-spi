@@ -109,6 +109,8 @@ export interface StepFact {
   name: string;
   status: string;
   conclusion?: string;
+  startedAt?: string;
+  completedAt?: string;
 }
 
 export interface JobDetail {

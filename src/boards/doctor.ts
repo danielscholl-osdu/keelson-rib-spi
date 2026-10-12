@@ -9,7 +9,7 @@
 import type { CanvasBoardView, CanvasTone } from "@keelson/shared";
 import { FORKS, GITLAB_EVERY_MS, PLANNED, SWEEP_MS } from "../config.ts";
 import { AREAS, type AreaName, type Facts } from "../facts.ts";
-import { clip, stamp } from "../util.ts";
+import { clip, stamp, zoned } from "../util.ts";
 
 const AREA_LABEL: Record<AreaName, string> = {
   github: "PRs, checks, issues, markers, lane ledger (GraphQL)",
@@ -40,7 +40,7 @@ export function doctorBoard(facts: Facts, now: Date): CanvasBoardView {
     header: {
       status,
       chip: sweep
-        ? `swept ${stamp(sweep.at, now)} · ${(sweep.ms / 1000).toFixed(1)} s · ${sweep.calls} calls`
+        ? `swept ${zoned(sweep.at, now)} · ${(sweep.ms / 1000).toFixed(1)} s · ${sweep.calls} calls`
         : "no sweep yet",
     },
     sections: [

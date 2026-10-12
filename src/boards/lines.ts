@@ -10,7 +10,7 @@ import type { CanvasBoardView, CanvasTone } from "@keelson/shared";
 import { gitlabUrl } from "../config.ts";
 import type { Model } from "../model/index.ts";
 import type { LineModel, StationState } from "../model/lines.ts";
-import { age, stamp } from "../util.ts";
+import { age, zoned } from "../util.ts";
 
 type CardsSection = Extract<CanvasBoardView["sections"][number], { kind: "cards" }>;
 type Card = CardsSection["items"][number];
@@ -108,7 +108,7 @@ export function linesBoard(model: Model, now: Date): CanvasBoardView {
         label: `${current} OF ${n} CURRENT`,
         tone: current === n ? "ok" : anyRed ? "error" : "warn",
       },
-      chip: `${n} forks · ${model.planned.length} planned${model.sweptAt ? ` · ${stamp(model.sweptAt, now)}` : ""}`,
+      chip: `${n} forks · ${model.planned.length} planned${model.sweptAt ? ` · ${zoned(model.sweptAt, now)}` : ""}`,
     },
     sections: [
       {

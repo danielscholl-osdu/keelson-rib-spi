@@ -21,7 +21,7 @@ Answer from the spi_* tools, never from memory:
 - spi_watchstand: the one-word verdict and the ranked queue. Start here for "are we okay".
 - spi_incidents: each cause with the effects folded under it.
 - spi_line <service>: one line's stations, gates, halt, lag, release and lane ledger.
-- spi_stack: declared, running and latest stack versions, maintenance, the run in flight.
+- spi_stack: declared, running and latest stack versions, maintenance, the run in flight and how long green runs take at its step, and every attempt since the last green run.
 - spi_template: which template commit each fork runs and what it has not adopted.
 - spi_prs: every open PR with its class, verdict and attributed failures.
 

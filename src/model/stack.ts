@@ -7,7 +7,8 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import { HISTORY_DAYS, type LifecycleKind } from "../config.ts";
-import type { Declaration, JobDetail, LifecycleRun, PrFact, RepoFact } from "../facts.ts";
+import type { Declaration, JobDetail, LifecycleRun, PrFact, RepoFact, StepFact } from "../facts.ts";
+import { clip, took } from "../util.ts";
 import { summarizeReason } from "./reason.ts";
 
 export type StageState = "ok" | "failed" | "running" | "waits" | "skipped" | "cancelled";
@@ -15,6 +16,16 @@ export type StageState = "ok" | "failed" | "running" | "waits" | "skipped" | "ca
 export interface Stage {
   label: string;
   state: StageState;
+  startedAt?: string;
+  completedAt?: string;
+}
+
+// Where a run is now, or where it stopped.
+export interface Position {
+  stage: string;
+  step?: string;
+  startedAt?: string;
+  completedAt?: string;
 }
 
 export interface RunView {
@@ -25,6 +36,7 @@ export interface RunView {
   reason?: string;
   // The stage running now, for an in-flight run.
   current?: string;
+  at?: Position;
 }
 
 export interface LifecycleStat {
@@ -32,6 +44,8 @@ export interface LifecycleStat {
   total: number;
   streak?: { green: boolean; n: number };
   last?: LifecycleRun;
+  // Every run in the window, oldest first.
+  runs: LifecycleRun[];
 }
 
 export interface StackModel {
@@ -43,10 +57,12 @@ export interface StackModel {
   maintenance: { state: "set" | "clear" | "unknown"; since?: string; run?: LifecycleRun };
   deployable: { state: "yes" | "no" | "unknown"; reason: string };
   inflight?: RunView;
-  // The oldest failure in the unbroken run of failed refreshes and upgrades
-  // since the last green one: the cause the later failures inherit.
-  failure?: RunView;
-  failureChain: RunView[];
+  lastGreen?: LifecycleRun;
+  // Every refresh and upgrade since the newest green one, oldest first,
+  // cancelled and running ones included.
+  attempts: RunView[];
+  // How long the in-flight run's current step took on green runs of its kind.
+  usual?: { min: number; max: number; n: number };
   recent: RunView[];
   lifecycle: Record<LifecycleKind, LifecycleStat>;
   bumpPr?: PrFact;
@@ -107,28 +123,93 @@ function worst(states: StageState[]): StageState {
 function upgradeStages(jobs: readonly JobDetail[]): Stage[] {
   const out: Stage[] = UPGRADE_JOBS.map(([re, label]) => {
     const job = jobs.find((j) => re.test(j.name));
-    return { label, state: job ? stateOf(job.status, job.conclusion) : "waits" };
+    if (!job) return { label, state: "waits" };
+    return {
+      label,
+      state: stateOf(job.status, job.conclusion),
+      startedAt: job.startedAt,
+      completedAt: job.completedAt,
+    };
   });
   const clear = steps(jobs).find(({ step }) => CLEAR_STEP.test(step.name));
-  out.push({
-    label: "clear",
-    state: clear ? stateOf(clear.step.status, clear.step.conclusion) : "waits",
-  });
+  out.push(
+    clear
+      ? {
+          label: "clear",
+          state: stateOf(clear.step.status, clear.step.conclusion),
+          startedAt: clear.step.startedAt,
+          completedAt: clear.step.completedAt,
+        }
+      : { label: "clear", state: "waits" },
+  );
   return out;
 }
 
 function refreshStages(jobs: readonly JobDetail[]): Stage[] {
   const all = steps(jobs);
   return REFRESH_STEPS.map(([re, label]) => {
-    const matched = all.filter(({ step }) => re.test(step.name));
+    const matched = all.filter(({ step }) => re.test(step.name)).map(({ step }) => step);
+    if (matched.length === 0) return { label, state: "waits" };
+    const starts = matched.flatMap((m) => (m.startedAt ? [m.startedAt] : [])).sort();
+    const ends = matched.flatMap((m) => (m.completedAt ? [m.completedAt] : [])).sort();
     return {
       label,
-      state:
-        matched.length === 0
-          ? "waits"
-          : worst(matched.map(({ step }) => stateOf(step.status, step.conclusion))),
+      state: worst(matched.map((m) => stateOf(m.status, m.conclusion))),
+      startedAt: starts[0],
+      completedAt: ends.length === matched.length ? ends[ends.length - 1] : undefined,
     };
   });
+}
+
+function stageLabel(kind: LifecycleKind, job: JobDetail, step: StepFact | undefined): string {
+  if (kind === "upgrade") {
+    if (step && CLEAR_STEP.test(step.name)) return "clear";
+    return UPGRADE_JOBS.find(([re]) => re.test(job.name))?.[1] ?? job.name;
+  }
+  return (step && REFRESH_STEPS.find(([re]) => re.test(step.name))?.[1]) ?? job.name;
+}
+
+const STOPPED = new Set(["failure", "timed_out"]);
+// Conclusions that are not a failure of the environment.
+const SETTLED = new Set(["success", "cancelled", "skipped"]);
+
+function positionOf(run: LifecycleRun): Position | undefined {
+  const jobs = run.jobs ?? [];
+  let job: JobDetail | undefined;
+  let step: StepFact | undefined;
+  if (run.status !== "completed") {
+    job = jobs.find((j) => j.status === "in_progress");
+    step = job?.steps.find((s) => s.status === "in_progress");
+  } else if (run.conclusion === "cancelled") {
+    job = jobs.find((j) => j.conclusion === "cancelled");
+    step = job?.steps.find((s) => s.conclusion === "cancelled");
+  } else if (run.conclusion !== "success") {
+    job = jobs.find((j) => STOPPED.has(j.conclusion ?? ""));
+    step = job?.steps.find((s) => STOPPED.has(s.conclusion ?? ""));
+  }
+  if (!job) return undefined;
+  return {
+    stage: stageLabel(run.kind, job, step),
+    step: step?.name,
+    startedAt: step?.startedAt ?? job.startedAt,
+    completedAt: step?.completedAt ?? job.completedAt,
+  };
+}
+
+function usualFor(view: RunView | undefined, runs: readonly LifecycleRun[]): StackModel["usual"] {
+  const name = view?.at?.step;
+  if (!view || !name) return undefined;
+  const took: number[] = [];
+  for (const run of runs) {
+    if (run.kind !== view.run.kind || run.conclusion !== "success") continue;
+    for (const { step } of steps(run.jobs)) {
+      if (step.name !== name || !step.startedAt || !step.completedAt) continue;
+      const ms = Date.parse(step.completedAt) - Date.parse(step.startedAt);
+      if (Number.isFinite(ms) && ms >= 0) took.push(ms);
+    }
+  }
+  if (took.length === 0) return undefined;
+  return { min: Math.min(...took), max: Math.max(...took), n: took.length };
 }
 
 export function viewRun(run: LifecycleRun): RunView {
@@ -153,6 +234,7 @@ export function viewRun(run: LifecycleRun): RunView {
     failedAt: failedJob ? [failedJob.name, failedStep].filter(Boolean).join(" › ") : undefined,
     reason: summarizeReason(failedJob?.reason),
     current,
+    at: positionOf(run),
   };
 }
 
@@ -162,13 +244,14 @@ function byCreated(a: LifecycleRun, b: LifecycleRun): number {
 
 // Remote mode cannot ask the cluster, so maintenance is replayed from the
 // lifecycle runs: a run that set it and did not reach Clear maintenance left it set.
+// A retry sets it again; the hold dates from the run that first set it.
 export function inferMaintenance(runs: readonly LifecycleRun[]): StackModel["maintenance"] {
   let state: StackModel["maintenance"] = { state: "unknown" };
   for (const run of [...runs].sort(byCreated)) {
     if (!run.jobs) continue;
     if (stepOk(run.jobs, CLEAR_STEP)) {
       state = { state: "clear", since: run.updatedAt, run };
-    } else if (stepOk(run.jobs, SET_STEP)) {
+    } else if (stepOk(run.jobs, SET_STEP) && state.state !== "set") {
       state = { state: "set", since: run.createdAt, run };
     }
   }
@@ -199,6 +282,9 @@ export function inferRunning(runs: readonly LifecycleRun[]): StackModel["running
 
 function stat(runs: readonly LifecycleRun[], now: Date): LifecycleStat {
   const cutoff = now.getTime() - HISTORY_DAYS * 86_400_000;
+  const window = runs
+    .filter((r) => r.conclusion !== "skipped" && Date.parse(r.createdAt) >= cutoff)
+    .sort(byCreated);
   const done = runs
     .filter(
       (r) =>
@@ -216,7 +302,7 @@ function stat(runs: readonly LifecycleRun[], now: Date): LifecycleStat {
     }
     streak = { green: isGreen, n };
   }
-  return { green, total: done.length, streak, last: done[0] };
+  return { green, total: done.length, streak, last: done[0], runs: window };
 }
 
 export function semverCmp(a: string, b: string): number {
@@ -241,14 +327,16 @@ export function buildStack(
     .filter((r) => r.status !== "completed")
     .sort((a, b) => byCreated(b, a))[0];
   const completed = both.filter((r) => r.status === "completed").sort((a, b) => byCreated(b, a));
-  const chain: LifecycleRun[] = [];
-  for (const run of completed) {
-    if (run.conclusion === "cancelled" || run.conclusion === "skipped") continue;
-    if (run.conclusion === "success") break;
-    chain.push(run);
-  }
-  const failureChain = chain.map(viewRun);
-  const failure = failureChain[failureChain.length - 1];
+  const lastGreen = completed.find((r) => r.conclusion === "success");
+  const sinceGreen = lastGreen ? Date.parse(lastGreen.createdAt) : Number.NEGATIVE_INFINITY;
+  const attempts = both
+    .filter((r) => r.conclusion !== "skipped" && Date.parse(r.createdAt) > sinceGreen)
+    .sort(byCreated)
+    .slice(-8)
+    .map(viewRun);
+  const failed = attempts.some(
+    (a) => a.run.status === "completed" && !SETTLED.has(a.run.conclusion ?? ""),
+  );
   const maintenance = inferMaintenance(both);
   const inflight = inflightRun ? viewRun(inflightRun) : undefined;
 
@@ -260,7 +348,7 @@ export function buildStack(
     };
   } else if (maintenance.state === "set") {
     deployable = { state: "no", reason: "The environment is in maintenance." };
-  } else if (maintenance.state === "clear" && !failure) {
+  } else if (maintenance.state === "clear" && !failed) {
     deployable = { state: "yes", reason: "maintenance clear after the last lifecycle run" };
   } else {
     deployable = { state: "unknown", reason: "no lifecycle run in the window says" };
@@ -276,8 +364,9 @@ export function buildStack(
     maintenance,
     deployable,
     inflight,
-    failure,
-    failureChain,
+    lastGreen,
+    attempts,
+    usual: usualFor(inflight, both),
     recent: completed.slice(0, 6).map(viewRun),
     lifecycle: {
       refresh: stat(refresh, now),
@@ -290,4 +379,71 @@ export function buildStack(
       (p) => p.head.startsWith("release-please--") || p.labels.includes("autorelease: pending"),
     ),
   };
+}
+
+// The attempts since the last green run that ended without one: failed and
+// cancelled runs, which is what keeps forks off the stack.
+export function stoppedAttempts(stack: StackModel): RunView[] {
+  return stack.attempts.filter(
+    (a) => a.run.status === "completed" && a.run.conclusion !== "success",
+  );
+}
+
+// The step in flight has run past every green run of its kind, with room for noise.
+export function overdue(stack: StackModel, now: Date): boolean {
+  const started = stack.inflight?.at?.startedAt;
+  const usual = stack.usual;
+  if (!started || !usual) return false;
+  return now.getTime() - Date.parse(started) > Math.max(usual.max * 1.5, usual.max + 5 * 60_000);
+}
+
+function minutes(ms: number): string {
+  const m = Math.max(1, Math.round(ms / 60_000));
+  return m < 90 ? `${m}` : `${Math.floor(m / 60)}h ${m % 60}`;
+}
+
+// "green runs 1–12 min"
+export function usualText(usual: StackModel["usual"]): string | undefined {
+  if (!usual) return undefined;
+  const lo = minutes(usual.min);
+  const hi = minutes(usual.max);
+  return lo === hi ? `green runs ${hi} min` : `green runs ${lo}–${hi} min`;
+}
+
+export function runName(run: LifecycleRun): string {
+  return `env-${run.kind}${run.target ? ` ${run.target}` : ""}`;
+}
+
+export function runResult(run: LifecycleRun): string {
+  if (run.status !== "completed") return "running";
+  if (run.conclusion === "success") return "green";
+  if (run.conclusion === "cancelled") return "cancelled";
+  return run.conclusion === "timed_out" ? "timed out" : "failed";
+}
+
+// "verify › Wait for Flux Kustomizations to be Ready" for an upgrade; a refresh
+// is one job, so its step alone.
+export function runWhere(view: RunView): string | undefined {
+  const at = view.at;
+  if (!at) return view.failedAt;
+  if (view.run.kind !== "upgrade") return at.step ?? at.stage;
+  return at.step ? `${at.stage} › ${at.step}` : at.stage;
+}
+
+export function attemptText(view: RunView, maintenanceRun?: number): string {
+  const run = view.run;
+  const name = `${runName(run)}${run.event === "workflow_dispatch" ? " (dispatched)" : ""}`;
+  const where = runWhere(view);
+  let text: string;
+  if (run.status !== "completed") {
+    text = `${name} in ${where ?? "progress"}`;
+  } else if (run.conclusion === "cancelled") {
+    const after = took(view.at?.startedAt, view.at?.completedAt);
+    text = `${name} cancelled${after ? ` after ${after}` : ""}${where ? ` in ${where}` : ""}`;
+  } else if (run.conclusion === "success") {
+    text = `${name} green`;
+  } else {
+    text = `${name} failed${where ? ` in ${where}` : ""}${view.reason ? `: ${view.reason}` : ""}`;
+  }
+  return clip(run.id === maintenanceRun ? `${text} · set maintenance` : text, 220);
 }

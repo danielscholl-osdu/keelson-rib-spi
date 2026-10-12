@@ -23,20 +23,49 @@ export function age(fromIso: string | undefined, now: Date): string | undefined 
   return days < 7 && hours > 0 ? `${days}d ${hours}h` : `${days}d`;
 }
 
+// "11s", "14m", "1h 3m": how long something took.
+export function took(fromIso: string | undefined, toIso: string | undefined): string | undefined {
+  if (!fromIso || !toIso) return undefined;
+  const ms = Date.parse(toIso) - Date.parse(fromIso);
+  if (!Number.isFinite(ms) || ms < 0) return undefined;
+  if (ms < MINUTE) return `${Math.round(ms / 1000)}s`;
+  if (ms < HOUR) return `${Math.floor(ms / MINUTE)}m`;
+  const minutes = Math.floor((ms % HOUR) / MINUTE);
+  return `${Math.floor(ms / HOUR)}h${minutes > 0 ? ` ${minutes}m` : ""}`;
+}
+
 export function days(fromIso: string | undefined, now: Date): number | undefined {
   if (!fromIso) return undefined;
   const ms = now.getTime() - Date.parse(fromIso);
   return Number.isFinite(ms) ? Math.floor(ms / DAY) : undefined;
 }
 
-// "21:40Z" today, "10-11 22:44Z" on an earlier day.
+function two(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+// "16:40" today, "10-11 17:44" on an earlier day, in local time: the zone the
+// host draws timelines and clocks in.
 export function stamp(iso: string | undefined, now: Date): string | undefined {
   if (!iso) return undefined;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return undefined;
-  const hm = `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}Z`;
-  const day = d.toISOString().slice(0, 10);
-  return day === now.toISOString().slice(0, 10) ? hm : `${day.slice(5)} ${hm}`;
+  const hm = `${two(d.getHours())}:${two(d.getMinutes())}`;
+  const today =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  return today ? hm : `${two(d.getMonth() + 1)}-${two(d.getDate())} ${hm}`;
+}
+
+// A stamp that names its zone, for the one place a board says when it was read.
+export function zoned(iso: string | undefined, now: Date): string | undefined {
+  const s = stamp(iso, now);
+  if (!s) return undefined;
+  const zone = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" })
+    .formatToParts(new Date(iso as string))
+    .find((p) => p.type === "timeZoneName")?.value;
+  return zone ? `${s} ${zone}` : s;
 }
 
 export function dayOf(iso: string | undefined): string | undefined {

@@ -13,6 +13,7 @@ import { linesBoard } from "../src/boards/lines.ts";
 import { stackBoard } from "../src/boards/stack.ts";
 import { templateBoard } from "../src/boards/template.ts";
 import { ATTENTION_KEY, DOCTOR_KEY, LINES_KEY, STACK_KEY, TEMPLATE_KEY } from "../src/keys.ts";
+import { attemptText, overdue, usualText } from "../src/model/stack.ts";
 import { Store } from "../src/store.ts";
 import { Sweeper } from "../src/sweep.ts";
 import { age } from "../src/util.ts";
@@ -53,8 +54,8 @@ if (s.inflight)
   console.log(
     `  inflight env-${s.inflight.run.kind} ${s.inflight.run.target} ${s.inflight.stages.map((x) => `${x.label}:${x.state}`).join(" ")}`,
   );
-for (const v of s.failureChain)
-  console.log(`  chain env-${v.run.kind} ${v.run.target} ${v.failedAt} · ${v.reason}`);
+for (const v of s.attempts) console.log(`  attempt ${attemptText(v, s.maintenance.run?.id)}`);
+if (s.usual) console.log(`  usual ${usualText(s.usual)}${overdue(s, now) ? " · overdue" : ""}`);
 for (const [k, st] of Object.entries(s.lifecycle))
   console.log(
     `  ${k} ${st.green}/${st.total} streak ${st.streak?.n} ${st.streak?.green ? "green" : "red"}`,

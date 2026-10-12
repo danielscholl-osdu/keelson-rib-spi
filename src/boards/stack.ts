@@ -7,12 +7,33 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import type { CanvasBoardView, CanvasTone } from "@keelson/shared";
-import type { LifecycleKind } from "../config.ts";
+import { FORKS, type LifecycleKind } from "../config.ts";
+import type { LifecycleRun } from "../facts.ts";
 import type { Model } from "../model/index.ts";
-import { type LifecycleStat, type RunView, type StageState, semverCmp } from "../model/stack.ts";
-import { age, clip, stamp } from "../util.ts";
+import {
+  attemptText,
+  overdue,
+  type RunView,
+  runName,
+  runResult,
+  runWhere,
+  type Stage,
+  type StageState,
+  semverCmp,
+  stoppedAttempts,
+  usualText,
+} from "../model/stack.ts";
+import { clip, stamp, took, zoned } from "../util.ts";
 
 type Section = CanvasBoardView["sections"][number];
+type Stat = Extract<Section, { kind: "stats" }>["items"][number];
+type Row = Extract<Section, { kind: "rows" }>["items"][number];
+type Span = Extract<Section, { kind: "timeline" }>["spans"][number];
+type Mark = Extract<Section, { kind: "timeline" }>["marks"][number];
+
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const KINDS: LifecycleKind[] = ["refresh", "upgrade", "smoke", "sweeper"];
 
 const STAGE_TONE: Record<StageState, CanvasTone> = {
   ok: "ok",
@@ -23,76 +44,313 @@ const STAGE_TONE: Record<StageState, CanvasTone> = {
   cancelled: "warn",
 };
 
-function statusOf(model: Model): { label: string; tone: CanvasTone } {
+const RESULT_GLYPH: Record<string, string> = {
+  green: "✓",
+  cancelled: "⊘",
+  failed: "✕",
+  "timed out": "✕",
+};
+
+function runTone(run: LifecycleRun): CanvasTone {
+  if (run.status !== "completed") return "info";
+  if (run.conclusion === "success") return "ok";
+  return run.conclusion === "cancelled" ? "warn" : "error";
+}
+
+// Forks are kept off the stack by a failed or cancelled attempt since the last
+// green run, or by a hold no run is working on; a routine run in flight is not
+// an incident.
+function incident(model: Model): boolean {
   const { stack } = model;
-  const held = stack.maintenance.state === "set";
-  if (stack.inflight) {
-    const what = `${stack.inflight.run.kind === "upgrade" ? "UPGRADE" : stack.inflight.run.kind.toUpperCase()} IN ${(stack.inflight.current ?? "PROGRESS").toUpperCase()}`;
-    return { label: held ? `MAINTENANCE · ${what}` : what, tone: "warn" };
-  }
-  if (held) return { label: "MAINTENANCE", tone: "error" };
-  if (stack.failure) return { label: "LIFECYCLE FAILED", tone: "error" };
+  if (stack.deployable.state === "yes") return false;
+  return (
+    stoppedAttempts(stack).length > 0 || (stack.maintenance.state === "set" && !stack.inflight)
+  );
+}
+
+function statusOf(model: Model, hurt: boolean): { label: string; tone: CanvasTone } {
+  const { stack } = model;
   if (stack.deployable.state === "yes") return { label: "DEPLOYABLE", tone: "ok" };
+  if (hurt) return { label: "NOT DEPLOYABLE", tone: "error" };
+  if (stack.inflight) {
+    return { label: `${stack.inflight.run.kind.toUpperCase()} RUNNING`, tone: "info" };
+  }
   return { label: "UNKNOWN", tone: "neutral" };
 }
 
-function runTitle(view: RunView, now: Date, verb: string): string {
+function runningStat(model: Model, now: Date): Stat {
+  const { stack } = model;
+  const running = stack.running;
+  const declared = stack.declared;
+  const cmp = running && declared ? semverCmp(running.version, declared) : undefined;
+  const delta =
+    cmp === undefined
+      ? undefined
+      : cmp === 0
+        ? { text: "declared", direction: "flat" as const, tone: "ok" as const }
+        : {
+            text: `${declared} declared`,
+            direction: cmp < 0 ? ("down" as const) : ("up" as const),
+            tone: cmp < 0 ? ("warn" as const) : ("caution" as const),
+          };
+  const latest = stack.latest
+    ? stack.latest === declared
+      ? `${stack.latest} is the latest release`
+      : `latest release ${stack.latest}`
+    : undefined;
+  const proof = running
+    ? `${running.source.replace(/^env-refresh /, "")} ${stamp(running.at, now) ?? ""}`.trim()
+    : "no lifecycle run proves it";
+  return {
+    label: "Running",
+    value: running?.version ?? null,
+    ...(delta ? { delta } : {}),
+    sub: [latest, proof].filter(Boolean).join(" · "),
+  };
+}
+
+function blockedStat(model: Model): Stat {
+  const { stack } = model;
+  const since =
+    stack.maintenance.state === "set"
+      ? stack.maintenance.since
+      : stoppedAttempts(stack)[0]?.run.createdAt;
+  const waiting = model.lines.filter((l) =>
+    l.prs.some((p) => p.failures.some((f) => f.cls === "ENV")),
+  ).length;
+  return {
+    label: "Not deployable since",
+    ...(since ? { clock: { at: since, mode: "since" as const } } : { value: null }),
+    tone: "error",
+    sub: [
+      `${waiting} of ${FORKS.length} fork lanes waiting`,
+      stack.maintenance.state === "set" ? "maintenance held" : undefined,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  };
+}
+
+function inflightStat(model: Model, now: Date): Stat | undefined {
+  const { stack } = model;
+  const live = stack.inflight;
+  if (!live?.at) return undefined;
+  const startedAt = live.at.startedAt;
+  return {
+    label: `In ${live.at.stage} since`,
+    ...(startedAt ? { clock: { at: startedAt, mode: "since" as const } } : { value: null }),
+    tone: overdue(stack, now) ? "warn" : "info",
+    sub: [runName(live.run), live.at.step, usualText(stack.usual)].filter(Boolean).join(" · "),
+  };
+}
+
+function lastAttemptStat(model: Model, now: Date): Stat | undefined {
+  const last = model.stack.attempts[model.stack.attempts.length - 1];
+  if (!last) return undefined;
+  return {
+    label: "Last attempt",
+    value: runResult(last.run),
+    tone: runTone(last.run),
+    sub: [runName(last.run), runWhere(last), stamp(last.run.createdAt, now)]
+      .filter(Boolean)
+      .join(" · "),
+  };
+}
+
+function healthyStats(model: Model, now: Date): Stat[] {
+  const { stack } = model;
+  const refresh = stack.lifecycle.refresh.last;
+  const smoke = stack.lifecycle.smoke;
+  return [
+    runningStat(model, now),
+    {
+      label: "Last refresh",
+      ...(refresh ? { clock: { at: refresh.updatedAt, mode: "since" as const } } : { value: null }),
+      tone: refresh ? runTone(refresh) : "neutral",
+      sub: refresh ? runResult(refresh) : "no refresh in 21 days",
+    },
+    {
+      label: "Smoke",
+      value: smoke.streak ? `${smoke.streak.n} ${smoke.streak.green ? "green" : "red"}` : null,
+      tone: smoke.streak ? (smoke.streak.green ? "ok" : "error") : "neutral",
+      sub: "daily runs in a row, fresh cluster",
+    },
+  ];
+}
+
+// A running stage's time would go stale between frames; the tile's clock carries it.
+function badge(s: Stage): string {
+  if (s.state === "running" || s.state === "waits" || s.state === "skipped") return s.state;
+  const t = took(s.startedAt, s.completedAt);
+  return t ? `${s.state} ${t}` : s.state;
+}
+
+function ladder(view: RunView, now: Date): Section | undefined {
+  if (view.stages.length === 0) return undefined;
   const run = view.run;
-  const target = run.target ? ` ${run.target}` : "";
+  const what =
+    run.title && run.title !== run.name
+      ? clip(run.title.replace(/^[a-z]+(\([^)]*\))?!?:\s*/i, ""), 72)
+      : undefined;
   const how =
     run.event === "workflow_dispatch"
       ? "dispatched"
       : run.event === "schedule"
         ? "scheduled"
         : "started";
-  return `env-${run.kind}${target} · ${verb} · ${how} ${age(run.createdAt, now)} ago`;
-}
-
-function ladder(view: RunView, now: Date, verb: string): Section | undefined {
-  if (view.stages.length === 0) return undefined;
   return {
     kind: "grid",
-    title: runTitle(view, now, verb),
+    title: [runName(run), what, `${how} ${stamp(run.createdAt, now) ?? ""}`.trim()]
+      .filter(Boolean)
+      .join(" · "),
     cells: view.stages.map((s) => ({
       label: s.label,
-      href: view.run.url,
-      badge: { text: s.state, tone: STAGE_TONE[s.state] },
+      href: run.url,
+      badge: { text: badge(s), tone: STAGE_TONE[s.state] },
     })),
   };
 }
 
-const KIND_LABEL: Record<LifecycleKind, string> = {
-  refresh: "refresh",
-  upgrade: "upgrade",
-  smoke: "smoke",
-  sweeper: "sweeper",
-};
-
-// The current streak outranks the 21-day ratio: a workflow that failed today is
-// red whatever its history, and three greens in a row read as recovered.
-function ratioTone(s: LifecycleStat): CanvasTone {
-  if (s.total === 0) return "neutral";
-  if (s.streak && !s.streak.green) return "error";
-  if (s.streak && s.streak.n >= 3) return "ok";
-  const r = s.green / s.total;
-  return r >= 0.9 ? "ok" : r >= 0.6 ? "warn" : "error";
+function timeline(model: Model, now: Date): Section | undefined {
+  const { stack } = model;
+  const first = stack.attempts[0];
+  if (!first) return undefined;
+  const anchor = stack.lastGreen ?? first.run;
+  const from =
+    Math.floor(
+      Math.max(Date.parse(anchor.createdAt) - 2 * HOUR, now.getTime() - 72 * HOUR) / HOUR,
+    ) * HOUR;
+  const until = Math.ceil((now.getTime() + HOUR) / HOUR) * HOUR;
+  const spans: Span[] = [];
+  const marks: Mark[] = [];
+  if (stack.maintenance.state === "set" && stack.maintenance.since) {
+    spans.push({
+      lane: "maintenance",
+      from: stack.maintenance.since,
+      tone: "error",
+      title: "held · forks cannot deploy",
+    });
+  }
+  for (const kind of ["upgrade", "refresh"] as const) {
+    for (const run of stack.lifecycle[kind].runs) {
+      const end = run.status === "completed" ? run.updatedAt : undefined;
+      if (end && Date.parse(end) < from) continue;
+      spans.push({
+        lane: kind,
+        from: run.createdAt,
+        ...(end ? { to: end } : {}),
+        tone: runTone(run),
+        ...(run.conclusion === "cancelled" ? { hatched: true } : {}),
+        title: run.target ?? runResult(run),
+      });
+      const glyph = RESULT_GLYPH[runResult(run)];
+      if (end && glyph && Date.parse(end) - Date.parse(run.createdAt) < 30 * MINUTE) {
+        marks.push({
+          lane: kind,
+          at: run.createdAt,
+          glyph,
+          title: `${runName(run)} ${runResult(run)}`,
+        });
+      }
+    }
+  }
+  if (stack.latest && stack.latestAt && Date.parse(stack.latestAt) >= from) {
+    marks.push({
+      lane: "upgrade",
+      at: stack.latestAt,
+      glyph: "⇡",
+      title: `${stack.latest} released`,
+    });
+  }
+  for (const line of model.lines) {
+    for (const p of line.prs) {
+      for (const f of p.failures) {
+        if (f.cls !== "ENV" || Date.parse(f.at) < from) continue;
+        marks.push({
+          lane: "lanes",
+          at: f.at,
+          glyph: "✕",
+          title: `${line.fork.id} #${f.pr}${f.reason ? ` · ${f.reason}` : ""}`,
+        });
+      }
+    }
+  }
+  return {
+    kind: "timeline",
+    title: "Since the last green run",
+    window: {
+      from: new Date(from).toISOString(),
+      clock: { until: new Date(until).toISOString() },
+    },
+    lanes: [
+      { id: "maintenance", label: "maintenance", tone: "neutral" },
+      { id: "upgrade", label: "env-upgrade", tone: "neutral" },
+      { id: "refresh", label: "env-refresh", tone: "neutral" },
+      { id: "lanes", label: "fork lanes", tone: "neutral" },
+    ],
+    spans,
+    marks,
+    legend:
+      "Hatched: cancelled. An open outline is still running or still held. ✕ on fork lanes: a lane check that failed on the environment.",
+  };
 }
 
-function streakText(s: LifecycleStat): string {
-  if (!s.streak) return "";
-  return s.streak.green ? ` · ${s.streak.n} green in a row` : ` · ${s.streak.n} red in a row`;
+function attempts(model: Model, now: Date): Section {
+  const { stack } = model;
+  const green = stack.lastGreen;
+  return {
+    kind: "rows",
+    title: green
+      ? `Attempts since the last green run, env-${green.kind} ${stamp(green.createdAt, now)}`
+      : "Attempts in the last 21 days",
+    items: stack.attempts.map(
+      (v): Row => ({
+        glyph: runTone(v.run),
+        text: attemptText(v, stack.maintenance.run?.id),
+        href: v.run.url,
+        trailing: [
+          stamp(v.run.createdAt, now),
+          v.run.status === "completed" ? took(v.run.createdAt, v.run.updatedAt) : "running",
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      }),
+    ),
+  };
+}
+
+function strip(model: Model, kind: LifecycleKind, now: Date): Row {
+  const s = model.stack.lifecycle[kind];
+  if (s.runs.length === 0) return { text: kind, trailing: "no runs in 21 days" };
+  const done = s.runs.filter((r) => r.status === "completed");
+  const green = done.filter((r) => r.conclusion === "success").length;
+  const cancelled = done.filter((r) => r.conclusion === "cancelled").length;
+  const red = done.length - green - cancelled;
+  const lastRed = [...done]
+    .reverse()
+    .find((r) => r.conclusion !== "success" && r.conclusion !== "cancelled");
+  return {
+    text: kind,
+    ...(s.last ? { href: s.last.url } : {}),
+    bar: {
+      segments: s.runs.map((r) => ({
+        label: `${stamp(r.createdAt, now) ?? r.createdAt} ${runResult(r)}`,
+        n: 1,
+        tone: runTone(r),
+      })),
+    },
+    trailing: [
+      `${green} of ${green + red} green`,
+      cancelled > 0 ? `${cancelled} cancelled` : undefined,
+      lastRed ? `last red ${stamp(lastRed.createdAt, now)}` : undefined,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  };
 }
 
 export function stackBoard(model: Model, now: Date): CanvasBoardView {
   const { stack } = model;
-  const chip = [
-    stack.declaration?.location,
-    stack.declaration?.profile,
-    "remote",
-    model.sweptAt ? stamp(model.sweptAt, now) : undefined,
-  ]
-    .filter(Boolean)
-    .join(" · ");
   if (!model.measured) {
     return {
       view: "board",
@@ -100,115 +358,35 @@ export function stackBoard(model: Model, now: Date): CanvasBoardView {
       sections: [],
     };
   }
-  const running = stack.running;
-  const declared = stack.declared;
-  const refresh = stack.lifecycle.refresh;
-  const smoke = stack.lifecycle.smoke;
-  const runningDelta =
-    running && declared
-      ? semverCmp(running.version, declared) < 0
-        ? { text: "behind", direction: "down" as const, tone: "warn" as const }
-        : semverCmp(running.version, declared) === 0
-          ? { text: "declared", direction: "flat" as const, tone: "ok" as const }
-          : { text: "ahead", direction: "up" as const, tone: "caution" as const }
-      : undefined;
-  const refreshView = stack.recent.find((v) => v.run.kind === "refresh");
-  const sections: Section[] = [
-    {
-      kind: "stats",
-      items: [
-        { label: "Declared", value: declared ?? null, sub: "shared.yaml on main" },
-        {
-          label: "Running",
-          value: running?.version ?? null,
-          sub: running
-            ? `${running.source} ${stamp(running.at, now)}`
-            : "no lifecycle run proves it",
-          ...(runningDelta ? { delta: runningDelta } : {}),
-        },
-        {
-          label: "Latest release",
-          value: stack.latest ?? null,
-          sub: stack.bumpPr
-            ? `bump PR #${stack.bumpPr.number} open`
-            : stack.latestAt
-              ? `released ${age(stack.latestAt, now)} ago`
-              : undefined,
-        },
-        {
-          label: "Deployable",
-          value: stack.deployable.state === "unknown" ? null : stack.deployable.state,
-          tone:
-            stack.deployable.state === "yes"
-              ? "ok"
-              : stack.deployable.state === "no"
-                ? "error"
-                : "neutral",
-          sub: stack.deployable.reason,
-        },
-        {
-          label: "Last refresh",
-          value: refresh.last ? (refresh.last.conclusion === "success" ? "green" : "failed") : null,
-          tone: refresh.last ? (refresh.last.conclusion === "success" ? "ok" : "error") : "neutral",
-          sub: refreshView
-            ? `${stamp(refreshView.run.createdAt, now)}${refreshView.failedAt ? ` · ${refreshView.failedAt.split(" › ").pop()}` : ""}`
-            : undefined,
-        },
-        {
-          label: "Smoke",
-          value: smoke.streak ? `${smoke.streak.n} ${smoke.streak.green ? "green" : "red"}` : null,
-          tone: smoke.streak ? (smoke.streak.green ? "ok" : "error") : "neutral",
-          sub: "daily runs in a row, ephemeral cluster",
-        },
-      ],
-    },
-  ];
-  const run = stack.inflight ?? stack.failure ?? stack.recent[0];
-  const verb = stack.inflight ? "in flight" : stack.failure ? "failed" : "last run";
-  const steps = run ? ladder(run, now, verb) : undefined;
+  const chip = [
+    stack.declaration?.location,
+    stack.declaration?.profile,
+    "remote",
+    model.sweptAt ? zoned(model.sweptAt, now) : undefined,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const hurt = incident(model);
+  const live = inflightStat(model, now);
+  const tiles: Stat[] = hurt
+    ? [blockedStat(model), runningStat(model, now), live ?? lastAttemptStat(model, now)].filter(
+        (t): t is Stat => t !== undefined,
+      )
+    : [...healthyStats(model, now), ...(live ? [live] : [])];
+  const sections: Section[] = [{ kind: "stats", items: tiles }];
+  const focus = stack.inflight ?? (hurt ? stack.attempts[stack.attempts.length - 1] : undefined);
+  const steps = focus ? ladder(focus, now) : undefined;
   if (steps) sections.push(steps);
-  if (stack.failure && stack.failure !== run) {
-    const f = ladder(stack.failure, now, "failed");
-    if (f) sections.push(f);
+  if (hurt) {
+    const plot = timeline(model, now);
+    if (plot) sections.push(plot);
+    sections.push(attempts(model, now));
   }
   sections.push({
-    kind: "bars",
-    title: "Lifecycle · 21 days",
-    inline: true,
-    items: (Object.keys(KIND_LABEL) as LifecycleKind[]).map((kind) => {
-      const s = stack.lifecycle[kind];
-      return {
-        label: KIND_LABEL[kind],
-        value: s.total === 0 ? null : s.green,
-        total: Math.max(1, s.total),
-        tone: ratioTone(s),
-        trailing: s.total === 0 ? "no runs" : `${s.green} of ${s.total} green${streakText(s)}`,
-        ...(s.last ? { href: s.last.url } : {}),
-      };
-    }),
+    kind: "rows",
+    title: "Each run in the last 21 days, oldest first",
+    items: KINDS.map((k) => strip(model, k, now)),
   });
-  if (stack.recent.length > 0) {
-    sections.push({
-      kind: "rows",
-      title: "Recent refreshes and upgrades",
-      items: stack.recent.map((v) => ({
-        glyph:
-          v.run.conclusion === "success"
-            ? "ok"
-            : v.run.conclusion === "cancelled"
-              ? "warn"
-              : "error",
-        text: clip(
-          `env-${v.run.kind}${v.run.target ? ` ${v.run.target}` : ""} · ${
-            v.run.conclusion === "success" ? "green" : (v.failedAt ?? v.run.conclusion ?? "")
-          }${v.reason ? ` · ${v.reason}` : ""}`,
-          180,
-        ),
-        href: v.run.url,
-        trailing: stamp(v.run.createdAt, now) ?? "",
-      })),
-    });
-  }
   if (stack.releasePr) {
     sections.push({
       kind: "rows",
@@ -217,10 +395,10 @@ export function stackBoard(model: Model, now: Date): CanvasBoardView {
           icon: "⇡",
           text: `release PR ${stack.releasePr.title.replace(/^chore:\s*/, "")} is open`,
           href: stack.releasePr.url,
-          trailing: age(stack.releasePr.createdAt, now) ?? "",
+          trailing: stamp(stack.releasePr.createdAt, now) ?? "",
         },
       ],
     });
   }
-  return { view: "board", header: { status: statusOf(model), chip }, sections };
+  return { view: "board", header: { status: statusOf(model, hurt), chip }, sections };
 }
