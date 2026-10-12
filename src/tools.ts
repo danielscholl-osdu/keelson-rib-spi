@@ -1,0 +1,343 @@
+// Copyright 2026, Daniel Scholl
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+
+import { type ToolDefinition, z } from "@keelson/shared";
+import { verdictLabel } from "./boards/attention.ts";
+import { FORKS, REPOS, shortRepo } from "./config.ts";
+import { classifyPr, type PrClass, prFailures } from "./model/attribution.ts";
+import { prVerdict } from "./model/checks.ts";
+import type { Model } from "./model/index.ts";
+import type { LinePr } from "./model/lines.ts";
+import type { RunView } from "./model/stack.ts";
+import type { Sweeper } from "./sweep.ts";
+import { age, errorText } from "./util.ts";
+
+const MAX_CHARS = 16_000;
+
+function payload(data: unknown): string {
+  const compact = JSON.stringify(data);
+  if (compact.length <= MAX_CHARS) return compact;
+  return JSON.stringify({
+    truncated: true,
+    note: `result exceeded ${MAX_CHARS} characters`,
+    head: compact.slice(0, MAX_CHARS - 200),
+  });
+}
+
+function tool<S extends z.ZodTypeAny>(
+  name: string,
+  description: string,
+  inputSchema: S,
+  run: (input: z.infer<S>) => unknown,
+): ToolDefinition {
+  return {
+    name,
+    description,
+    inputSchema,
+    async execute(input, ctx) {
+      try {
+        const parsed = inputSchema.parse(input ?? {});
+        ctx.emit({ type: "tool_result", toolUseId: "", content: payload(run(parsed)) });
+      } catch (err) {
+        ctx.emit({
+          type: "tool_result",
+          toolUseId: "",
+          content: JSON.stringify({ error: errorText(err) }),
+          isError: true,
+        });
+      }
+    },
+  };
+}
+
+function gate(p: LinePr | undefined, now: Date) {
+  if (!p) return undefined;
+  return {
+    number: p.pr.number,
+    title: p.pr.title,
+    url: p.pr.url,
+    age: age(p.pr.createdAt, now),
+    verdict: prVerdict(p.pr),
+    review: p.pr.reviewDecision,
+    failures: p.failures.map((f) => ({
+      class: f.cls,
+      check: f.check,
+      step: f.step,
+      reason: f.reason,
+    })),
+  };
+}
+
+function runView(v: RunView | undefined, now: Date) {
+  if (!v) return undefined;
+  return {
+    workflow: `env-${v.run.kind}`,
+    target: v.run.target,
+    status: v.run.status,
+    conclusion: v.run.conclusion,
+    started: v.run.createdAt,
+    age: age(v.run.createdAt, now),
+    failedAt: v.failedAt,
+    reason: v.reason,
+    current: v.current,
+    stages: v.stages.map((s) => `${s.label}:${s.state}`).join(" "),
+    url: v.run.url,
+  };
+}
+
+function notMeasured(model: Model) {
+  return model.measured ? undefined : { measured: false, note: "the first sweep has not finished" };
+}
+
+const PR_CLASSES = [
+  "sync",
+  "cascade",
+  "template",
+  "release",
+  "bump",
+  "agent",
+  "dependabot",
+  "human",
+] as const satisfies readonly PrClass[];
+
+export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
+  const now = () => sweeper.now();
+  return [
+    tool(
+      "spi_watchstand",
+      "One-word SPI verdict (BLOCKED, ATTENTION, MOVING or CONVERGED) with the ranked needs-a-person queue behind it. Start here for 'is the SPI fleet healthy'. P0 broke unattended, P1 is a gate or decision, P2 is ready work.",
+      z.object({}),
+      () => {
+        const m = sweeper.model;
+        const t = now();
+        return (
+          notMeasured(m) ?? {
+            verdict: m.queue.verdict,
+            label: verdictLabel(m),
+            counts: m.queue.counts,
+            swept: m.sweptAt,
+            stack: {
+              declared: m.stack.declared,
+              running: m.stack.running?.version,
+              deployable: m.stack.deployable,
+              maintenance: m.stack.maintenance.state,
+              inflight: runView(m.stack.inflight, t),
+            },
+            lines: m.lines.map((l) => ({ service: l.fork.id, state: l.pill.label, why: l.why })),
+            queue: m.queue.items.map((i) => ({
+              rung: `P${i.rung}`,
+              scope: i.scope,
+              text: i.text,
+              age: age(i.since, t),
+              note: i.note,
+              url: i.url,
+              effects: i.effects.length,
+            })),
+          }
+        );
+      },
+    ),
+    tool(
+      "spi_line",
+      "One service line from upstream GitLab to the shared stack: the six stations, upstream lag and the commits behind it, the open gate PRs with failure classes, a sync halt, the release, template currency and the 21-day lane ledger.",
+      z.object({ service: z.enum(FORKS.map((f) => f.id) as [string, ...string[]]) }),
+      ({ service }) => {
+        const m = sweeper.model;
+        const t = now();
+        const line = m.lines.find((l) => l.fork.id === service);
+        if (!line) return { error: `unknown service ${service}` };
+        return (
+          notMeasured(m) ?? {
+            service,
+            repo: line.fork.repo,
+            upstreamProject: line.fork.upstream,
+            state: line.pill.label,
+            why: line.why,
+            stations: line.stations,
+            upstream: {
+              lag: line.upstream?.lag,
+              synced: line.upstream?.synced,
+              head: line.upstream?.head,
+              behind: line.upstream?.commits
+                .slice(0, 15)
+                .map((c) => `${c.sha.slice(0, 8)} ${c.title}`),
+            },
+            halt: line.halt
+              ? {
+                  code: line.halt.code,
+                  detail: line.halt.detail,
+                  days: line.halt.days,
+                  url: line.halt.issue.url,
+                }
+              : undefined,
+            gates: {
+              sync: gate(line.syncPr, t),
+              cascade: gate(line.cascadePr, t),
+              release: gate(line.releasePr, t),
+              template: gate(line.templatePr, t),
+            },
+            cascade: { labels: line.cascadeLabels, conflicts: line.conflicts.map((c) => c.url) },
+            release: line.release,
+            template: line.template,
+            lane: line.lane,
+            autoMergeAllowed: line.autoMerge,
+          }
+        );
+      },
+    ),
+    tool(
+      "spi_stack",
+      "The shared spi-stack environment in remote mode: declared, running and latest stack versions, inferred maintenance and deployability, the run in flight, the failure chain since the last green lifecycle run, and 21-day pass rates for refresh, upgrade, smoke and sweeper.",
+      z.object({}),
+      () => {
+        const m = sweeper.model;
+        const t = now();
+        const s = m.stack;
+        return (
+          notMeasured(m) ?? {
+            mode: "remote",
+            declared: s.declared,
+            running: s.running,
+            latest: s.latest,
+            maintenance: {
+              state: s.maintenance.state,
+              since: s.maintenance.since,
+              run: s.maintenance.run?.url,
+            },
+            deployable: s.deployable,
+            inflight: runView(s.inflight, t),
+            failureChain: s.failureChain.map((v) => runView(v, t)),
+            recent: s.recent.map((v) => runView(v, t)),
+            lifecycle: Object.fromEntries(
+              Object.entries(s.lifecycle).map(([k, v]) => [
+                k,
+                { green: v.green, total: v.total, streak: v.streak, last: v.last?.url },
+              ]),
+            ),
+            bumpPr: s.bumpPr
+              ? { number: s.bumpPr.number, title: s.bumpPr.title, url: s.bumpPr.url }
+              : undefined,
+            releasePr: s.releasePr
+              ? { number: s.releasePr.number, title: s.releasePr.title, url: s.releasePr.url }
+              : undefined,
+          }
+        );
+      },
+    ),
+    tool(
+      "spi_template",
+      "Template currency: the osdu-spi commit each fork last adopted (.github/.template-sync-commit), how far behind main it is, the open template-sync PR and what blocks it, the last Sync Template delivery, and the unadopted changes by title.",
+      z.object({}),
+      () => {
+        const m = sweeper.model;
+        const t = now();
+        const tm = m.template;
+        return (
+          notMeasured(m) ?? {
+            latestTag: tm.latestTag,
+            head: tm.head,
+            mainAhead: tm.mainAhead,
+            releasePr: tm.releasePr?.url,
+            current: tm.current,
+            forks: tm.rows.map((r) => ({
+              service: r.service,
+              on: r.label,
+              behind: r.behind,
+              pr: r.pr
+                ? {
+                    number: r.pr.number,
+                    url: r.pr.url,
+                    age: age(r.pr.createdAt, t),
+                    verdict: r.verdict,
+                  }
+                : undefined,
+              blockedBy: [...new Set(r.failures.map((f) => f.cls))],
+              delivery: {
+                state: r.delivery.state,
+                at: r.delivery.run?.createdAt,
+                url: r.delivery.run?.url,
+              },
+            })),
+            unadopted: tm.changes.map((c) => ({
+              title: c.title,
+              pr: c.pr,
+              forks: c.forks,
+              url: c.url,
+            })),
+          }
+        );
+      },
+    ),
+    tool(
+      "spi_incidents",
+      "Incidents folded by cause: each names its cause, its failure class and every effect folded under it (for example the fork lanes a failed stack upgrade turned red).",
+      z.object({}),
+      () => {
+        const m = sweeper.model;
+        const t = now();
+        return (
+          notMeasured(m) ?? {
+            incidents: m.queue.items
+              .filter((i) => i.incident)
+              .map((i) => ({
+                rung: `P${i.rung}`,
+                scope: i.scope,
+                cause: i.text,
+                since: i.since,
+                age: age(i.since, t),
+                url: i.url,
+                effects: i.effects,
+              })),
+          }
+        );
+      },
+    ),
+    tool(
+      "spi_prs",
+      "Open PRs across the template, the stack and the five forks, each with its class (sync, cascade, template, release, bump, agent, dependabot, human), check verdict and attributed failures. Filter by repository short name or class.",
+      z.object({
+        repo: z.string().optional(),
+        class: z.enum(PR_CLASSES).optional(),
+      }),
+      ({ repo, class: cls }) => {
+        const facts = sweeper.facts;
+        const repos = facts.github.data?.repos ?? {};
+        const details = facts.details.data ?? {};
+        const t = now();
+        const rows = REPOS.filter(
+          (r) => !repo || shortRepo(r) === repo || r === repo || shortRepo(r).endsWith(repo),
+        )
+          .flatMap((r) => repos[r]?.prs ?? [])
+          .filter((pr) => !cls || classifyPr(pr) === cls)
+          .map((pr) => {
+            const { prClass, failures } = prFailures(pr, details);
+            return {
+              repo: shortRepo(pr.repo),
+              number: pr.number,
+              title: pr.title,
+              class: prClass,
+              draft: pr.draft,
+              verdict: prVerdict(pr),
+              review: pr.reviewDecision,
+              mergeState: pr.mergeState,
+              age: age(pr.createdAt, t),
+              url: pr.url,
+              failures: failures.map((f) => ({
+                class: f.cls,
+                check: f.check,
+                step: f.step,
+                reason: f.reason,
+                hidden: f.hidden,
+              })),
+            };
+          });
+        return sweeper.model.measured ? { prs: rows } : notMeasured(sweeper.model);
+      },
+    ),
+  ];
+}

@@ -1,0 +1,60 @@
+{
+  "name": "@keelson/rib-spi",
+  "version": "0.1.0",
+  "description": "Keelson rib for the Azure OSDU SPI program: each service as one line from its upstream GitLab project through its GitHub fork to the shared stack, with failures folded into incidents by cause.",
+  "license": "Apache-2.0",
+  "author": "Daniel Scholl",
+  "homepage": "https://github.com/danielscholl-osdu/keelson-rib-spi#readme",
+  "bugs": {
+    "url": "https://github.com/danielscholl-osdu/keelson-rib-spi/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danielscholl-osdu/keelson-rib-spi.git"
+  },
+  "keywords": [
+    "keelson",
+    "rib",
+    "osdu",
+    "spi",
+    "azure"
+  ],
+  "type": "module",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
+    "sweep": "bun dev/sweep.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.3",
+    "@keelson/shared": "https://github.com/danielscholl/keelson/releases/download/v0.126.0/keelson-shared.tgz",
+    "@types/bun": "^1.1.14",
+    "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "@keelson/shared": ">=0.126.0"
+  },
+  "peerDependenciesMeta": {
+    "@keelson/shared": {
+      "optional": true
+    }
+  }
+}
