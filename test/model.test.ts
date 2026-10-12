@@ -14,13 +14,26 @@ describe("the fleet on 12 October", () => {
     expect(model.queue.counts.p0).toBeGreaterThanOrEqual(2);
   });
 
-  test("one stack incident folds the failed refresh and every fork lane it turned red", () => {
+  test("one stack incident folds the earlier attempts and every fork lane it turned red", () => {
     const stack = model.queue.items.find((i) => i.scope === "Shared stack" && i.rung === 0);
-    expect(stack?.text).toStartWith("upgrade to v0.28.1 failed in provision › spi up");
-    expect(stack?.text).toContain("GitLab API unreachable");
-    expect(stack?.text).toContain("maintenance held");
+    expect(stack?.text).toBe(
+      "not deployable; env-upgrade v0.28.2 in verify › Azure login (OIDC) now",
+    );
+    expect(stack?.since).toStartWith("2026-10-11T22:44");
     const effects = stack?.effects.map((e) => e.text) ?? [];
-    expect(effects.some((e) => e.startsWith("env-refresh") && e.includes("drifted"))).toBe(true);
+    expect(
+      effects.some(
+        (e) =>
+          e.includes("env-upgrade v0.28.1 failed in provision › spi up") &&
+          e.includes("set maintenance"),
+      ),
+    ).toBe(true);
+    expect(effects.some((e) => e.includes("env-refresh") && e.includes("drifted"))).toBe(true);
+    expect(
+      effects.some((e) =>
+        e.includes("(dispatched) cancelled after 1h 2m in verify › Wait for Flux Kustomizations"),
+      ),
+    ).toBe(true);
     for (const svc of ["partition", "entitlements", "legal", "schema", "file"]) {
       expect(effects.some((e) => e.startsWith(`${svc} template-sync PR`))).toBe(true);
     }

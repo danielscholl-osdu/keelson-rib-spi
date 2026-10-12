@@ -89,9 +89,9 @@ export async function readApprovals(gh: Gh): Promise<Record<string, RunFact[]>> 
 }
 
 const JOBS_JQ =
-  "[.jobs[] | {id, name, status, conclusion, started_at, completed_at, html_url, steps: [(.steps // [])[] | {number, name, status, conclusion}]}]";
+  "[.jobs[] | {id, name, status, conclusion, started_at, completed_at, html_url, steps: [(.steps // [])[] | {number, name, status, conclusion, started_at, completed_at}]}]";
 const JOB_JQ =
-  "{id, name, status, conclusion, started_at, completed_at, html_url, steps: [(.steps // [])[] | {number, name, status, conclusion}]}";
+  "{id, name, status, conclusion, started_at, completed_at, html_url, steps: [(.steps // [])[] | {number, name, status, conclusion, started_at, completed_at}]}";
 
 interface RawJob {
   id: number;
@@ -101,7 +101,14 @@ interface RawJob {
   started_at: string | null;
   completed_at: string | null;
   html_url: string;
-  steps: { number: number; name: string; status: string; conclusion: string | null }[];
+  steps: {
+    number: number;
+    name: string;
+    status: string;
+    conclusion: string | null;
+    started_at?: string | null;
+    completed_at?: string | null;
+  }[];
 }
 
 function toJob(j: RawJob): JobDetail {
@@ -110,6 +117,8 @@ function toJob(j: RawJob): JobDetail {
     name: s.name,
     status: s.status,
     conclusion: s.conclusion ?? undefined,
+    startedAt: s.started_at ?? undefined,
+    completedAt: s.completed_at ?? undefined,
   }));
   return {
     id: j.id,
@@ -195,8 +204,11 @@ export async function readRunJobs(
   ).map(toJob);
   return pool(jobs, 3, async (job) => {
     const cached = cache.get(repo, job.id);
-    if (cached && cached.status === job.status && cached.conclusion === job.conclusion)
-      return cached;
+    if (cached && cached.status === job.status && cached.conclusion === job.conclusion) {
+      const kept = { ...cached, steps: job.steps };
+      cache.put(repo, kept);
+      return kept;
+    }
     await explain(gh, repo, job, false);
     cache.put(repo, job);
     return job;
@@ -228,6 +240,11 @@ async function targetOf(
   }
 }
 
+// Jobs cached before step times were kept are read once more.
+function timed(job: JobDetail): boolean {
+  return job.steps.length === 0 || job.steps.some((s) => s.startedAt !== undefined);
+}
+
 export interface LifecycleState {
   runJobs: Record<string, JobDetail[]>;
   files: Record<string, string>;
@@ -254,7 +271,8 @@ export async function readLifecycle(
       const key = String(run.id);
       const known = state.runJobs[key];
       const settled =
-        run.status === "completed" && known && known.every((j) => j.status === "completed");
+        run.status === "completed" &&
+        known?.every((j) => j.status === "completed" && timed(j)) === true;
       try {
         entry.jobs = settled ? known : await readRunJobs(gh, cache, STACK_REPO, run);
         if (run.status === "completed") state.runJobs[key] = entry.jobs;

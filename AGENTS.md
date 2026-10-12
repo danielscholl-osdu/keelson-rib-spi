@@ -52,6 +52,8 @@ A change needs `bun run check`, `bun run typecheck` and `bun test` green.
   skipped lane never hides a real result.
 - **Identity is configuration.** Services come from `src/config.ts`, never from
   derived names.
+- **Local time.** Stamps print in the machine's local zone, the zone the host
+  draws timelines and clocks in; a header chip names the zone once.
 - **Fail closed.** Every key registers a validator (`expectView`); a bad board
   is refused by the host before it renders.
 

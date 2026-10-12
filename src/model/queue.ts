@@ -12,7 +12,15 @@ import { plural, short, stamp } from "../util.ts";
 import { CLASS_LABEL, type Failure, prFailures, toolchainText } from "./attribution.ts";
 import { prVerdict } from "./checks.ts";
 import type { LineModel, LinePr } from "./lines.ts";
-import type { RunView, StackModel } from "./stack.ts";
+import {
+  attemptText,
+  overdue,
+  runName,
+  runWhere,
+  type StackModel,
+  stoppedAttempts,
+  usualText,
+} from "./stack.ts";
 import type { TemplateModel } from "./template.ts";
 
 export type Rung = 0 | 1 | 2;
@@ -44,13 +52,6 @@ export interface Queue {
   incidents: number;
 }
 
-function stackRunText(view: RunView): string {
-  const run = view.run;
-  const what =
-    run.kind === "upgrade" ? `upgrade${run.target ? ` to ${run.target}` : ""}` : `env-${run.kind}`;
-  return `${what} failed${view.failedAt ? ` in ${view.failedAt}` : ""}`;
-}
-
 function failureLine(service: string, f: Failure, now: Date): string {
   const parts = [`${service} ${CLASS_LABEL[f.prClass]} #${f.pr}`];
   if (f.step) parts.push(f.step);
@@ -69,40 +70,47 @@ function stackItems(
   const envFailures = lines.flatMap((l) =>
     l.prs.flatMap((p) => p.failures.filter((f) => f.cls === "ENV").map((f) => ({ line: l, f }))),
   );
-  const cause = stack.failure;
+  const stopped = stoppedAttempts(stack);
   const heldWithoutCause =
-    !cause && !stack.inflight && stack.maintenance.state === "set" && stack.maintenance.run;
-  if (cause && stack.deployable.state !== "yes") {
-    const effects: Effect[] = [];
-    for (const later of stack.failureChain.slice(0, -1)) {
-      effects.push({
-        text: `env-${later.run.kind} ${stamp(later.run.createdAt, now)} · ${later.failedAt ?? "failed"}${later.reason ? ` · ${later.reason}` : ""}`,
-        url: later.run.url,
-      });
-    }
-    const since = Date.parse(cause.run.createdAt);
+    stopped.length === 0 &&
+    !stack.inflight &&
+    stack.maintenance.state === "set" &&
+    stack.maintenance.run;
+  const first = stopped[0];
+  const last = stack.attempts[stack.attempts.length - 1];
+  if (first && last && stack.deployable.state !== "yes") {
+    const setter = stack.maintenance.run?.id;
+    const effects: Effect[] = stack.attempts
+      .filter((a) => a !== last)
+      .map((a) => ({
+        text: `${stamp(a.run.createdAt, now)} · ${attemptText(a, setter)}`,
+        url: a.run.url,
+      }));
+    const since = Date.parse(first.run.createdAt);
     for (const { line, f } of envFailures) {
       if (Date.parse(f.at) < since) continue;
       folded.add(f);
       effects.push({ text: failureLine(line.fork.id, f, now), url: f.url ?? f.prUrl });
     }
-    const held = stack.maintenance.state === "set" ? "; maintenance held" : "";
     const live = stack.inflight;
-    const where = live?.current ?? "progress";
-    const now_ = !live
-      ? ""
-      : live.run.kind !== "upgrade"
-        ? ` · env-${live.run.kind} in ${where} now`
-        : live.run.target && live.run.target !== cause.run.target
-          ? ` · upgrade to ${live.run.target} in ${where} now`
-          : ` · re-run in ${where} now`;
+    const usual = usualText(stack.usual);
+    const text = live
+      ? `not deployable; ${runName(live.run)} in ${runWhere(live) ?? "progress"} now${
+          overdue(stack, now) && usual ? `, past ${usual}` : ""
+        }`
+      : `not deployable; last attempt ${attemptText(last)}${
+          stack.maintenance.state === "set" ? "; maintenance held" : ""
+        }`;
     items.push({
-      id: `stack:${cause.run.id}`,
+      id: `stack:${first.run.id}`,
       rung: 0,
       scope: "Shared stack",
-      text: `${stackRunText(cause)}${cause.reason ? ` (${cause.reason})` : ""}${held}${now_}`,
-      since: cause.run.createdAt,
-      url: cause.run.url,
+      text,
+      since:
+        stack.maintenance.state === "set" && stack.maintenance.since
+          ? stack.maintenance.since
+          : first.run.createdAt,
+      url: last.run.url,
       note: effects.length > 0 ? `folds ${plural(effects.length, "effect")}` : undefined,
       effects,
       incident: true,

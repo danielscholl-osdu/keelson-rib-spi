@@ -13,9 +13,9 @@ import { classifyPr, type PrClass, prFailures } from "./model/attribution.ts";
 import { prVerdict } from "./model/checks.ts";
 import type { Model } from "./model/index.ts";
 import type { LinePr } from "./model/lines.ts";
-import type { RunView } from "./model/stack.ts";
+import { attemptText, overdue, type RunView, usualText } from "./model/stack.ts";
 import type { Sweeper } from "./sweep.ts";
-import { age, errorText } from "./util.ts";
+import { age, errorText, took } from "./util.ts";
 
 const MAX_CHARS = 16_000;
 
@@ -85,7 +85,13 @@ function runView(v: RunView | undefined, now: Date) {
     failedAt: v.failedAt,
     reason: v.reason,
     current: v.current,
-    stages: v.stages.map((s) => `${s.label}:${s.state}`).join(" "),
+    at: v.at,
+    stages: v.stages
+      .map((s) => {
+        const t = s.state === "running" ? undefined : took(s.startedAt, s.completedAt);
+        return `${s.label}:${s.state}${t ? `(${t})` : ""}`;
+      })
+      .join(" "),
     url: v.run.url,
   };
 }
@@ -192,7 +198,7 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
     ),
     tool(
       "spi_stack",
-      "The shared spi-stack environment in remote mode: declared, running and latest stack versions, inferred maintenance and deployability, the run in flight, the failure chain since the last green lifecycle run, and 21-day pass rates for refresh, upgrade, smoke and sweeper.",
+      "The shared spi-stack environment in remote mode: declared, running and latest stack versions, inferred maintenance and deployability, the run in flight with the step it is on and how long green runs take there, every refresh and upgrade attempt since the last green one (cancelled ones included), and 21-day pass rates for refresh, upgrade, smoke and sweeper.",
       z.object({}),
       () => {
         const m = sweeper.model;
@@ -211,7 +217,20 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
             },
             deployable: s.deployable,
             inflight: runView(s.inflight, t),
-            failureChain: s.failureChain.map((v) => runView(v, t)),
+            usual: s.usual
+              ? { text: usualText(s.usual), overdue: overdue(s, t), runs: s.usual.n }
+              : undefined,
+            lastGreen: s.lastGreen
+              ? {
+                  workflow: `env-${s.lastGreen.kind}`,
+                  at: s.lastGreen.createdAt,
+                  url: s.lastGreen.url,
+                }
+              : undefined,
+            attempts: s.attempts.map((v) => ({
+              text: attemptText(v, s.maintenance.run?.id),
+              ...runView(v, t),
+            })),
             recent: s.recent.map((v) => runView(v, t)),
             lifecycle: Object.fromEntries(
               Object.entries(s.lifecycle).map(([k, v]) => [

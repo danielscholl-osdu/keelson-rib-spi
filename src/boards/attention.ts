@@ -10,7 +10,7 @@ import type { CanvasBoardView, CanvasTone, RibSurfaceBadge } from "@keelson/shar
 import type { Facts } from "../facts.ts";
 import type { Model } from "../model/index.ts";
 import type { QueueItem, Rung, Verdict } from "../model/queue.ts";
-import { age, clip, plural, stamp } from "../util.ts";
+import { age, clip, plural, zoned } from "../util.ts";
 
 const RUNG_TONE: Record<Rung, CanvasTone> = { 0: "error", 1: "caution", 2: "info" };
 const VERDICT_TONE: Record<Verdict, CanvasTone> = {
@@ -66,7 +66,7 @@ export function attentionBoard(model: Model, facts: Facts, now: Date): CanvasBoa
     };
   }
   const { counts, items, verdict } = model.queue;
-  const chip = `P0 ${counts.p0} · P1 ${counts.p1} · P2 ${counts.p2}${model.sweptAt ? ` · ${stamp(model.sweptAt, now)}` : ""}`;
+  const chip = `P0 ${counts.p0} · P1 ${counts.p1} · P2 ${counts.p2}${model.sweptAt ? ` · ${zoned(model.sweptAt, now)}` : ""}`;
   return {
     view: "board",
     header: { status: { label: verdictLabel(model), tone: VERDICT_TONE[verdict] }, chip },

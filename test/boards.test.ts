@@ -56,7 +56,9 @@ describe("what the boards say", () => {
     expect(rows?.kind).toBe("rows");
     if (rows?.kind !== "rows") return;
     expect(rows.items[0]?.chip).toEqual({ label: "P0", tone: "error" });
-    expect(rows.items[0]?.text).toStartWith("Shared stack · upgrade to v0.28.1 failed");
+    expect(rows.items[0]?.text).toStartWith(
+      "Shared stack · not deployable; env-upgrade v0.28.2 in verify",
+    );
     expect(rows.items[0]?.detail).toContain("partition template-sync PR #174");
   });
 
@@ -87,12 +89,42 @@ describe("what the boards say", () => {
     expect(b.header?.status?.label).toBe("3 OF 5 CURRENT");
   });
 
-  test("the stack strip shows maintenance with the upgrade in flight and the 21-day bars", () => {
+  test("the stack panel answers whether forks can deploy, then shows how the outage unfolded", () => {
     const b = stackBoard(model, FIXTURE_NOW);
-    expect(b.header?.status?.label).toMatch(/^MAINTENANCE · UPGRADE IN /);
-    expect(b.sections.map((s) => s.kind)).toContain("bars");
+    expect(b.header?.status).toEqual({ label: "NOT DEPLOYABLE", tone: "error" });
     const stats = b.sections[0];
     if (stats?.kind !== "stats") throw new Error("stats first");
-    expect(stats.items.find((i) => i.label === "Running")?.value).toBe("v0.28.0");
+    expect(stats.items.map((i) => i.label)).toEqual([
+      "Not deployable since",
+      "Running",
+      "In verify since",
+    ]);
+    expect(model.stack.maintenance.since).toStartWith("2026-10-11T22:44");
+    expect(stats.items[0]?.clock).toEqual({ at: model.stack.maintenance.since!, mode: "since" });
+    expect(stats.items[1]?.value).toBe("v0.28.0");
+    expect(stats.items[1]?.delta?.text).toBe("v0.28.2 declared");
+    const kinds = b.sections.map((s) => s.kind);
+    expect(kinds.slice(0, 4)).toEqual(["stats", "grid", "timeline", "rows"]);
+    const strips = b.sections.find((s) => s.kind === "rows" && s.title?.startsWith("Each run"));
+    if (strips?.kind !== "rows") throw new Error("run strips");
+    expect(strips.items.map((i) => i.text)).toEqual(["refresh", "upgrade", "smoke", "sweeper"]);
+  });
+
+  test("a healthy stack shows the version, the last refresh and smoke, and no incident", () => {
+    const f = fixtureFacts();
+    const lc = f.lifecycle.data!;
+    const cut = Date.parse("2026-10-11T22:00:00Z");
+    f.lifecycle.data = {
+      ...lc,
+      refresh: lc.refresh.filter((r) => Date.parse(r.createdAt) < cut),
+      upgrade: lc.upgrade.filter((r) => Date.parse(r.createdAt) < cut),
+    };
+    const b = stackBoard(buildModel(f, FIXTURE_NOW), FIXTURE_NOW);
+    expect(b.header?.status).toEqual({ label: "DEPLOYABLE", tone: "ok" });
+    const stats = b.sections[0];
+    if (stats?.kind !== "stats") throw new Error("stats first");
+    expect(stats.items.map((i) => i.label)).toEqual(["Running", "Last refresh", "Smoke"]);
+    expect(b.sections.some((s) => s.kind === "timeline")).toBe(false);
+    expect(() => expectView(STACK_KEY, "board")(b)).not.toThrow();
   });
 });
