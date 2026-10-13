@@ -123,11 +123,11 @@ describe("what the boards say", () => {
         ? String(cell.value).replaceAll("\u00a0", " ")
         : cell;
     const row = (svc: string) => table.rows.find((r) => text(r.service) === svc);
-    expect(text(row("partition")?.template)).toBe("◷ PR #174 · v1.2.0 → v1.2.1");
-    expect(text(row("schema")?.template)).toBe("◷ PR #37 · v1.2.0 +2 → v1.2.1");
+    expect(text(row("partition")?.template)).toBe("◷ v1.2.0 → v1.2.1 · PR #174");
+    expect(text(row("schema")?.template)).toBe("◷ v1.2.0 +2 → v1.2.1 · PR #37");
     expect(text(row("partition")?.upstream)).toBe("✓ current");
-    expect(text(row("entitlements")?.upstream)).toBe("✕ halted · 2 behind");
-    expect(text(row("legal")?.upstream)).toBe("✕ PR #31 failing · 4 behind");
+    expect(text(row("entitlements")?.upstream)).toBe("✕ 2 behind · halted");
+    expect(text(row("legal")?.upstream)).toBe("✕ 4 behind · PR #31 failing");
     const tone = (cell: unknown) =>
       typeof cell === "object" && cell !== null && "tone" in cell ? cell.tone : undefined;
     expect(tone(row("entitlements")?.upstream)).toBe("error");
@@ -136,17 +136,30 @@ describe("what the boards say", () => {
     expect(tone(row("partition")?.upstream)).toBe("ok");
     expect(tone(row("partition")?.release)).toBe("ok");
     expect(text(row("partition")?.release)).toBe("✓ v1.3.1 · 6d");
-    expect(row("legal")?.notes).toContain("upstream requires Java 25");
-    expect(row("partition")?.notes).toBe("");
-    const changes = b.sections[1];
-    if (changes?.kind !== "rows") throw new Error("change list second");
-    expect(changes.title).toBe(
-      "Template changes not on every fork · v1.2.1, 14 commits past v1.2.0",
+    expect(row("entitlements")?.notes).toBe("UNKNOWN_TOP_LEVEL: schemathesis-tests · 4d");
+    expect(row("legal")?.notes).toBe(
+      "Java Build: upstream requires Java 25, the fork builds on 17 · 4d",
     );
-    const trailing = (pr: number) =>
-      changes.items.find((i) => i.text.endsWith(`(#${pr})`))?.trailing;
-    expect(trailing(247)).toStartWith("missing on partition, entitlements, legal and file · ");
-    expect(trailing(252)).toStartWith("missing on all 5 forks · ");
+    expect(row("partition")?.notes).toBe("");
+    const [all, some] = b.sections.slice(1);
+    if (all?.kind !== "rows" || some?.kind !== "rows") throw new Error("change lists follow");
+    expect(all.title).toBe(
+      "Template changes missing on all 5 forks · v1.2.1, 14 commits past v1.2.0",
+    );
+    expect(all.items.map((i) => i.text.match(/\(#(\d+)\)$/)?.[1])).toEqual([
+      "252",
+      "251",
+      "243",
+      "244",
+    ]);
+    expect(some.title).toBe("Missing on partition, entitlements, legal and file");
+    expect(some.items).toEqual([
+      expect.objectContaining({
+        text: "fix(acceptance): prewarm with dependency:resolve, not go-offline (#247)",
+        trailing: "5d",
+      }),
+    ]);
+    expect([...all.items, ...some.items].some((i) => i.glyph)).toBe(false);
   });
 
   test("a fork that took the template reads current, with its release PR as a version move", () => {
@@ -182,12 +195,12 @@ describe("what the boards say", () => {
     expect(row?.state).toEqual({ badges: [{ text: "current", tone: "ok" }] });
     expect(row?.template).toMatchObject({ tone: "ok" });
     expect(text(row?.template)).toBe("✓ v1.2.1");
-    expect(text(row?.release)).toStartWith("◷ PR #60 · v1.2.0 → v1.2.1");
+    expect(text(row?.release)).toStartWith("◷ v1.2.0 → v1.2.1 · PR #60");
     expect(b.header?.chip).toStartWith("main green on all 5 forks · 1 current · ");
     const changes = b.sections[1];
     if (changes?.kind !== "rows") throw new Error("change list second");
-    expect(changes.items.find((i) => i.text.endsWith("(#252)"))?.trailing).toStartWith(
-      "missing on partition, entitlements, legal and schema · ",
+    expect(changes.title).toStartWith(
+      "Template changes missing on partition, entitlements, legal and schema · ",
     );
   });
 

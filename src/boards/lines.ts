@@ -8,11 +8,11 @@
 
 import type { CanvasBoardView, CanvasTone } from "@keelson/shared";
 import { TEMPLATE_REPO } from "../config.ts";
-import { prVerdict } from "../model/checks.ts";
+import { prReady, prVerdict } from "../model/checks.ts";
 import type { Model } from "../model/index.ts";
 import type { LineModel, LinePr, PillKind } from "../model/lines.ts";
 import type { TemplateModel } from "../model/template.ts";
-import { age, days, plural, stamp, zoned } from "../util.ts";
+import { plural, releaseTag, since, stamp, zoned } from "../util.ts";
 
 type Section = CanvasBoardView["sections"][number];
 type TableSection = Extract<Section, { kind: "table" }>;
@@ -47,38 +47,27 @@ function station(text: string, tone?: CanvasTone, href?: string): Cell {
   return { value: one(text), ...(tone ? { tone } : {}), ...(href ? { href } : {}) };
 }
 
-// "4d" past a day, "7h" before it.
-function since(at: string, now: Date): string {
-  const d = days(at, now);
-  return d ? `${d}d` : (age(at, now) ?? "?");
-}
-
 // An open PR as a station: failing on a real failure, ready to merge, or waiting.
 function prStation(p: LinePr, text: string): Cell {
   const shown = p.failures.filter((f) => !f.hidden);
   if (shown.some((f) => f.cls !== "ENV" && f.cls !== "POLICY")) {
     return station(`✕ ${text}`, "warn", p.pr.url);
   }
-  const ready =
-    shown.length === 0 &&
-    prVerdict(p.pr) === "green" &&
-    !p.pr.draft &&
-    p.pr.reviewDecision !== "REVIEW_REQUIRED" &&
-    p.pr.reviewDecision !== "CHANGES_REQUESTED";
-  return station(`◷ ${text}${ready ? " · ready" : ""}`, "info", p.pr.url);
+  return station(`◷ ${text}${prReady(p.pr, p.failures) ? " · ready" : ""}`, "info", p.pr.url);
 }
 
+// Position first, handle last, so a column's versions line up under its ✓ cells.
 function upstreamCell(line: LineModel): Cell {
   const lag = line.upstream?.lag;
-  const behind = lag ? ` · ${lag} behind` : "";
-  if (line.halt) return station(`✕ halted${behind}`, "error", line.halt.issue.url);
+  const at = (hold: string) => (lag ? `${lag} behind · ${hold}` : hold);
+  if (line.halt) return station(`✕ ${at("halted")}`, "error", line.halt.issue.url);
   const pr = line.syncPr;
   if (pr && prVerdict(pr.pr) === "red") {
-    return station(`✕ PR #${pr.pr.number} failing${behind}`, "warn", pr.pr.url);
+    return station(`✕ ${at(`PR #${pr.pr.number} failing`)}`, "warn", pr.pr.url);
   }
-  if (pr) return prStation(pr, `PR #${pr.pr.number}${behind}`);
+  if (pr) return prStation(pr, at(`PR #${pr.pr.number}`));
   if (line.syncRun?.conclusion === "failure") {
-    return station("✕ sync run failed", "error", line.syncRun.url);
+    return station(`✕ ${at("sync run failed")}`, "error", line.syncRun.url);
   }
   if (lag === undefined) return "?";
   if (lag > 0) return station(`◷ ${lag} behind`, "info");
@@ -87,54 +76,51 @@ function upstreamCell(line: LineModel): Cell {
 
 // The version a fork is on and, with a template-sync PR open, the one it moves to.
 function templateCell(line: LineModel, now: Date): Cell {
+  const { behind, label, target, awaitingRun } = line.template;
+  const on = label ?? "?";
   const { run, state } = line.templateDelivery;
   if (run && state === "failed") {
-    return station(`✕ template-sync failed · ${stamp(run.createdAt, now)}`, "error", run.url);
+    return station(`✕ ${on} · Sync Template failed ${stamp(run.createdAt, now)}`, "error", run.url);
   }
   if (run && state === "stale") {
-    return station(`◷ template-sync stale · ${stamp(run.createdAt, now)}`, "warn", run.url);
+    return station(`◷ ${on} · Sync Template ran ${stamp(run.createdAt, now)}`, "warn", run.url);
   }
-  const { behind, label, target, awaitingRun } = line.template;
   if (behind === undefined) return "?";
   if (behind === 0) return station(`✓ ${label ?? "current"}`, "ok");
   const pr = line.templatePr;
-  if (awaitingRun) return station(`◷ ${label ?? "?"} · ${behind} behind`, "info");
-  if (!pr) return station(`✕ ${label ?? "?"} · ${behind} behind, no PR`, "error");
-  return prStation(pr, `PR #${pr.pr.number} · ${label ?? "?"} → ${target ?? "?"}`);
+  if (awaitingRun) return station(`◷ ${on} · ${behind} behind`, "info");
+  if (!pr) return station(`✕ ${on} · ${behind} behind, no PR`, "error");
+  return prStation(pr, `${on} → ${target ?? "?"} · PR #${pr.pr.number}`);
 }
 
 function releaseCell(line: LineModel, now: Date): Cell {
+  const tag = line.release?.tag;
+  const at = (hold: string) => (tag ? `${tag} · ${hold}` : hold);
   if (line.cascadeStop) {
     const conflict = line.conflicts[0];
     return conflict
-      ? station("✕ cascade conflict", "warn", conflict.url)
-      : station("✕ cascade blocked", "warn", line.tracking?.url);
+      ? station(`✕ ${at("cascade conflict")}`, "warn", conflict.url)
+      : station(`✕ ${at("cascade blocked")}`, "warn", line.tracking?.url);
   }
   const cascade = line.cascadePr;
   if (cascade && prVerdict(cascade.pr) === "red") {
-    return station(`✕ cascade PR #${cascade.pr.number} failing`, "warn", cascade.pr.url);
+    return station(`✕ ${at(`cascade PR #${cascade.pr.number} failing`)}`, "warn", cascade.pr.url);
   }
-  if (cascade) return prStation(cascade, `cascade PR #${cascade.pr.number}`);
-  if (line.cascadeRunning) return station("↻ cascade running", "info");
+  if (cascade) return prStation(cascade, at(`cascade PR #${cascade.pr.number}`));
+  if (line.cascadeRunning) return station(`↻ ${at("cascade running")}`, "info");
   if (line.mainRed) {
     return line.mainRed.cls === "ENV"
-      ? station("⊘ main red on the stack", undefined, line.mainRed.run.url)
-      : station("✕ main red", "error", line.mainRed.run.url);
+      ? station(`⊘ ${at("main red on the stack")}`, undefined, line.mainRed.run.url)
+      : station(`✕ ${at("main red")}`, "error", line.mainRed.run.url);
   }
   const next = line.releasePr;
   if (next) {
-    const version = /release\s+v?(\S+)/i.exec(next.pr.title)?.[1];
-    const from = line.release?.tag;
-    const to = version
-      ? `${from === undefined || from.startsWith("v") ? "v" : ""}${version}`
-      : undefined;
-    const move = to ? (from ? ` · ${from} → ${to}` : ` · first release ${to}`) : "";
-    return prStation(next, `PR #${next.pr.number}${move}`);
+    const to = releaseTag(next.pr.title, tag);
+    const move = to ? (tag ? `${tag} → ${to} · ` : `first release ${to} · `) : "";
+    return prStation(next, `${move}PR #${next.pr.number}`);
   }
   if (!line.runsRead) return "?";
-  const release = line.release
-    ? `${line.release.tag} · ${since(line.release.at, now)}`
-    : "no release yet";
+  const release = line.release ? at(since(line.release.at, now)) : "no release yet";
   return line.mainRun
     ? station(`✓ ${release}`, "ok", line.release?.url)
     : station(release, undefined, line.release?.url);
@@ -152,43 +138,46 @@ function plannedText(model: Model): string | undefined {
   return `${names(planned)} ${planned.length === 1 ? "has" : "have"} no fork yet`;
 }
 
-function changeTone(title: string): CanvasTone {
-  if (/^fix/i.test(title)) return "caution";
-  if (/^feat/i.test(title)) return "info";
-  return "neutral";
-}
-
 function missingText(missing: readonly string[], forks: readonly string[]): string {
   return missing.length === forks.length
     ? `missing on all ${forks.length} forks`
     : `missing on ${names(missing)}`;
 }
 
-function changesSection(t: TemplateModel, forks: readonly string[], now: Date): RowsSection {
+// One list per set of forks still missing its changes, so each row trails only its age.
+function changeSections(t: TemplateModel, forks: readonly string[], now: Date): RowsSection[] {
   const ahead = `${plural(t.mainAhead ?? t.commits, "commit")} past ${t.latestTag ?? "the last tag"}`;
-  const title = `Template changes not on every fork · ${t.next ?? "osdu-spi main"}, ${ahead}`;
   const shown = t.changes.slice(0, CHANGES_SHOWN);
   const rest = t.changes.length - shown.length;
-  return {
+  const groups = new Map<string, typeof shown>();
+  for (const c of shown) {
+    const missing = missingText(c.missing, forks);
+    groups.set(missing, [...(groups.get(missing) ?? []), c]);
+  }
+  const more =
+    rest > 0
+      ? [
+          {
+            text: `${plural(rest, "more change")} on osdu-spi main`,
+            href: `https://github.com/${TEMPLATE_REPO}/compare/${t.latestTag ?? "main"}...main`,
+          },
+        ]
+      : [];
+  return [...groups].map(([missing, changes], i) => ({
     kind: "rows",
-    title,
+    title:
+      i === 0
+        ? `Template changes ${missing} · ${t.next ?? "osdu-spi main"}, ${ahead}`
+        : `${missing.charAt(0).toUpperCase()}${missing.slice(1)}`,
     items: [
-      ...shown.map((c) => ({
-        glyph: changeTone(c.title),
+      ...changes.map((c) => ({
         text: `${c.title}${c.pr ? ` (#${c.pr})` : ""}`,
         href: c.url,
-        trailing: `${missingText(c.missing, forks)} · ${since(c.at, now)}`,
+        trailing: since(c.at, now),
       })),
-      ...(rest > 0
-        ? [
-            {
-              text: `${plural(rest, "more change")} on osdu-spi main`,
-              href: `https://github.com/${TEMPLATE_REPO}/compare/${t.latestTag ?? "main"}...main`,
-            },
-          ]
-        : []),
+      ...(i === groups.size - 1 ? more : []),
     ],
-  };
+  }));
 }
 
 export function linesBoard(model: Model, now: Date): CanvasBoardView {
@@ -241,15 +230,13 @@ export function linesBoard(model: Model, now: Date): CanvasBoardView {
       })),
     },
   ];
-  if (model.template.changes.length > 0) {
-    sections.push(
-      changesSection(
-        model.template,
-        model.lines.map((l) => l.fork.id),
-        now,
-      ),
-    );
-  }
+  sections.push(
+    ...changeSections(
+      model.template,
+      model.lines.map((l) => l.fork.id),
+      now,
+    ),
+  );
   return {
     view: "board",
     header: {

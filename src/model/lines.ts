@@ -19,7 +19,7 @@ import type {
   TemplateCompare,
   UpstreamFact,
 } from "../facts.ts";
-import { days, plural, stamp } from "../util.ts";
+import { days, plural, since, stamp } from "../util.ts";
 import {
   classOf,
   type Failure,
@@ -352,7 +352,7 @@ export function buildLine(input: {
     why = `${mainRed.job?.name ?? "Validation"} failed on main${mainRed.job?.failedStep ? ` › ${mainRed.job.failedStep}` : ""}`;
   } else if (halt) {
     pill = pillOf("sync halted", "halted");
-    why = `${halt.code} ${haltSubject(halt.detail)} · halted ${plural(halt.days, "day")}`;
+    why = `${halt.code}: ${haltSubject(halt.detail)} · ${since(halt.issue.createdAt, now)}`;
   } else if (templateDelivery.state === "failed") {
     pill = pillOf("template halted", "halted");
     why = "Sync Template failed; template changes stop reaching this fork";
@@ -366,7 +366,7 @@ export function buildLine(input: {
       : `tracking issue labeled ${cascadeLabels.join(", ")}`;
   } else if (syncPr && prRed(syncPr)) {
     pill = pillOf("sync blocked", "blocked");
-    why = `${failureText(syncFailure)} · ${plural(days(syncPr.pr.createdAt, now) ?? 0, "day")}`;
+    why = `${failureText(syncFailure)} · ${since(syncPr.pr.createdAt, now)}`;
   } else if (templatePr && templateFailure) {
     pill = pillOf("template blocked", "blocked");
     why = `template-sync PR #${templatePr.pr.number} fails ${failureText(templateFailure)}`;

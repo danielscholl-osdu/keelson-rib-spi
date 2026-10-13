@@ -62,3 +62,13 @@ export function prVerdict(pr: PrFact): PrVerdict {
   if (pendingChecks(pr).length > 0) return "pending";
   return latestChecks(pr.checks).some((c) => c.workflow) ? "green" : "none";
 }
+
+function needsReview(pr: PrFact): boolean {
+  return pr.reviewDecision === "REVIEW_REQUIRED" || pr.reviewDecision === "CHANGES_REQUESTED";
+}
+
+export function prReady(pr: PrFact, failures: readonly { hidden: boolean }[]): boolean {
+  return (
+    failures.every((f) => f.hidden) && prVerdict(pr) === "green" && !pr.draft && !needsReview(pr)
+  );
+}

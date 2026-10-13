@@ -46,6 +46,7 @@ describe("the fleet on 12 October", () => {
     expect(halt?.text).toBe(
       "sync halted: UNKNOWN_TOP_LEVEL: unclassified top-level entries: schemathesis-tests",
     );
+    expect(halt?.note).toBe("2 commits behind");
   });
 
   test("the legal sync PR reads as a toolchain move, not a code failure", () => {
@@ -55,6 +56,21 @@ describe("the fleet on 12 October", () => {
       "sync PR #31 fails Java Build: upstream requires Java 25, the fork builds on 17",
     );
     expect(legal?.incident).toBe(true);
+  });
+
+  test("release PRs read as the lines table reads them, ready only when nothing is owed", () => {
+    expect(model.queue.items.find((i) => i.id === "releases")?.text).toBe(
+      "1 release PR · osdu-spi v1.2.1 · review required",
+    );
+    const f = fixtureFacts();
+    const release = f.github.data?.repos["Azure/osdu-spi"]?.prs.find((p) =>
+      p.head.startsWith("release-please--"),
+    );
+    if (!release) throw new Error("fixture has the template release PR");
+    release.reviewDecision = "APPROVED";
+    expect(buildModel(f, FIXTURE_NOW).queue.items.find((i) => i.id === "releases")?.text).toBe(
+      "1 release PR · osdu-spi v1.2.1 · ready",
+    );
   });
 
   test("template-sync PRs blocked only by the stack wait as one set", () => {

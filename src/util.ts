@@ -40,6 +40,19 @@ export function days(fromIso: string | undefined, now: Date): number | undefined
   return Number.isFinite(ms) ? Math.floor(ms / DAY) : undefined;
 }
 
+// "4d" past a day, "7h" before it.
+export function since(at: string, now: Date): string {
+  const d = days(at, now);
+  return d ? `${d}d` : (age(at, now) ?? "?");
+}
+
+// The tag a release PR cuts, in the style of the repository's last tag.
+export function releaseTag(title: string, last: string | undefined): string | undefined {
+  const version = /release\s+v?(\S+)/i.exec(title)?.[1];
+  if (!version) return undefined;
+  return `${last === undefined || last.startsWith("v") ? "v" : ""}${version}`;
+}
+
 function two(n: number): string {
   return String(n).padStart(2, "0");
 }

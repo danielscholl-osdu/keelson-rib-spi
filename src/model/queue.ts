@@ -6,11 +6,11 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-import { githubUrl, shortRepo } from "../config.ts";
+import { forkOf, githubUrl, shortRepo } from "../config.ts";
 import type { PrFact, RepoFact, RunFact } from "../facts.ts";
-import { plural, short, stamp } from "../util.ts";
+import { plural, releaseTag, short, stamp } from "../util.ts";
 import { CLASS_LABEL, type Failure, prFailures, toolchainText } from "./attribution.ts";
-import { prVerdict } from "./checks.ts";
+import { prReady, prVerdict } from "./checks.ts";
 import type { LineModel, LinePr } from "./lines.ts";
 import {
   attemptText,
@@ -184,7 +184,7 @@ function lineItems(line: LineModel): QueueItem[] {
       text: `sync halted: ${h.code}: ${h.detail}`,
       since: h.issue.createdAt,
       url: h.issue.url,
-      note: lag ? `${plural(lag, "commit")} held` : undefined,
+      note: lag ? `${plural(lag, "commit")} behind` : undefined,
       effects,
       incident: true,
       blocks: lag ?? 1,
@@ -268,7 +268,7 @@ function lineItems(line: LineModel): QueueItem[] {
         : `gate 1: sync PR #${p.pr.number} waits for review`,
       since: p.pr.createdAt,
       url: p.pr.url,
-      note: lag ? `${plural(lag, "commit")} held` : undefined,
+      note: lag ? `${plural(lag, "commit")} behind` : undefined,
       effects: [],
       incident: red && p.failures.some((f) => f.cls !== "ENV" && f.cls !== "POLICY"),
       blocks: lag ?? 1,
@@ -369,15 +369,16 @@ function templateSetItem(
   };
 }
 
-function releaseVersion(pr: PrFact): string {
-  return /release\s+v?(\S+)/i.exec(pr.title)?.[1] ?? `#${pr.number}`;
+// Forks by service name, as the lines table names them; other repositories by short name.
+function repoName(repo: string): string {
+  return forkOf(repo)?.id ?? shortRepo(repo);
 }
 
 function releaseItems(
   repos: Record<string, RepoFact>,
   details: Parameters<typeof prFailures>[1],
 ): QueueItem[] {
-  const ready: { repo: string; pr: PrFact }[] = [];
+  const open: { repo: string; pr: PrFact; tag: string; ready: boolean }[] = [];
   const items: QueueItem[] = [];
   for (const fact of Object.values(repos)) {
     for (const pr of fact.prs) {
@@ -385,12 +386,13 @@ function releaseItems(
         continue;
       const { failures } = prFailures(pr, details);
       const real = failures.filter((f) => f.cls !== "POLICY" && f.cls !== "ENV");
+      const tag = releaseTag(pr.title, fact.release?.tag) ?? `#${pr.number}`;
       if (real.length > 0) {
         items.push({
           id: `release-red:${pr.repo}#${pr.number}`,
           rung: 1,
-          scope: shortRepo(pr.repo),
-          text: `release PR ${releaseVersion(pr)} fails ${real[0]?.check}${real[0]?.reason ? `: ${real[0].reason}` : ""}`,
+          scope: repoName(pr.repo),
+          text: `release PR ${tag} fails ${real[0]?.check}${real[0]?.reason ? `: ${real[0].reason}` : ""}`,
           since: pr.createdAt,
           url: pr.url,
           effects: [],
@@ -398,27 +400,38 @@ function releaseItems(
           blocks: 1,
         });
       } else {
-        ready.push({ repo: fact.repo, pr });
+        open.push({ repo: fact.repo, pr, tag, ready: prReady(pr, failures) });
       }
     }
   }
-  if (ready.length > 0) {
-    const oldest = ready.reduce((a, b) =>
+  if (open.length > 0) {
+    const oldest = open.reduce((a, b) =>
       Date.parse(a.pr.createdAt) < Date.parse(b.pr.createdAt) ? a : b,
     );
+    const state = open.every((r) => r.ready)
+      ? "ready"
+      : open.some((r) => r.pr.reviewDecision === "REVIEW_REQUIRED")
+        ? "review required"
+        : undefined;
     items.push({
       id: "releases",
       rung: 2,
       scope: "fleet",
-      text: `${plural(ready.length, "release PR")} ready · ${ready.map((r) => `${shortRepo(r.repo)} ${releaseVersion(r.pr)}`).join(", ")}`,
+      text: [
+        plural(open.length, "release PR"),
+        open.map((r) => `${repoName(r.repo)} ${r.tag}`).join(", "),
+        state,
+      ]
+        .filter(Boolean)
+        .join(" · "),
       since: oldest.pr.createdAt,
       url: oldest.pr.url,
-      effects: ready.map((r) => ({
-        text: `${shortRepo(r.repo)} #${r.pr.number} ${r.pr.title}`,
+      effects: open.map((r) => ({
+        text: `${repoName(r.repo)} #${r.pr.number} ${r.pr.title}`,
         url: r.pr.url,
       })),
       incident: false,
-      blocks: ready.length,
+      blocks: open.length,
     });
   }
   return items;
