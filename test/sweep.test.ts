@@ -223,6 +223,24 @@ describe("the in-flight poll", () => {
     expect(await glabCalls("file")).toBeGreaterThan(0);
   });
 
+  test("a failed radar read keeps the last good frame and its age beside the error", async () => {
+    const store = new Store(mkdtempSync(join(tmpdir(), "rib-spi-test-")));
+    const facts = fixtureFacts();
+    store.write("facts.json", facts);
+    const sweeper = new Sweeper({
+      exec: failingExec(),
+      store,
+      onChange: () => {},
+      now: () => FIXTURE_NOW,
+    });
+    await sweeper.sweep({ force: true });
+    const radar = sweeper.facts.radar;
+    expect(radar.error).toContain("glab");
+    expect(radar.errorAt).toBe(FIXTURE_NOW.toISOString());
+    expect(radar.at).toBe(facts.radar.at);
+    expect(radar.data).toEqual(facts.radar.data);
+  });
+
   test("a sweep with gh and glab unreachable records errors and keeps rendering", async () => {
     const sweeper = new Sweeper({
       exec: failingExec(),

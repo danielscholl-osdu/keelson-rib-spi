@@ -263,6 +263,37 @@ export interface Measured<T> {
   errorAt?: string;
 }
 
+// An upstream change's paths; undefined until its diff was read, never an empty stand-in.
+export interface DiffFact {
+  sha: string;
+  title: string;
+  at: string;
+  url: string;
+  paths?: string[];
+  // The + and - lines of each pom.xml and .fossa.yml it changes.
+  hunks?: Record<string, string[]>;
+}
+
+export interface MrFact {
+  iid: number;
+  title: string;
+  author: string;
+  draft: boolean;
+  labels: string[];
+  createdAt: string;
+  updatedAt: string;
+  headSha: string;
+  url: string;
+  pipeline?: string;
+  paths?: string[];
+  hunks?: Record<string, string[]>;
+}
+
+export interface RadarFacts {
+  services: Record<string, { project: string; mrs: MrFact[]; queued: DiffFact[] }>;
+  filters: Record<string, { sha: string; text: string }>;
+}
+
 export interface Facts {
   github: Measured<GithubFacts>;
   runs: Measured<Record<string, ForkRuns>>;
@@ -270,6 +301,7 @@ export interface Facts {
   lifecycle: Measured<Record<LifecycleKind, LifecycleRun[]>>;
   details: Measured<Record<string, JobDetail>>;
   upstream: Measured<Record<string, UpstreamFact>>;
+  radar: Measured<RadarFacts>;
   template: Measured<TemplateFacts>;
   auth: Measured<AuthFacts>;
   sweep?: { at: string; ms: number; calls: number; errors: number };
@@ -282,6 +314,7 @@ export const AREAS = [
   "lifecycle",
   "details",
   "upstream",
+  "radar",
   "template",
   "auth",
 ] as const;
@@ -295,6 +328,7 @@ export function emptyFacts(): Facts {
     lifecycle: {},
     details: {},
     upstream: {},
+    radar: {},
     template: {},
     auth: {},
   };

@@ -22,8 +22,15 @@ import { age } from "../src/util.ts";
 
 const args = process.argv.slice(2);
 const dir = args.find((a) => !a.startsWith("--")) ?? mkdtempSync(join(tmpdir(), "rib-spi-"));
+const RADAR_READ = /merge_requests|\/commits\/[0-9a-f]+\/diff|upstream-filter\.yml/;
+let radarCalls = 0;
+const counted = <F extends (cmd: string, args: string[], ...rest: never[]) => unknown>(f: F): F =>
+  ((cmd: string, a: string[], ...rest: never[]) => {
+    if (a.some((x) => RADAR_READ.test(x))) radarCalls++;
+    return f(cmd, a, ...rest);
+  }) as F;
 const sweeper = new Sweeper({
-  exec: { runJSON, runText },
+  exec: { runJSON: counted(runJSON), runText: counted(runText) },
   store: new Store(dir),
   onChange: () => {},
 });
@@ -38,6 +45,14 @@ for (const [area, v] of Object.entries(sweeper.facts)) {
   if (area === "sweep") continue;
   const mv = v as { at?: string; error?: string };
   console.log(`  ${area.padEnd(10)} ${mv.at ? "ok" : "--"} ${mv.error ? `ERROR ${mv.error}` : ""}`);
+}
+const radar = sweeper.facts.radar.data;
+console.log(`\nRADAR · ${radarCalls} calls · ${Object.keys(radar?.filters ?? {}).length} filters`);
+for (const [svc, r] of Object.entries(radar?.services ?? {})) {
+  const read = (xs: { paths?: string[] }[]) => xs.filter((x) => x.paths).length;
+  console.log(
+    `  ${svc.padEnd(15)} MRs ${r.mrs.length} (${read(r.mrs)} read) · queued ${r.queued.length} (${read(r.queued)} read)`,
+  );
 }
 console.log(
   `\n${m.queue.verdict} · ${m.queue.incidents} incidents · P0 ${m.queue.counts.p0} P1 ${m.queue.counts.p1} P2 ${m.queue.counts.p2} · badge ${badge(m).count}`,

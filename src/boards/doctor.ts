@@ -28,6 +28,7 @@ const AREA_LABEL: Record<AreaName, string> = {
   lifecycle: "stack lifecycle runs",
   details: "failed job steps",
   upstream: "GitLab upstream lag",
+  radar: "GitLab MRs, queued diffs and fork filters",
   template: "template compares",
   auth: "sign-in probes",
 };
@@ -129,6 +130,7 @@ const SOURCE_LABEL: Record<AreaName, string> = {
   lifecycle: "lifecycle runs",
   details: "job steps",
   upstream: "GitLab",
+  radar: "upstream radar",
   template: "template compares",
   auth: "sign-in",
 };

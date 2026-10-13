@@ -9,9 +9,11 @@ import {
   parseHalt,
   parseUpstreamSha,
 } from "../src/collect/github";
+import { emptyRadarState, pruneRadar, readRadar } from "../src/collect/radar";
 import { changeOf, firstParentChanges, readTemplate } from "../src/collect/template";
 import { FORKS, PLANNED, STACK_REPO, TEMPLATE_REPO } from "../src/config";
-import { Gh } from "../src/forge";
+import { encodeProject, Gh, Glab } from "../src/forge";
+import { fixtureFacts } from "./harness";
 
 describe("GraphQL query", () => {
   test("reads the template, the stack, every fork and probes each planned repository", () => {
@@ -393,5 +395,160 @@ describe("template positions", () => {
     expect(
       reads.slice(before).filter((r) => r.includes("/tags") || r.includes("v1.2.0...")),
     ).toEqual([]);
+  });
+});
+
+describe("upstream radar", () => {
+  const PARTITION = FORKS.find((f) => f.id === "partition");
+  const project = encodeProject(PARTITION?.upstream ?? "");
+  const pom =
+    "@@ -1,2 +1,2 @@\n <properties>\n-    <java.version>17</java.version>\n+    <java.version>25</java.version>\n";
+
+  function routed(routes: (path: string) => unknown) {
+    const paths: string[] = [];
+    const exec: RibExec = {
+      runJSON: async <T>(cmd: string, args: string[]) => {
+        const path = (cmd === "glab" ? args[3] : args[1]) ?? "";
+        paths.push(path);
+        const data = routes(path);
+        return data === undefined
+          ? { ok: false as const, error: `${cmd} api ${path}: 404`, code: 1 }
+          : { ok: true as const, data: data as T };
+      },
+      runText: async () => ({ ok: false as const, error: "unused", code: 1 }),
+    };
+    return { exec, paths };
+  }
+
+  const mr = (iid: number) => ({
+    iid,
+    title: `MR ${iid}`,
+    author: { username: "someone" },
+    draft: iid === 2,
+    labels: ["Azure"],
+    created_at: "2026-10-01T00:00:00Z",
+    updated_at: "2026-10-12T00:00:00Z",
+    sha: `head${iid}`,
+    web_url: `https://community.opengroup.org/mr/${iid}`,
+    description: "dropped",
+  });
+
+  function routes(path: string): unknown {
+    if (path.includes("/merge_requests?state=opened"))
+      return path.startsWith(`projects/${project}/`) ? [mr(1), mr(2)] : [];
+    if (path.startsWith(`projects/${project}/merge_requests/1/diffs`))
+      return [
+        { old_path: "pom.xml", new_path: "pom.xml", diff: pom },
+        { old_path: "old/a.java", new_path: "core/a.java", diff: "+x" },
+      ];
+    if (path.includes("/merge_requests/2/diffs")) return undefined;
+    if (path.includes("/repository/commits/q1/diff"))
+      return [{ old_path: "schemathesis-tests/run.sh", new_path: "schemathesis-tests/run.sh" }];
+    if (path.endsWith("contents/.github/upstream-filter.yml"))
+      return {
+        sha: "blob1",
+        content: Buffer.from("top_level:\n  docs: shared\n").toString("base64"),
+      };
+    return undefined;
+  }
+
+  const upstream = {
+    partition: {
+      service: "partition",
+      commits: [{ sha: "q1", title: "add schemathesis", at: "2026-10-12T00:00:00Z", url: "u" }],
+    },
+  };
+
+  test("a list is read 100 at a time until a short page, each page counted", async () => {
+    const counter = { calls: 0 };
+    const { exec, paths } = routed((p) => {
+      const page = Number(/[?&]page=(\d+)/.exec(p)?.[1]);
+      return Array.from({ length: page < 3 ? 100 : 3 }, (_, i) => i);
+    });
+    const all = await new Glab(exec, counter).restAll<number>(
+      "projects/x/merge_requests?state=opened",
+    );
+    expect(all).toHaveLength(203);
+    expect(counter.calls).toBe(3);
+    expect(paths).toEqual(
+      [1, 2, 3].map((n) => `projects/x/merge_requests?state=opened&per_page=100&page=${n}`),
+    );
+    await new Glab(exec, counter).restAll<number>("projects/x/diff");
+    expect(paths[3]).toBe("projects/x/diff?per_page=100&page=1");
+  });
+
+  test("MRs keep their fields, paths and pom lines; a failed diff stays unread, not empty", async () => {
+    const { exec } = routed(routes);
+    const state = emptyRadarState();
+    const radar = await readRadar(new Gh(exec), new Glab(exec), upstream, state);
+    const svc = radar.services.partition;
+    expect(svc?.project).toBe(PARTITION?.upstream);
+    expect(svc?.mrs[0]).toEqual({
+      iid: 1,
+      title: "MR 1",
+      author: "someone",
+      draft: false,
+      labels: ["Azure"],
+      createdAt: "2026-10-01T00:00:00Z",
+      updatedAt: "2026-10-12T00:00:00Z",
+      headSha: "head1",
+      url: "https://community.opengroup.org/mr/1",
+      paths: ["pom.xml", "core/a.java", "old/a.java"],
+      hunks: {
+        "pom.xml": ["-    <java.version>17</java.version>", "+    <java.version>25</java.version>"],
+      },
+    });
+    expect(svc?.mrs[1]?.draft).toBe(true);
+    expect(svc?.mrs[1]?.paths).toBeUndefined();
+    expect(svc?.queued[0]?.paths).toEqual(["schemathesis-tests/run.sh"]);
+    expect(radar.filters.partition).toEqual({ sha: "blob1", text: "top_level:\n  docs: shared\n" });
+    expect(Object.keys(radar.services)).toEqual(expect.arrayContaining(FORKS.map((f) => f.id)));
+  });
+
+  test("each diff is read once per head sha and commit sha", async () => {
+    const state = emptyRadarState();
+    const first = routed(routes);
+    await readRadar(new Gh(first.exec), new Glab(first.exec), upstream, state);
+    const again = routed(routes);
+    await readRadar(new Gh(again.exec), new Glab(again.exec), upstream, state);
+    const diffs = (paths: string[]) => paths.filter((p) => /\/diffs?\?/.test(p));
+    expect(diffs(first.paths)).toHaveLength(3);
+    expect(diffs(again.paths)).toEqual([
+      `projects/${project}/merge_requests/2/diffs?per_page=100&page=1`,
+    ]);
+  });
+
+  test("prune keeps every diff a current MR or queued commit names, then the newest up to the cap", () => {
+    const state = emptyRadarState();
+    for (const k of ["old1", "old2", "kept", "new1"]) state.commitDiffs[k] = { paths: [] };
+    state.filters = { blob1: "a", stale: "b" };
+    pruneRadar(
+      state,
+      {
+        services: {
+          s: { project: "p", mrs: [], queued: [{ sha: "kept", title: "", at: "", url: "" }] },
+        },
+        filters: { s: { sha: "blob1", text: "a" } },
+      },
+      2,
+    );
+    expect(Object.keys(state.commitDiffs)).toEqual(["kept", "new1"]);
+    expect(Object.keys(state.filters)).toEqual(["blob1"]);
+  });
+
+  test("the recorded frame holds each fixture fork's filter and the diffs behind its halts", () => {
+    const radar = fixtureFacts().radar.data;
+    expect(Object.keys(radar?.filters ?? {}).sort()).toEqual(FORKS.map((f) => f.id).sort());
+    const queued = (svc: string) => radar?.services[svc]?.queued ?? [];
+    expect(
+      queued("entitlements").some((c) => c.paths?.some((p) => p.startsWith("schemathesis-tests/"))),
+    ).toBe(true);
+    expect(
+      queued("legal").some((c) =>
+        c.hunks?.["pom.xml"]?.includes("+    <java.version>25</java.version>"),
+      ),
+    ).toBe(true);
+    const authors = Object.values(radar?.services ?? {}).flatMap((s) => s.mrs.map((m) => m.author));
+    expect(authors.every((a) => /^upstream-author-\d+$/.test(a))).toBe(true);
   });
 });

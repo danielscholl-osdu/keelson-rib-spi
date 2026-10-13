@@ -9,6 +9,7 @@
 import type { RibExec } from "@keelson/shared";
 import { z } from "@keelson/shared";
 import { readGithub } from "./collect/github.ts";
+import { emptyRadarState, pruneRadar, type RadarState, readRadar } from "./collect/radar.ts";
 import {
   DetailCache,
   type LifecycleState,
@@ -72,6 +73,7 @@ interface CacheFile {
   template: TemplateState;
   upstream: UpstreamCompares;
   approvals: PrFilesCache;
+  radar: RadarState;
 }
 
 const cacheFileSchema = z.object({
@@ -95,6 +97,13 @@ const cacheFileSchema = z.object({
   }),
   upstream: z.record(z.string(), z.unknown()),
   approvals: z.record(z.string(), z.unknown()).optional(),
+  radar: z
+    .object({
+      mrDiffs: z.record(z.string(), z.unknown()),
+      commitDiffs: z.record(z.string(), z.unknown()),
+      filters: z.record(z.string(), z.string()),
+    })
+    .optional(),
 });
 
 // What the stack strip draws from a run: its status and each job's and step's state.
@@ -117,6 +126,7 @@ function emptyCache(): CacheFile {
     template: { compares: {}, labels: {}, aheads: {} },
     upstream: {},
     approvals: {},
+    radar: emptyRadarState(),
   };
 }
 
@@ -290,11 +300,15 @@ export class Sweeper {
     const gitlabDue =
       force ||
       !upstream ||
+      !this.facts.radar.data ||
       FORKS.some((f) => !upstream[f.id]) ||
       started.getTime() - this.gitlabAt >= GITLAB_EVERY_MS;
     if (gitlabDue) {
       const ok = await this.area("upstream", () => readUpstream(glab, repos, this.cache.upstream));
       if (ok) this.gitlabAt = started.getTime();
+      await this.area("radar", () =>
+        readRadar(gh, glab, this.facts.upstream.data ?? {}, this.cache.radar),
+      );
     }
     this.facts.sweep = {
       at: started.toISOString(),
@@ -385,6 +399,7 @@ export class Sweeper {
         for (const j of jobs) keep.add(`${repo}#${j.id}`);
     }
     this.detailCache.prune(keep);
+    pruneRadar(this.cache.radar, this.facts.radar.data);
     this.cache.details = this.detailCache.snapshot();
     const compares = Object.keys(this.cache.template.compares);
     if (compares.length > 40) {

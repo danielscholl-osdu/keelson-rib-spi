@@ -53,9 +53,18 @@ export function filterSection(text: string, section: string): Map<string, string
   return out;
 }
 
+export async function readFilterFile(gh: Gh, repo: string): Promise<{ sha: string; text: string }> {
+  const file = await gh.rest<{ sha: string; content: string }>(
+    `repos/${repo}/contents/${FILTER_PATH}`,
+  );
+  return {
+    sha: file.sha,
+    text: Buffer.from(file.content.replace(/\s/g, ""), "base64").toString("utf8"),
+  };
+}
+
 async function readFilter(gh: Gh, repo: string): Promise<string> {
-  const file = await gh.rest<{ content: string }>(`repos/${repo}/contents/${FILTER_PATH}`);
-  return Buffer.from(file.content.replace(/\s/g, ""), "base64").toString("utf8");
+  return (await readFilterFile(gh, repo)).text;
 }
 
 async function readTree(glab: Glab, project: string, path?: string): Promise<Set<string>> {

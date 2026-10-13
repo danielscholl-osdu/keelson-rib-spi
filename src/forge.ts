@@ -112,6 +112,8 @@ export class Gh {
   }
 }
 
+const PAGE = 100;
+
 export class Glab {
   constructor(
     private readonly exec: RibExec,
@@ -125,6 +127,17 @@ export class Glab {
     });
     if (!res.ok) throw new ForgeError(`glab api ${path}: ${res.error}`, res.code);
     return res.data;
+  }
+
+  // Every page of a list, 100 at a time, until a short page.
+  async restAll<T>(path: string): Promise<T[]> {
+    const out: T[] = [];
+    const sep = path.includes("?") ? "&" : "?";
+    for (let page = 1; ; page++) {
+      const batch = await this.rest<T[]>(`${path}${sep}per_page=${PAGE}&page=${page}`);
+      out.push(...batch);
+      if (batch.length < PAGE) return out;
+    }
   }
 
   async status(): Promise<{ ok: boolean; detail: string }> {
