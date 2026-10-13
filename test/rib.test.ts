@@ -152,7 +152,7 @@ describe("inspect", () => {
       sections: { title?: string; items?: { text: string; chip?: { label: string } }[] }[];
     };
     const same = () =>
-      (snapshots.latest(INSPECT_KEY)?.data as Frame).sections.find(
+      (snapshots.latest(INSPECT_KEY)?.data as Frame | undefined)?.sections.find(
         (s) => s.title === "Same entry in other forks",
       );
     const res = await rib.onAction?.(
