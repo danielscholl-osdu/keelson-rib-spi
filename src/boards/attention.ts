@@ -7,6 +7,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import type { CanvasBoardView, CanvasTone, RibSurfaceBadge } from "@keelson/shared";
+import type { Readiness } from "../act/readiness.ts";
 import type { Facts } from "../facts.ts";
 import type { Model } from "../model/index.ts";
 import type { Rung, Verdict } from "../model/queue.ts";
@@ -36,9 +37,10 @@ export function attentionBoard(
   model: Model,
   facts: Facts,
   now: Date,
-  selected?: string,
+  opts: { selected?: string; act?: Readiness } = {},
 ): CanvasBoardView {
-  const doctor = doctorRow(facts, now);
+  const { selected, act } = opts;
+  const doctor = doctorRow(facts, now, act);
   if (!model.measured) {
     const error = facts.github.error;
     return {

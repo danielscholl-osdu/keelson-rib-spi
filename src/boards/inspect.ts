@@ -7,6 +7,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import type { CanvasBoardView, CanvasTone } from "@keelson/shared";
+import type { ActionEntry } from "../act/log.ts";
 import type { EntryState, ForkEntry } from "../collect/filters.ts";
 import type { Model } from "../model/index.ts";
 import type { ItemKind, QueueItem, Rung } from "../model/queue.ts";
@@ -83,7 +84,41 @@ function evidence(item: QueueItem): Section | undefined {
   return items.length > 0 ? { kind: "rows", title: "Evidence", items } : undefined;
 }
 
-export function inspectBoard(model: Model, state: InspectState, now: Date): CanvasBoardView {
+function lastAction(entry: ActionEntry | undefined, now: Date): Section {
+  if (!entry) {
+    return {
+      kind: "rows",
+      title: "Last action",
+      items: [{ glyph: "neutral", text: "none from this board" }],
+    };
+  }
+  const done = entry.results.filter((r) => r.outcome === "done").length;
+  const tone: CanvasTone = done === entry.results.length ? "ok" : done > 0 ? "warn" : "error";
+  return {
+    kind: "rows",
+    title: "Last action",
+    items: [
+      {
+        glyph: tone,
+        text: `${entry.label} · ${done} of ${entry.results.length} done`,
+        trailing: zoned(entry.at, now) ?? "",
+      },
+      ...entry.results
+        .filter((r) => r.outcome !== "done")
+        .map((r) => ({
+          glyph: (r.outcome === "refused" ? "warn" : "error") as CanvasTone,
+          text: `${r.target} ${r.outcome === "refused" ? "skipped" : "failed"}${r.detail ? `: ${r.detail}` : ""}`,
+        })),
+    ],
+  };
+}
+
+export function inspectBoard(
+  model: Model,
+  state: InspectState,
+  now: Date,
+  last?: ActionEntry,
+): CanvasBoardView {
   const live = state.selected ? model.queue.items.find((i) => i.id === state.selected) : undefined;
   const item = live ?? state.item;
   if (!item) {
@@ -149,11 +184,7 @@ export function inspectBoard(model: Model, state: InspectState, now: Date): Canv
   }
   const same = sameEntry(item, state);
   if (same) sections.push(same);
-  sections.push({
-    kind: "rows",
-    title: "Last action",
-    items: [{ glyph: "neutral", text: "none from this board" }],
-  });
+  sections.push(lastAction(last, now));
   const ev = evidence(item);
   if (ev) sections.push(ev);
   return {

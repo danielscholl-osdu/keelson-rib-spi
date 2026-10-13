@@ -72,7 +72,7 @@ describe("what the boards say", () => {
 
   test("the open item's row is marked selected and no other is", () => {
     const id = model.queue.items[1]?.id;
-    const b = attentionBoard(model, facts, FIXTURE_NOW, id);
+    const b = attentionBoard(model, facts, FIXTURE_NOW, { selected: id });
     const rows = b.sections[0];
     if (rows?.kind !== "rows") throw new Error("queue first");
     expect(rows.items.filter((r) => r.selected)).toHaveLength(1);

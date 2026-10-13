@@ -8,6 +8,7 @@ import {
   ribSurfaceDescriptorSchema,
   ribViewDescriptorSchema,
 } from "@keelson/shared";
+import { registerVerb } from "../src/act/verbs";
 import rib from "../src/index";
 import { ATTENTION_KEY, BADGE_KEY, BOARD_KEYS, INSPECT_KEY } from "../src/keys";
 import { failingExec, fakeContext, fixtureFacts } from "./harness";
@@ -153,6 +154,48 @@ describe("inspect", () => {
     expect(grid?.title).toBe("Same entry in other forks");
     expect(grid?.cells).toHaveLength(4);
     expect(grid?.cells?.every((c) => c.badge?.text === "?")).toBe(true);
+  });
+
+  test("a verb whose target cannot be read again is refused, logged and shown in the inspector", async () => {
+    const unregister = registerVerb({
+      id: "poke",
+      label: "Poke",
+      command: (t) => ["api", "-X", "POST", `repos/${t.repo}/poke/${t.number}`],
+    });
+    try {
+      const { ctx, snapshots } = stored();
+      rib.registerTools?.(ctx);
+      await rib.onAction?.({ type: "inspect", payload: { id: "gate1:legal" } }, ctx);
+      const res = await rib.onAction?.(
+        {
+          type: "act",
+          payload: {
+            verb: "poke",
+            item: "gate1:legal",
+            swept: "2026-10-12T21:58:30Z",
+            targets: [
+              {
+                repo: "Azure/osdu-spi-legal",
+                kind: "pr",
+                number: 31,
+                sha: "abc",
+                label: "legal #31",
+              },
+            ],
+          },
+        },
+        ctx,
+      );
+      expect(res?.ok).toBe(false);
+      await new Promise((r) => setTimeout(r, 10));
+      const frame = snapshots.latest(INSPECT_KEY)?.data as {
+        sections: { title?: string; items?: { text: string }[] }[];
+      };
+      const last = frame.sections.find((s) => s.title === "Last action");
+      expect(last?.items?.[0]?.text).toBe("Poke · 0 of 1 done");
+    } finally {
+      unregister();
+    }
   });
 
   test("a missing or stale id fails without opening anything", async () => {

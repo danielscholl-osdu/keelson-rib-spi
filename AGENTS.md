@@ -9,8 +9,8 @@ invariants. Inventories (which keys, regions and tools exist) live in the code.
 `@keelson/rib-spi` is a rib for [Keelson](https://github.com/danielscholl/keelson)
 that watches the Azure OSDU SPI program: five service forks on GitHub, their
 upstream projects on GitLab, the `Azure/osdu-spi` template and the shared stack
-`Azure/osdu-spi-stack` runs. This is slice 1 (Watch) of the SPI rib design:
-read-only, remote mode.
+`Azure/osdu-spi-stack` runs. Slice 1 (Watch) is built: remote mode, read-only.
+Slice 2 (Act on the queue) adds verbs on top of one action path.
 
 ## Commands
 
@@ -37,11 +37,19 @@ A change needs `bun run check`, `bun run typecheck` and `bun test` green.
 - `src/model/` is pure: facts and a clock in, lines, stack state, template
   currency and the ranked queue out. Every region and tool reads this one model.
 - `src/boards/` turns the model into canvas boards. No I/O in a composer.
+- `src/act/` is the only code that writes: the verb registry, the binding a
+  button carries, revalidation, the action log and readiness for the doctor.
 
 ## Invariants
 
-- **Read only.** `gh` and `glab` are called with `api` (GET) and `auth status`
-  only. No token is stored; the operator's sign-ins are used per call.
+- **Reads everywhere, writes in one place.** Collectors, tools and composers call
+  `gh` and `glab` with `api` (GET) and `auth status` only. A write happens only in
+  `act()` (`src/act/path.ts`): a registered verb, a binding stamped at draw time,
+  each target read again and refused if it changed, the outcome logged, then a
+  resweep. Writes go to GitHub only, never GitLab or the cluster. No token is
+  stored; the operator's sign-ins are used per call.
+- **An item clears only when a sweep reads the change.** A verb never removes
+  a queue item itself.
 - **Unmeasured is not zero.** A failed read keeps the last good data and its
   age; a value the rib cannot see is `null` and draws as "?", and adds nothing
   to the queue.

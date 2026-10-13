@@ -1,9 +1,17 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { RibContext, RibExec, SnapshotManager } from "@keelson/shared";
 import type { Facts } from "../src/facts";
 import fixture from "./fixtures/facts.json";
 
 type Composer = () => Promise<unknown>;
 type Validator = (data: unknown) => unknown;
+
+// Grants are read from the host's config.json; tests read an empty home, never the operator's.
+process.env.KEELSON_HOME = mkdtempSync(join(tmpdir(), "rib-spi-home-"));
+delete process.env.KEELSON_RIB_WORKFLOW_GRANTS;
+delete process.env.KEELSON_RIB_APPROVAL_GRANTS;
 
 // The live sweep this fixture came from ran at this instant.
 export const FIXTURE_NOW = new Date("2026-10-12T21:58:30Z");

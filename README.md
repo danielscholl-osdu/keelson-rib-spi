@@ -5,8 +5,12 @@ program. It adds an **SPI** tab that follows each service as one line from its
 upstream GitLab project, through its GitHub fork, to the shared stack
 environment, and folds failures into incidents by cause.
 
-The rib reads only. Every fact comes from the operator's own `gh` and `glab`
-sign-ins; it makes no GitHub or GitLab change and does not touch the cluster.
+Every fact comes from the operator's own `gh` and `glab` sign-ins. Writes go to
+GitHub only, as verbs on the board, through one path: the button carries the
+targets as the board drew them, its confirmation shows the exact `gh` command,
+each target is read again and skipped if it changed, and the outcome is logged
+and shown in the item's inspector. The rib never writes to GitLab or touches the
+cluster, and the `spi_*` tools stay read-only.
 
 ## What the tab shows
 
@@ -36,7 +40,11 @@ The banner's last row is the doctor: `Doctor · all clear` while every source
 reads, with the sign-in probes, the GitHub budget and each read's age behind its
 disclosure. When a sign-in, the budget or a read fails, that row moves above the
 queue, amber or red, and names what failed; every panel keeps that source's last
-good read until it reads again.
+good read until it reads again. The disclosure ends with three Act lines: the
+`gh` token's `repo` and `workflow` scopes, how many of the five forks and
+`osdu-spi` have a Keelson project (matched by git remote), and which of the rib's
+workflow and gate grants `config.json` holds. They never raise the doctor; a
+verb that cannot run says why on its own button.
 
 The Environment panel has three tiles in fixed places. **Running** is the
 version on the environment against the declared one and the newest release,

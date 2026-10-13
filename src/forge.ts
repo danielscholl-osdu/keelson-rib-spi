@@ -72,17 +72,22 @@ export class Gh {
     return { data: res.data.data, errors };
   }
 
-  async status(): Promise<{ ok: boolean; detail: string }> {
+  async status(): Promise<{ ok: boolean; detail: string; scopes?: string[] }> {
     const res = await this.exec.runText("gh", ["auth", "status", "--hostname", "github.com"], {
       timeoutMs: 15_000,
       acceptNonZeroExit: true,
     });
     if (!res.ok) return { ok: false, detail: res.error };
     if (res.exitCode !== 0) return { ok: false, detail: "gh is not signed in to github.com" };
+    const scopes = tokenScopes(res.data);
     const user = await this.exec.runText("gh", ["api", "user", "--jq", ".login"], {
       timeoutMs: 15_000,
     });
-    return { ok: true, detail: user.ok ? `signed in as ${user.data.trim()}` : "signed in" };
+    return {
+      ok: true,
+      detail: user.ok ? `signed in as ${user.data.trim()}` : "signed in",
+      ...(scopes ? { scopes } : {}),
+    };
   }
 }
 
@@ -111,6 +116,14 @@ export class Glab {
       ? { ok: true, detail: `signed in to ${GITLAB_HOST}` }
       : { ok: false, detail: `glab is not signed in to ${GITLAB_HOST}` };
   }
+}
+
+// "- Token scopes: 'gist', 'repo', 'workflow'"; a fine-grained token lists none.
+export function tokenScopes(statusText: string): string[] | undefined {
+  const line = /Token scopes:\s*(.*)$/m.exec(statusText)?.[1];
+  if (!line) return undefined;
+  const scopes = [...line.matchAll(/'([^']+)'/g)].map((m) => m[1] ?? "").filter(Boolean);
+  return scopes.length > 0 ? scopes : undefined;
 }
 
 export function encodeProject(path: string): string {

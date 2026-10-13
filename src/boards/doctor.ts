@@ -7,7 +7,14 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import type { CanvasBoardView } from "@keelson/shared";
-import { FORKS, GITLAB_EVERY_MS, PLANNED, SWEEP_MS } from "../config.ts";
+import {
+  APPROVAL_GRANTS,
+  NEEDED_SCOPES,
+  PROJECT_REPOS,
+  type Readiness,
+  WORKFLOW_GRANTS,
+} from "../act/readiness.ts";
+import { FORKS, GITLAB_EVERY_MS, PLANNED, SWEEP_MS, shortRepo } from "../config.ts";
 import { AREAS, type AreaName, type Facts } from "../facts.ts";
 import { clip, plural, stamp } from "../util.ts";
 
@@ -73,6 +80,48 @@ function checks(facts: Facts, now: Date): Check[] {
   ];
 }
 
+// What the board needs before its verbs can run. These never raise the doctor:
+// a missing grant disables a verb, it does not stop the rib from seeing.
+export function actChecks(facts: Facts, act: Readiness | undefined): Check[] {
+  const scopes = facts.auth.data?.gh.scopes;
+  const missingScopes = scopes ? NEEDED_SCOPES.filter((n) => !scopes.includes(n)) : undefined;
+  const checks: Check[] = [
+    {
+      health: !scopes ? "neutral" : missingScopes?.length ? "warn" : "ok",
+      label: "Act · gh scopes",
+      value: !scopes
+        ? "not listed by gh; writes need repo and workflow"
+        : missingScopes?.length
+          ? `missing ${missingScopes.join(", ")}; run gh auth refresh -s ${missingScopes.join(",")}`
+          : NEEDED_SCOPES.join(", "),
+    },
+  ];
+  if (!act) {
+    checks.push({ health: "neutral", label: "Act · projects and grants", value: "not read yet" });
+    return checks;
+  }
+  const missing = PROJECT_REPOS.filter((r) => !act.projects[r]);
+  checks.push({
+    health: missing.length ? "warn" : "ok",
+    label: "Act · Keelson projects",
+    value: `${PROJECT_REPOS.length - missing.length} of ${PROJECT_REPOS.length}${missing.length ? `; none for ${missing.map(shortRepo).join(", ")}` : ""}`,
+  });
+  const g = act.grants;
+  const lackWork = g ? WORKFLOW_GRANTS.filter((w) => !g.workflow.includes(w)) : WORKFLOW_GRANTS;
+  const lackGate = g ? APPROVAL_GRANTS.filter((w) => !g.approval.includes(w)) : APPROVAL_GRANTS;
+  checks.push({
+    health: !g ? "neutral" : lackWork.length || lackGate.length ? "warn" : "ok",
+    label: "Act · grants",
+    value: !g
+      ? "config.json unreadable"
+      : [
+          lackWork.length ? `ribWorkflowGrants lacks ${lackWork.join(", ")}` : "workflows granted",
+          lackGate.length ? `ribApprovalGrants lacks ${lackGate.join(", ")}` : "gates granted",
+        ].join("; "),
+  });
+  return checks;
+}
+
 export interface DoctorStatus {
   state: "dark" | "partial" | "clear" | "waiting";
   problems: string[];
@@ -86,8 +135,9 @@ export function doctorStatus(facts: Facts, now: Date): DoctorStatus {
   return { state, problems };
 }
 
-function detail(list: readonly Check[], troubled: boolean): string {
-  const lines = list.map((c) => `${MARK[c.health]} ${c.label} · ${c.value}`);
+function detail(list: readonly Check[], troubled: boolean, act: readonly Check[]): string {
+  const line = (c: Check) => `${MARK[c.health]} ${c.label} · ${c.value}`;
+  const lines = [...list.map(line), "", ...act.map(line)];
   const lead = troubled
     ? ["Each panel keeps a source's last good read until it reads again.", ""]
     : [];
@@ -103,6 +153,7 @@ function detail(list: readonly Check[], troubled: boolean): string {
 export function doctorRow(
   facts: Facts,
   now: Date,
+  act?: Readiness,
 ): { tone: "ok" | "warn" | "error"; section: Section } | undefined {
   const status = doctorStatus(facts, now);
   if (status.state === "waiting") return undefined;
@@ -142,7 +193,7 @@ export function doctorRow(
           glyph: tone,
           text: clip(text, 220),
           ...(trailing ? { trailing } : {}),
-          detail: detail(list, tone !== "ok"),
+          detail: detail(list, tone !== "ok", actChecks(facts, act)),
         },
       ],
     },

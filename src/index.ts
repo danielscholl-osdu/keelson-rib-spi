@@ -18,6 +18,10 @@ import {
   type RibViewDescriptor,
   type SnapshotManager,
 } from "@keelson/shared";
+import { ActionLog } from "./act/log.ts";
+import { act } from "./act/path.ts";
+import { type Readiness, readReadiness } from "./act/readiness.ts";
+import { ACT_ACTION } from "./act/verbs.ts";
 import { AGENTS, resolveAgent } from "./agent.ts";
 import { attentionBoard, badge } from "./boards/attention.ts";
 import { type InspectState, inspectBoard, inspectTitle } from "./boards/inspect.ts";
@@ -49,13 +53,17 @@ const OTHERS_TTL_MS = 10 * 60_000;
 const VIEW_KEYS = [...BOARD_KEYS, INSPECT_KEY] as const;
 
 let inspect: InspectState = {};
+let actionLog = new ActionLog(undefined);
+let readiness: Readiness | undefined;
 const othersCache = new Map<string, { at: number; entries: ForkEntry[] }>();
 
 const COMPOSERS: Record<(typeof VIEW_KEYS)[number], Composer> = {
-  [ATTENTION_KEY]: (s, now) => attentionBoard(s.model, s.facts, now, inspect.selected),
+  [ATTENTION_KEY]: (s, now) =>
+    attentionBoard(s.model, s.facts, now, { selected: inspect.selected, act: readiness }),
   [STACK_KEY]: (s, now) => stackBoard(s.model, now),
   [LINES_KEY]: (s, now) => linesBoard(s.model, now),
-  [INSPECT_KEY]: (s, now) => inspectBoard(s.model, inspect, now),
+  [INSPECT_KEY]: (s, now) =>
+    inspectBoard(s.model, inspect, now, actionLog.lastFor(inspect.selected)),
 };
 
 function badgeOf(data: unknown): RibSurfaceBadge {
@@ -67,6 +75,7 @@ function badgeOf(data: unknown): RibSurfaceBadge {
 }
 
 let snapshots: SnapshotManager | undefined;
+let context: RibContext | undefined;
 let sweeper: Sweeper | undefined;
 let exec: RibExec | undefined;
 let unregisters: Array<() => void> = [];
@@ -79,7 +88,9 @@ function recomposeAll(): void {
 function bind(ctx: RibContext): Sweeper {
   unbind();
   snapshots = ctx.getSnapshotManager?.();
+  context = ctx;
   exec = ctx.getExec();
+  actionLog = new ActionLog(ctx.getDataDir?.());
   const s = new Sweeper({
     exec,
     store: new Store(ctx.getDataDir?.()),
@@ -98,8 +109,10 @@ function bind(ctx: RibContext): Sweeper {
   }
   recomposeAll();
   s.sweep({ force: true }).catch(() => undefined);
+  refreshReadiness();
   const sweepTimer = setInterval(() => {
     s.sweep().catch(() => undefined);
+    refreshReadiness();
   }, SWEEP_MS);
   const pollTimer = setInterval(() => {
     if (s.hasInflight()) s.pollInflight().catch(() => undefined);
@@ -117,9 +130,32 @@ function unbind(): void {
   timers = [];
   snapshots = undefined;
   sweeper = undefined;
+  context = undefined;
+  readiness = undefined;
   exec = undefined;
   inspect = {};
   othersCache.clear();
+}
+
+function refreshReadiness(): void {
+  const ctx = context;
+  if (!ctx || !exec) return;
+  readReadiness(exec, ctx.getProjects?.())
+    .then((r) => {
+      if (context !== ctx) return;
+      readiness = r;
+      snapshots?.recompose(ATTENTION_KEY).catch(() => undefined);
+    })
+    .catch(() => undefined);
+}
+
+// A sweep already running may have read before the write landed, so wait it out
+// and read again.
+function resweep(s: Sweeper): void {
+  (async () => {
+    if (s.sweeping) await s.sweep().catch(() => undefined);
+    await s.sweep({ force: true }).catch(() => undefined);
+  })();
 }
 
 async function readOthers(item: QueueItem, now: number): Promise<ForkEntry[] | undefined> {
@@ -156,6 +192,17 @@ const rib: Rib = {
       if (s.sweeping) return { ok: true, data: { message: "A sweep is already running" } };
       s.sweep({ force: true }).catch(() => undefined);
       return { ok: true, data: { message: "Sweeping GitHub and GitLab" } };
+    }
+    if (action.type === ACT_ACTION) {
+      if (!exec) return { ok: false, error: "spi is not bound yet" };
+      const result = await act(action.payload, {
+        exec,
+        log: actionLog,
+        resweep: () => resweep(s),
+        now: s.now,
+      });
+      snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
+      return result;
     }
     if (action.type === INSPECT_ACTION) {
       const id = (action.payload as { id?: unknown } | undefined)?.id;

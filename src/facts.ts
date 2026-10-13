@@ -216,7 +216,7 @@ export interface TemplateFacts {
 }
 
 export interface AuthFacts {
-  gh: { ok: boolean; detail: string };
+  gh: { ok: boolean; detail: string; scopes?: string[] };
   glab: { ok: boolean; detail: string };
 }
 
