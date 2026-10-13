@@ -7,7 +7,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import { forkOf, githubUrl, shortRepo } from "../config.ts";
-import type { PrFact, RepoFact, RunFact } from "../facts.ts";
+import type { OutsidePr, PrFact, RepoFact, WaitingRun } from "../facts.ts";
 import { plural, releaseTag, short, stamp } from "../util.ts";
 import {
   CLASS_LABEL,
@@ -71,6 +71,16 @@ export interface HaltEntries {
   entries: string[];
 }
 
+// One outside PR whose runs at its current head wait for a maintainer.
+export interface ApprovePr {
+  repo: string;
+  pr: OutsidePr;
+  runs: { id: number; name: string }[];
+  since: string;
+  // Approved runs execute these as the PR changed them.
+  workflowFiles: string[];
+}
+
 export interface QueueItem {
   id: string;
   kind: ItemKind;
@@ -84,6 +94,7 @@ export interface QueueItem {
   cause: Fact[];
   cls?: FailureClass;
   halt?: HaltEntries;
+  approve?: ApprovePr[];
   // An incident is a cause that broke or blocks; gates and ready work are not.
   incident: boolean;
   blocks: number;
@@ -694,34 +705,105 @@ function releaseItems(
   return items;
 }
 
-function approvalItems(approvals: Record<string, RunFact[]> | undefined): QueueItem[] {
+export function diffText(pr: OutsidePr): string {
+  return `${plural(pr.changedFiles, "file")} · +${pr.additions} −${pr.deletions}`;
+}
+
+export function associationText(association: string): string {
+  return association.toLowerCase().replaceAll("_", "-");
+}
+
+const WHY_APPROVAL: Fact = {
+  label: "why",
+  value: "outside contributors' runs wait until a maintainer approves them",
+};
+
+// Before the runs are matched to PRs, the item can only count titles.
+function titledApprovals(repo: string, runs: readonly WaitingRun[]): QueueItem {
+  const titles = [...new Set(runs.map((r) => r.title))];
+  const oldest = runs.reduce((a, b) => (Date.parse(a.createdAt) < Date.parse(b.createdAt) ? a : b));
+  return {
+    id: `approvals:${repo}`,
+    kind: "approvals",
+    rung: 1,
+    scope: shortRepo(repo),
+    text: `${plural(titles.length, "outside PR")} ${titles.length === 1 ? "waits" : "wait"} for workflow approval`,
+    since: oldest.createdAt,
+    url: githubUrl(repo, "/actions?query=is%3Aaction_required"),
+    effects: titles.map((t) => ({ text: t })),
+    cause: [
+      { label: "repository", value: repo, url: githubUrl(repo) },
+      {
+        label: "waiting",
+        value: `${plural(runs.length, "run")} on ${plural(titles.length, "PR")}`,
+      },
+      WHY_APPROVAL,
+    ],
+    incident: false,
+    blocks: titles.length,
+  };
+}
+
+function matchedApprovals(repo: string, runs: readonly WaitingRun[]): QueueItem | undefined {
+  const prs = new Map<number, ApprovePr>();
+  let superseded = 0;
+  for (const r of runs) {
+    if (!r.pr) {
+      superseded++;
+      continue;
+    }
+    const entry = prs.get(r.pr.number) ?? {
+      repo,
+      pr: r.pr,
+      runs: [],
+      since: r.createdAt,
+      workflowFiles: r.pr.files.filter((f) => f.startsWith(".github/")),
+    };
+    entry.runs.push({ id: r.id, name: r.name });
+    if (Date.parse(r.createdAt) < Date.parse(entry.since)) entry.since = r.createdAt;
+    prs.set(r.pr.number, entry);
+  }
+  if (prs.size === 0) return undefined;
+  const approve = [...prs.values()].sort((a, b) => Date.parse(a.since) - Date.parse(b.since));
+  const live = approve.reduce((n, a) => n + a.runs.length, 0);
+  const cause: Fact[] = [
+    { label: "repository", value: repo, url: githubUrl(repo) },
+    { label: "waiting", value: `${plural(live, "run")} on ${plural(approve.length, "PR")}` },
+  ];
+  if (superseded > 0) {
+    cause.push({
+      label: "superseded",
+      value: `${plural(superseded, "run")} on heads since pushed past; nothing to approve`,
+    });
+  }
+  cause.push(WHY_APPROVAL);
+  return {
+    id: `approvals:${repo}`,
+    kind: "approvals",
+    rung: 1,
+    scope: shortRepo(repo),
+    text: `${plural(approve.length, "outside PR")} ${approve.length === 1 ? "waits" : "wait"} for workflow approval`,
+    since: approve[0]?.since,
+    url: githubUrl(repo, "/actions?query=is%3Aaction_required"),
+    effects: approve.map((a) => ({
+      text: `#${a.pr.number} ${a.pr.title} · ${a.pr.author}`,
+      url: a.pr.url,
+    })),
+    cause,
+    approve,
+    incident: false,
+    blocks: approve.length,
+  };
+}
+
+function approvalItems(approvals: Record<string, WaitingRun[]> | undefined): QueueItem[] {
   const items: QueueItem[] = [];
   for (const [repo, runs] of Object.entries(approvals ?? {})) {
     if (runs.length === 0) continue;
-    const titles = [...new Set(runs.map((r) => r.title))];
-    const oldest = runs.reduce((a, b) =>
-      Date.parse(a.createdAt) < Date.parse(b.createdAt) ? a : b,
-    );
-    items.push({
-      id: `approvals:${repo}`,
-      kind: "approvals",
-      rung: 1,
-      scope: shortRepo(repo),
-      text: `${plural(titles.length, "outside PR")} ${titles.length === 1 ? "waits" : "wait"} for workflow approval`,
-      since: oldest.createdAt,
-      url: githubUrl(repo, "/actions?query=is%3Aaction_required"),
-      effects: titles.map((t) => ({ text: t })),
-      cause: [
-        { label: "repository", value: repo, url: githubUrl(repo) },
-        {
-          label: "waiting",
-          value: `${plural(runs.length, "run")} on ${plural(titles.length, "PR")}`,
-        },
-        { label: "why", value: "outside contributors' runs wait until a maintainer approves them" },
-      ],
-      incident: false,
-      blocks: titles.length,
-    });
+    const item = runs.some((r) => r.pr === undefined)
+      ? titledApprovals(repo, runs)
+      : matchedApprovals(repo, runs);
+    if (item) items.push(item);
   }
   return items;
 }
@@ -754,7 +836,7 @@ export function buildQueue(input: {
   template: TemplateModel;
   repos: Record<string, RepoFact>;
   details: Parameters<typeof prFailures>[1];
-  approvals: Record<string, RunFact[]> | undefined;
+  approvals: Record<string, WaitingRun[]> | undefined;
   now: Date;
 }): Queue {
   const { stack, lines, template, repos, details, approvals, now } = input;

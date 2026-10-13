@@ -15,7 +15,15 @@ import {
   STACK_REPO,
   TEMPLATE_REPO,
 } from "../config.ts";
-import type { ForkRuns, JobDetail, LifecycleRun, RunFact, StepFact } from "../facts.ts";
+import type {
+  ForkRuns,
+  JobDetail,
+  LifecycleRun,
+  OutsidePr,
+  RunFact,
+  StepFact,
+  WaitingRun,
+} from "../facts.ts";
 import type { Gh } from "../forge.ts";
 import { type Annotation, reasonFromAnnotations, reasonFromLog } from "../model/reason.ts";
 import { pool } from "../util.ts";
@@ -77,13 +85,83 @@ export async function readForkRuns(gh: Gh): Promise<Record<string, ForkRuns>> {
   return out;
 }
 
+export type PrFiles = Pick<OutsidePr, "files" | "changedFiles" | "additions" | "deletions">;
+
+// Keyed `repo#number@sha`: a PR's files at one head never change.
+export type PrFilesCache = Record<string, PrFiles>;
+
+interface RawOpenPr {
+  number: number;
+  title: string;
+  url: string;
+  author: string;
+  association: string;
+  draft: boolean;
+  sha: string;
+}
+
+async function prFiles(gh: Gh, repo: string, n: number): Promise<PrFiles> {
+  const files = await gh.rest<{ path: string; additions: number; deletions: number }[]>(
+    `repos/${repo}/pulls/${n}/files?per_page=100`,
+    "[.[] | {path: .filename, additions, deletions}]",
+  );
+  const pr = await gh.rest<{ changed: number; additions: number; deletions: number }>(
+    `repos/${repo}/pulls/${n}`,
+    "{changed: .changed_files, additions, deletions}",
+  );
+  return {
+    files: files.map((f) => f.path),
+    changedFiles: pr.changed,
+    additions: pr.additions,
+    deletions: pr.deletions,
+  };
+}
+
 // Runs held at "action_required" are outside PRs waiting for a maintainer to
-// approve their workflows.
-export async function readApprovals(gh: Gh): Promise<Record<string, RunFact[]>> {
+// approve their workflows. Each run is matched to the open PR at its head; a run
+// on a head the PR has since moved past has nothing left to approve.
+export async function readApprovals(
+  gh: Gh,
+  cache: PrFilesCache = {},
+): Promise<Record<string, WaitingRun[]>> {
   const repos = [TEMPLATE_REPO, STACK_REPO, ...FORKS.map((f) => f.repo)];
-  const out: Record<string, RunFact[]> = {};
+  const out: Record<string, WaitingRun[]> = {};
   await pool(repos, 4, async (repo) => {
-    out[repo] = await runs(gh, `repos/${repo}/actions/runs?status=action_required&per_page=30`);
+    const waiting = await runs(
+      gh,
+      `repos/${repo}/actions/runs?status=action_required&per_page=100`,
+    );
+    out[repo] = waiting;
+    if (waiting.length === 0) return;
+    let open: RawOpenPr[];
+    try {
+      open = await gh.rest<RawOpenPr[]>(
+        `repos/${repo}/pulls?state=open&per_page=100`,
+        "[.[] | {number, title, url: .html_url, author: .user.login, association: .author_association, draft, sha: .head.sha}]",
+      );
+    } catch {
+      return;
+    }
+    const bySha = new Map(open.map((p) => [p.sha, p]));
+    const live = new Map<number, OutsidePr | undefined>();
+    for (const p of open) {
+      if (!waiting.some((r) => r.sha === p.sha)) continue;
+      const key = `${repo}#${p.number}@${p.sha}`;
+      try {
+        const files = cache[key] ?? (await prFiles(gh, repo, p.number));
+        cache[key] = files;
+        const { sha, ...rest } = p;
+        live.set(p.number, { ...rest, headSha: sha, ...files });
+      } catch {
+        live.set(p.number, undefined);
+      }
+    }
+    out[repo] = waiting.map((r) => {
+      const p = bySha.get(r.sha);
+      if (!p) return { ...r, pr: null };
+      const pr = live.get(p.number);
+      return pr ? { ...r, pr } : r;
+    });
   });
   return out;
 }

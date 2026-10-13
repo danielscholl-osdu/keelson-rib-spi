@@ -12,6 +12,7 @@ import { readGithub } from "./collect/github.ts";
 import {
   DetailCache,
   type LifecycleState,
+  type PrFilesCache,
   pollRun,
   readApprovals,
   readForkRuns,
@@ -65,6 +66,7 @@ interface CacheFile {
   lifecycle: LifecycleState;
   template: TemplateState;
   upstream: UpstreamCompares;
+  approvals: PrFilesCache;
 }
 
 const cacheFileSchema = z.object({
@@ -86,6 +88,7 @@ const cacheFileSchema = z.object({
       .optional(),
   }),
   upstream: z.record(z.string(), z.unknown()),
+  approvals: z.record(z.string(), z.unknown()).optional(),
 });
 
 // What the stack strip draws from a run: its status and each job's and step's state.
@@ -107,6 +110,7 @@ function emptyCache(): CacheFile {
     lifecycle: { runJobs: {}, files: {} },
     template: { compares: {}, labels: {}, aheads: {} },
     upstream: {},
+    approvals: {},
   };
 }
 
@@ -132,8 +136,8 @@ export class Sweeper {
     this.now = opts.now ?? (() => new Date());
     const stored = opts.store.read(FACTS_FILE, factsFileSchema);
     this.facts = { ...emptyFacts(), ...(stored as Partial<Facts> | undefined) };
-    this.cache =
-      (opts.store.read(CACHE_FILE, cacheFileSchema) as CacheFile | undefined) ?? emptyCache();
+    const cache = opts.store.read(CACHE_FILE, cacheFileSchema) as Partial<CacheFile> | undefined;
+    this.cache = cache ? { ...emptyCache(), ...cache } : emptyCache();
     this.detailCache = new DetailCache(this.cache.details);
     const upstreamAt = this.facts.upstream.at ? Date.parse(this.facts.upstream.at) : 0;
     this.gitlabAt = Number.isFinite(upstreamAt) ? upstreamAt : 0;
@@ -221,7 +225,7 @@ export class Sweeper {
     const repos = this.facts.github.data?.repos ?? {};
     await Promise.all([
       this.area("runs", () => this.readRuns(gh)),
-      this.area("approvals", () => readApprovals(gh)),
+      this.area("approvals", () => readApprovals(gh, this.cache.approvals)),
       this.area("lifecycle", () =>
         readLifecycle(gh, this.detailCache, this.cache.lifecycle, started),
       ),
@@ -321,6 +325,13 @@ export class Sweeper {
     if (compares.length > 40) {
       for (const key of compares.slice(0, compares.length - 40))
         delete this.cache.template.compares[key];
+    }
+    const waiting = new Set<string>();
+    for (const [repo, runs] of Object.entries(this.facts.approvals.data ?? {})) {
+      for (const r of runs) if (r.pr) waiting.add(`${repo}#${r.pr.number}@${r.pr.headSha}`);
+    }
+    for (const key of Object.keys(this.cache.approvals)) {
+      if (!waiting.has(key)) delete this.cache.approvals[key];
     }
     const upstream = Object.keys(this.cache.upstream);
     if (upstream.length > 40) {

@@ -15,11 +15,13 @@ export const ACT_ACTION = "act";
 
 // What a verb writes to, as the board saw it when it drew the button. `sha` and
 // `state` are what revalidation compares; a target without them is not re-checked.
+// A run's `pr` makes `sha` that PR's head, so a push after the draw refuses it.
 export const targetSchema = z
   .object({
     repo: z.string().regex(/^[\w.-]+\/[\w.-]+$/),
     kind: z.enum(["pr", "run", "issue", "repo"]),
     number: z.number().int().positive().optional(),
+    pr: z.number().int().positive().optional(),
     sha: z.string().optional(),
     state: z.string().optional(),
     label: z.string().min(1),
@@ -66,18 +68,30 @@ export function commandText(verb: Verb, target: Target): string {
   return ["gh", ...verb.command(target)].map(quote).join(" ");
 }
 
+export interface ButtonOptions {
+  primary?: boolean;
+  disabled?: string;
+  label?: string;
+  title?: string;
+  // Sentences the operator weighs before the commands; the host collapses line breaks.
+  detail?: string[];
+  // Typed before confirm enables, for a write that is hard to take back.
+  subject?: { value: string; label: string };
+}
+
 // The button an inspector draws: the binding rides outside the payload so no form
 // field can overwrite it, and the confirmation lists the exact command per target.
 export function verbAction(
   verb: Verb,
   binding: Omit<Binding, "verb">,
-  opts: { primary?: boolean; disabled?: string } = {},
+  opts: ButtonOptions = {},
 ): ActionItem {
   const n = binding.targets.length;
   const commands = binding.targets.map((t) => commandText(verb, t));
+  const label = opts.label ?? (n > 1 ? `${verb.label} ${n}` : verb.label);
   return {
     type: ACT_ACTION,
-    label: n > 1 ? `${verb.label} ${n}` : verb.label,
+    label,
     ...(opts.primary ? { tone: "accent" as const } : {}),
     binding: { ...binding, verb: verb.id },
     ...(opts.disabled
@@ -85,15 +99,19 @@ export function verbAction(
       : {
           confirm: {
             title:
-              n > 1
+              opts.title ??
+              (n > 1
                 ? `${verb.label} · ${n} targets`
-                : `${verb.label} · ${binding.targets[0]?.label}`,
+                : `${verb.label} · ${binding.targets[0]?.label}`),
             body: [
-              ...commands,
-              "",
+              ...(opts.detail?.length ? [opts.detail.join(" ")] : []),
+              `Calls: ${commands.join("; ")}.`,
               "Each target is read again first; one that changed since the board drew it is skipped and named in the result.",
-            ].join("\n"),
-            confirmLabel: n > 1 ? `${verb.label} ${n}` : verb.label,
+            ].join("\n\n"),
+            confirmLabel: label,
+            ...(opts.subject
+              ? { irreversible: true, subject: opts.subject.value, label: opts.subject.label }
+              : {}),
           },
         }),
   };

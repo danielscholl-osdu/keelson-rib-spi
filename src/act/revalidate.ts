@@ -30,7 +30,10 @@ export async function readTarget(gh: Gh, t: Target): Promise<Seen> {
       `repos/${t.repo}/actions/runs/${t.number}`,
       "{status: .status, conclusion: .conclusion, sha: .head_sha}",
     );
-    return { sha: run.sha, state: runState(run.status, run.conclusion) };
+    const state = runState(run.status, run.conclusion);
+    if (t.pr === undefined) return { sha: run.sha, state };
+    const pr = await readTarget(gh, { ...t, kind: "pr", number: t.pr, pr: undefined });
+    return { sha: pr.sha, state: pr.state === "open" ? state : `PR #${t.pr} ${pr.state}` };
   }
   const issue = await gh.rest<{ state: string }>(
     `repos/${t.repo}/issues/${t.number}`,

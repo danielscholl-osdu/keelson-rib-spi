@@ -36,6 +36,14 @@ halt too) or `?` when a read failed. While the environment is in an incident,
 each attempt row opens the same environment inspector. An item a sweep no
 longer reads shows as cleared rather than vanishing.
 
+Outside PRs whose workflow runs wait for a maintainer are matched by head: only
+runs on a PR's current head count, and runs on heads since pushed past are
+named as superseded. The inspector lists each PR with its author and diff size
+and gives it an **Approve** button for its waiting runs. The confirmation names
+the author, the files and the size, and when the PR changes anything under
+`.github/` it asks for the PR number to be typed first. A push to the PR after
+the board drew it refuses the approval.
+
 The banner's last row is the doctor: `Doctor · all clear` while every source
 reads, with the sign-in probes, the GitHub budget and each read's age behind its
 disclosure. When a sign-in, the budget or a read fails, that row moves above the

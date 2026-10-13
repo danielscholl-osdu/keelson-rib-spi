@@ -18,10 +18,11 @@ import {
   type RibViewDescriptor,
   type SnapshotManager,
 } from "@keelson/shared";
+import { APPROVE_RUNS } from "./act/approve.ts";
 import { ActionLog } from "./act/log.ts";
 import { act } from "./act/path.ts";
 import { type Readiness, readReadiness } from "./act/readiness.ts";
-import { ACT_ACTION } from "./act/verbs.ts";
+import { ACT_ACTION, registerVerb } from "./act/verbs.ts";
 import { AGENTS, resolveAgent } from "./agent.ts";
 import { attentionBoard, badge } from "./boards/attention.ts";
 import { type InspectState, inspectBoard, inspectTitle } from "./boards/inspect.ts";
@@ -63,7 +64,9 @@ const COMPOSERS: Record<(typeof VIEW_KEYS)[number], Composer> = {
   [STACK_KEY]: (s, now) => stackBoard(s.model, now),
   [LINES_KEY]: (s, now) => linesBoard(s.model, now),
   [INSPECT_KEY]: (s, now) =>
-    inspectBoard(s.model, inspect, now, actionLog.lastFor(inspect.selected)),
+    inspectBoard(s.model, inspect, now, actionLog.lastFor(inspect.selected), {
+      scopes: s.facts.auth.data?.gh.scopes,
+    }),
 };
 
 function badgeOf(data: unknown): RibSurfaceBadge {
@@ -97,6 +100,7 @@ function bind(ctx: RibContext): Sweeper {
     onChange: recomposeAll,
   });
   sweeper = s;
+  unregisters.push(registerVerb(APPROVE_RUNS));
   const sm = snapshots;
   if (sm) {
     for (const key of VIEW_KEYS) {

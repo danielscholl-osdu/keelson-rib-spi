@@ -137,6 +137,26 @@ export interface RunFact {
   attempt: number;
 }
 
+// An open PR from outside the repository, as a maintainer weighs approving its runs.
+export interface OutsidePr {
+  number: number;
+  title: string;
+  url: string;
+  author: string;
+  association: string;
+  draft: boolean;
+  headSha: string;
+  files: string[];
+  changedFiles: number;
+  additions: number;
+  deletions: number;
+}
+
+// `pr` is null when no open PR has the run's head any more, and absent when unread.
+export interface WaitingRun extends RunFact {
+  pr?: OutsidePr | null;
+}
+
 export interface StepFact {
   number: number;
   name: string;
@@ -232,7 +252,7 @@ export interface Measured<T> {
 export interface Facts {
   github: Measured<GithubFacts>;
   runs: Measured<Record<string, ForkRuns>>;
-  approvals: Measured<Record<string, RunFact[]>>;
+  approvals: Measured<Record<string, WaitingRun[]>>;
   lifecycle: Measured<Record<LifecycleKind, LifecycleRun[]>>;
   details: Measured<Record<string, JobDetail>>;
   upstream: Measured<Record<string, UpstreamFact>>;

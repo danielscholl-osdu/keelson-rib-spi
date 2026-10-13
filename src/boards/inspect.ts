@@ -7,10 +7,11 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import type { CanvasBoardView, CanvasTone } from "@keelson/shared";
+import { approveAction } from "../act/approve.ts";
 import type { ActionEntry } from "../act/log.ts";
 import type { EntryState, ForkEntry } from "../collect/filters.ts";
 import type { Model } from "../model/index.ts";
-import type { ItemKind, QueueItem, Rung } from "../model/queue.ts";
+import { diffText, type ItemKind, type QueueItem, type Rung } from "../model/queue.ts";
 import { age, zoned } from "../util.ts";
 
 type Section = CanvasBoardView["sections"][number];
@@ -90,6 +91,47 @@ function sameEntry(item: QueueItem, state: InspectState): Section | undefined {
   return items.length > 0 ? { kind: "rows", title, items } : undefined;
 }
 
+export interface InspectOptions {
+  // The gh token's scopes, when the sign-in probe could read them.
+  scopes?: string[];
+}
+
+function writeBlocked(model: Model, opts: InspectOptions): string | undefined {
+  if (!model.sweptAt) return "no sweep has read GitHub yet";
+  if (opts.scopes && !opts.scopes.includes("repo")) {
+    return "gh's token lacks the repo scope; run gh auth refresh -s repo";
+  }
+  return undefined;
+}
+
+function approvalSections(item: QueueItem, model: Model, opts: InspectOptions): Section[] {
+  const approve = item.approve ?? [];
+  if (approve.length === 0) return [];
+  const rows: Row[] = approve.map((a) => {
+    const chip =
+      a.workflowFiles.length > 0
+        ? { label: ".github", tone: "caution" as const }
+        : a.pr.draft
+          ? { label: "draft", tone: "neutral" as const }
+          : undefined;
+    return {
+      ...(chip ? { chip } : {}),
+      text: `#${a.pr.number} ${a.pr.title}`,
+      trailing: `${a.pr.author} · ${diffText(a.pr)}`,
+      href: a.pr.url,
+    };
+  });
+  const disabled = writeBlocked(model, opts);
+  const swept = model.sweptAt ?? "";
+  return [
+    { kind: "rows", title: `Outside PRs · ${approve.length}`, items: rows },
+    {
+      kind: "actions",
+      items: approve.map((a) => approveAction(a, { item: item.id, swept }, disabled)),
+    },
+  ];
+}
+
 function evidence(item: QueueItem): Section | undefined {
   const items: Row[] = [];
   if (item.url) items.push({ icon: "↗", text: "Open on GitHub", href: item.url });
@@ -130,6 +172,7 @@ export function inspectBoard(
   state: InspectState,
   now: Date,
   last?: ActionEntry,
+  opts: InspectOptions = {},
 ): CanvasBoardView {
   const live = state.selected ? model.queue.items.find((i) => i.id === state.selected) : undefined;
   const item = live ?? state.item;
@@ -182,7 +225,9 @@ export function inspectBoard(
       })),
     });
   }
-  if (item.effects.length > 0) {
+  const approvals = approvalSections(item, model, opts);
+  if (approvals.length > 0) sections.push(...approvals);
+  else if (item.effects.length > 0) {
     sections.push({
       kind: "rows",
       title: item.effects.length === 1 ? "Effect" : `Effects · ${item.effects.length}`,
