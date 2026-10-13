@@ -66,7 +66,8 @@ export type ItemKind =
   | "release-red"
   | "releases"
   | "template-pr"
-  | "bump";
+  | "bump"
+  | "access";
 
 // The entries a halt names, for checking whether other forks will halt on them too.
 export interface HaltEntries {
@@ -563,6 +564,26 @@ function lineItems(line: LineModel, now: Date): QueueItem[] {
       ],
       incident: false,
       blocks: 0,
+    });
+  }
+  const itemized = new Set([line.syncPr, line.cascadePr, line.templatePr]);
+  for (const p of line.prs) {
+    if (itemized.has(p) || p.prClass === "release") continue;
+    const f = p.failures.find((x) => !x.hidden && x.cls === "ACCESS");
+    if (!f) continue;
+    items.push({
+      id: `access:${p.pr.repo}#${p.pr.number}`,
+      kind: "access",
+      rung: 1,
+      scope: svc,
+      text: `${CLASS_LABEL[p.prClass]} #${p.pr.number}: ${[f.step, f.reason].filter(Boolean).join(" ")}`,
+      since: f.at,
+      url: f.url ?? p.pr.url,
+      effects: [],
+      cause: prFacts(p, now),
+      cls: "ACCESS",
+      incident: true,
+      blocks: 1,
     });
   }
   return items;

@@ -29,6 +29,7 @@ describe("the class table", () => {
       BUILD: "Investigate",
       TEST: "Investigate",
       ENV: "Re-run lanes",
+      ACCESS: "Open run, Open PR",
       CONFLICT: "Investigate, then Dispatch cascade",
     });
   });
@@ -91,6 +92,19 @@ describe("the class table", () => {
         /^Open the Prove log for the acceptance suite$/,
       ],
       [{ kind: "lanes", cls: "ENV", incident: true }, "ENV", "Re-run lanes", /re-run the lanes/],
+      [
+        {
+          kind: "access",
+          cls: "ACCESS",
+          incident: true,
+          cause: [
+            { label: "reason", value: 'denied: "ghcr.io/azure/osdu-spi-legal:pr-9" requires auth' },
+          ],
+        },
+        "ACCESS",
+        "Open run, Open PR",
+        /^The fork's own image ghcr\.io\/azure\/osdu-spi-legal cannot be pulled \(denied\); the stack is not the cause$/,
+      ],
       [{ kind: "stack", rung: 0, cls: "ENV", incident: true }, "ENV", "Re-dispatch", /re-dispatch/],
       [
         { kind: "conflict", rung: 0, cls: "CONFLICT", incident: true },

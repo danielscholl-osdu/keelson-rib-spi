@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { emptyFacts } from "../src/facts";
+import { classOf } from "../src/model/attribution";
 import { buildModel } from "../src/model/index";
+import { nextText, verbOf } from "../src/model/next";
 import { consequenceOf } from "../src/model/template";
 import { FIXTURE_NOW, fixtureFacts } from "./harness";
 
@@ -292,5 +294,121 @@ describe("before the first sweep", () => {
     expect(empty.measured).toBe(false);
     expect(empty.queue.items.filter((i) => i.rung < 2)).toHaveLength(0);
     expect(empty.lines.every((l) => l.upstream?.lag === undefined)).toBe(true);
+  });
+});
+
+// No live run has failed this way yet; the job detail in the fixture is synthesized in
+// the shape GHCR returns for a private package.
+const BORROW_401 = "Azure/osdu-spi-partition#115000000175";
+
+function withDescriptorPr(f = fixtureFacts()) {
+  const repo = f.github.data?.repos["Azure/osdu-spi-partition"];
+  const detail = f.details.data?.[BORROW_401];
+  if (!repo || !detail) throw new Error("fixture has partition and the Borrow 401");
+  repo.prs.push({
+    repo: repo.repo,
+    number: 175,
+    title: "feat(deploy): add the spi descriptor",
+    url: "https://github.com/Azure/osdu-spi-partition/pull/175",
+    createdAt: "2026-10-12T21:05:00Z",
+    updatedAt: "2026-10-12T21:14:45Z",
+    draft: false,
+    head: "feat/spi-descriptor",
+    base: "main",
+    headSha: "3f9c2e1000000000000000000000000000000175",
+    mergeState: "BLOCKED",
+    reviewDecision: "REVIEW_REQUIRED",
+    author: "contributor",
+    labels: [],
+    checks: [
+      {
+        id: detail.id,
+        name: "Deploy and Test",
+        workflow: "Validation",
+        runId: 38230000175,
+        status: "COMPLETED",
+        conclusion: "FAILURE",
+        startedAt: detail.startedAt,
+        completedAt: detail.completedAt,
+        url: detail.url,
+      },
+    ],
+  } as unknown as (typeof repo.prs)[number]);
+  return f;
+}
+
+describe("a Borrow 401 on the fork's own image", () => {
+  const items = buildModel(withDescriptorPr(), FIXTURE_NOW).queue.items;
+
+  test("attributes to the fork as ACCESS, not ENV", () => {
+    const m = buildModel(withDescriptorPr(), FIXTURE_NOW);
+    const pr = m.lines.find((l) => l.fork.id === "partition")?.prs.find((p) => p.pr.number === 175);
+    expect(pr?.failures.map((f) => [f.cls, f.step, f.reason])).toEqual([
+      ["ACCESS", "Borrow", "cannot pull ghcr.io/azure/osdu-spi-partition: 401"],
+    ]);
+  });
+
+  test("raises a P1 on the fork's PR that names the image and the code", () => {
+    const access = items.find((i) => i.id === "access:Azure/osdu-spi-partition#175");
+    expect(access).toMatchObject({
+      rung: 1,
+      scope: "partition",
+      cls: "ACCESS",
+      text: "PR #175: Borrow cannot pull ghcr.io/azure/osdu-spi-partition: 401",
+    });
+    expect(access && verbOf(access)).toBe("Open run, Open PR");
+    expect(access && nextText(access)).toBe(
+      "The fork's own image ghcr.io/azure/osdu-spi-partition cannot be pulled (401); the stack is not the cause",
+    );
+  });
+
+  test("the stack incident does not fold it", () => {
+    const stack = items.find((i) => i.kind === "stack");
+    expect(stack?.effects.some((e) => e.text.includes("#175"))).toBe(false);
+    expect(stack?.effects.some((e) => e.text.startsWith("partition template-sync PR"))).toBe(true);
+    expect(items.some((i) => i.id === "stack:lanes")).toBe(false);
+  });
+
+  test("once the stack is deployable again, the lanes count only the stack's failures", () => {
+    const f = withDescriptorPr();
+    const lc = f.lifecycle.data;
+    if (!lc) throw new Error("fixture has lifecycle runs");
+    const cut = Date.parse("2026-10-11T22:00:00Z");
+    f.lifecycle.data = {
+      ...lc,
+      refresh: lc.refresh.filter((r) => Date.parse(r.createdAt) < cut),
+      upgrade: lc.upgrade.filter((r) => Date.parse(r.createdAt) < cut),
+    };
+    const after = buildModel(f, FIXTURE_NOW).queue.items;
+    const lanes = after.find((i) => i.id === "stack:lanes");
+    expect(lanes?.text).toBe("deployable again; 5 fork lanes failed before it recovered");
+    expect(lanes?.effects.some((e) => e.text.includes("#175"))).toBe(false);
+    expect(after.some((i) => i.id === "access:Azure/osdu-spi-partition#175")).toBe(true);
+  });
+
+  test("a Borrow or Verify failure with a stack reason stays ENV", () => {
+    const job = (failedStep: string, reason: string) => ({
+      id: 1,
+      name: "Deploy and Test",
+      status: "completed",
+      url: "",
+      steps: [],
+      failedStep,
+      reason,
+    });
+    const cls = (step: string, reason: string) =>
+      classOf("Deploy and Test", "human", step, job(step, reason));
+    expect(
+      cls(
+        "Borrow",
+        "environment is not deployable after 10 minutes: The environment is in maintenance.",
+      ),
+    ).toBe("ENV");
+    expect(cls("Borrow", "spi-redis: Reconciliation in progress")).toBe("ENV");
+    expect(cls("Verify", "error: You must be logged in to the server (Unauthorized)")).toBe("ENV");
+    expect(
+      cls("Verify", 'Back-off pulling image "ghcr.io/azure/osdu-spi-legal:pr-9": 403 Forbidden'),
+    ).toBe("ACCESS");
+    expect(cls("Prove", "denied: ghcr.io/azure/osdu-spi-legal-test requires auth")).toBe("TEST");
   });
 });

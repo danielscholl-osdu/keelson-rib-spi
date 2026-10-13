@@ -8,7 +8,7 @@
 
 import type { CheckFact, JobDetail, PrFact } from "../facts.ts";
 import { failedChecks } from "./checks.ts";
-import { summarizeReason } from "./reason.ts";
+import { pullFailure, summarizeReason } from "./reason.ts";
 
 export type PrClass =
   | "sync"
@@ -57,6 +57,7 @@ export const CLASS_LABEL: Record<PrClass, string> = {
 
 export type FailureClass =
   | "ENV"
+  | "ACCESS"
   | "TEST"
   | "HALT"
   | "TOOLCHAIN"
@@ -91,6 +92,8 @@ const ENV_STEPS = new Set([
   "Verify",
 ]);
 const TEST_STEPS = new Set(["Prove"]);
+const PULL_STEPS = new Set(["Borrow", "Verify"]);
+const STACK_RE = /not deployable|maintenance|Reconciliation in progress/i;
 const POLICY_CHECKS = /^(Check Paths|Check Code Quality|PR Title|Validate PR Title|Check Commit)/i;
 const TOOLCHAIN_RE =
   /RequireJavaVersion|invalid target release|release version \d+ not supported|class file (major )?version|Unsupported class file|has been compiled by a more recent version|maven-enforcer/i;
@@ -131,9 +134,10 @@ export function classOf(
   const text = detail?.reason ?? "";
   if (/^Deploy and Test$/i.test(name)) {
     if (!detail) return "UNREAD";
+    if (step && PULL_STEPS.has(step) && !STACK_RE.test(text) && pullFailure(text)) return "ACCESS";
     if (step && ENV_STEPS.has(step)) return "ENV";
     if (step && TEST_STEPS.has(step)) return "TEST";
-    if (/not deployable|maintenance|Reconciliation in progress/i.test(text)) return "ENV";
+    if (STACK_RE.test(text)) return "ENV";
     return NETWORK_RE.test(text) ? "INFRA" : "TEST";
   }
   if (POLICY_CHECKS.test(name)) return "POLICY";
@@ -167,6 +171,7 @@ export function toolchainText(reason: string | undefined): string | undefined {
 
 export const CLASS_TONE: Record<FailureClass, "error" | "warn" | "caution" | "info" | "neutral"> = {
   ENV: "info",
+  ACCESS: "error",
   TEST: "error",
   HALT: "error",
   TOOLCHAIN: "caution",

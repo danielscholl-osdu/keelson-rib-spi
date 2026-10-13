@@ -152,7 +152,25 @@ function suites(reason: string): string | undefined {
   return `the ${list(names)} suite${names.length === 1 ? "" : "s"}`;
 }
 
+const GHCR_IMAGE = /ghcr\.io\S*?azure(?:\/|%2F)(osdu-spi-[a-z0-9_-]+)/i;
+const PULL_CODES: [RegExp, string][] = [
+  [/\b401\b/, "401"],
+  [/\b403\b/, "403"],
+  [/manifest unknown/i, "manifest unknown"],
+  [/unauthorized/i, "unauthorized"],
+  [/denied/i, "denied"],
+];
+
+// An image under ghcr.io/azure/osdu-spi-* refused with an auth or pull code.
+export function pullFailure(reason: string): { image: string; code: string } | undefined {
+  const image = GHCR_IMAGE.exec(reason)?.[1];
+  const code = PULL_CODES.find(([re]) => re.test(reason))?.[1];
+  return image && code ? { image: `ghcr.io/azure/${image.toLowerCase()}`, code } : undefined;
+}
+
 function rewrite(reason: string): string {
+  const pull = pullFailure(reason);
+  if (pull) return `cannot pull ${pull.image}: ${pull.code}`;
   if (/GitLab API unreachable/i.test(reason))
     return "GitLab API unreachable while resolving images";
   const aad = /AADSTS(\d+): ([^.]+)/.exec(reason);

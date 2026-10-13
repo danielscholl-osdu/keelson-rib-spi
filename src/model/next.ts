@@ -8,6 +8,7 @@
 
 import type { FailureClass } from "./attribution.ts";
 import type { ItemKind, QueueItem } from "./queue.ts";
+import { pullFailure } from "./reason.ts";
 
 export type ItemClass = FailureClass | "INCIDENT" | "GATE" | "READY";
 
@@ -30,6 +31,7 @@ export const CLASS_VERB: Record<FailureClass | "INCIDENT", string> = {
   UNREAD: "Investigate",
   POLICY: "Investigate",
   ENV: "Re-run lanes",
+  ACCESS: "Open run, Open PR",
   CONFLICT: "Investigate, then Dispatch cascade",
   INCIDENT: "Investigate",
 };
@@ -98,6 +100,12 @@ function failureNext(item: QueueItem): string {
     }
     case "INFRA":
       return `Re-run ${check ?? "the check"} on GitHub; it failed on the network, not the code`;
+    case "ACCESS": {
+      const pull = pullFailure(fact(item, "reason") ?? "");
+      return pull
+        ? `The fork's own image ${pull.image} cannot be pulled (${pull.code}); the stack is not the cause`
+        : "The fork's own image cannot be pulled; the stack is not the cause";
+    }
     case "UNREAD":
       return "Open the failed check on GitHub; the rib could not read its job";
     case "CONFLICT":

@@ -43,6 +43,7 @@ export const KIND_TITLE: Record<ItemKind, string> = {
   releases: "release PRs",
   "template-pr": "osdu-spi PR",
   bump: "env bump",
+  access: "fork image cannot be pulled",
 };
 
 // A listed rule is the one to copy; absent forks fold into one line.

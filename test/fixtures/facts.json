@@ -20159,6 +20159,133 @@
   "details": {
     "at": "2026-10-12T21:58:23.123Z",
     "data": {
+      "Azure/osdu-spi-partition#115000000175": {
+        "id": 115000000175,
+        "name": "Deploy and Test",
+        "status": "completed",
+        "conclusion": "failure",
+        "startedAt": "2026-10-12T21:10:02Z",
+        "completedAt": "2026-10-12T21:14:41Z",
+        "url": "https://github.com/Azure/osdu-spi-partition/actions/runs/38230000175/job/115000000175",
+        "steps": [
+          {
+            "number": 1,
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 2,
+            "name": "Checkout",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 3,
+            "name": "Log in as deploy identity",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 4,
+            "name": "Set up uv",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 5,
+            "name": "Install spi",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 6,
+            "name": "Connect to cluster",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 7,
+            "name": "Match stack version",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 8,
+            "name": "Confirm environment deployable",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 9,
+            "name": "Borrow",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "number": 10,
+            "name": "Verify",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "number": 11,
+            "name": "Mint test callers",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "number": 12,
+            "name": "Log in to GHCR",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "number": 13,
+            "name": "Prove",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "number": 14,
+            "name": "Upload suite reports",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "number": 15,
+            "name": "Restore",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 28,
+            "name": "Post Set up uv",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "number": 29,
+            "name": "Post Log in as deploy identity",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 30,
+            "name": "Post Checkout",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 31,
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "failedStep": "Borrow",
+        "reason": "Failed to pull image \"ghcr.io/azure/osdu-spi-partition:pr-175-3f9c2e1\": unexpected status from GET request to https://ghcr.io/token?scope=repository%3Aazure%2Fosdu-spi-partition%3Apull: 401 Unauthorized"
+      },
       "Azure/osdu-spi-partition#114982304735": {
         "id": 114982304735,
         "name": "Deploy and Test",
