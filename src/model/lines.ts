@@ -115,6 +115,8 @@ export interface LineModel {
   mainRed?: MainFailure;
   mainRun?: RunFact;
   runsRead: boolean;
+  // Whether this fork's PRs and issues were read; a missing halt means nothing until then.
+  repoRead: boolean;
   cascadeRunning: boolean;
   cascadeStop: boolean;
   syncRun?: RunFact;
@@ -449,6 +451,7 @@ export function buildLine(input: {
     mainRed,
     mainRun: runs?.main.find((r) => r.status === "completed"),
     runsRead: runs !== undefined,
+    repoRead: repo !== undefined,
     cascadeRunning,
     cascadeStop,
     syncRun,

@@ -9,6 +9,19 @@ import { FIXTURE_NOW, fixtureFacts } from "./harness";
 const model = buildModel(fixtureFacts(), FIXTURE_NOW);
 
 describe("the fleet on 12 October", () => {
+  test("a failed Sync Upstream reads as a P0 only once the fork's issues were read", () => {
+    const f = fixtureFacts();
+    const ent = f.github.data?.repos["Azure/osdu-spi-entitlements"];
+    if (!ent) throw new Error("fixture has entitlements");
+    ent.issues = ent.issues.filter((i) => !i.labels.includes("sync-failed"));
+    const ids = (facts: typeof f) => buildModel(facts, FIXTURE_NOW).queue.items.map((i) => i.id);
+    expect(ids(f)).toContain("sync-run:entitlements");
+    const dark = fixtureFacts();
+    dark.github = { error: "gh api graphql: HTTP 502" };
+    expect(ids(dark)).not.toContain("sync-run:entitlements");
+    expect(ids(dark)).not.toContain("halt:entitlements");
+  });
+
   test("the verdict is BLOCKED and the badge counts P0 and P1", () => {
     expect(model.measured).toBe(true);
     expect(model.queue.verdict).toBe("BLOCKED");

@@ -340,7 +340,7 @@ function lineItems(line: LineModel, now: Date): QueueItem[] {
       incident: true,
       blocks: lag ?? 1,
     });
-  } else if (line.syncRun?.conclusion === "failure" && !line.syncPr) {
+  } else if (line.repoRead && line.syncRun?.conclusion === "failure" && !line.syncPr) {
     items.push({
       id: `sync-run:${svc}`,
       kind: "sync-run",
