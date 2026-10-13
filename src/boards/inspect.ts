@@ -12,6 +12,7 @@ import type { ActionEntry } from "../act/log.ts";
 import { writeBlocked } from "../act/verbs.ts";
 import type { EntryState, ForkEntry } from "../collect/filters.ts";
 import type { Model } from "../model/index.ts";
+import { itemClass, nextText, verbOf } from "../model/next.ts";
 import { diffText, type ItemKind, type QueueItem, type Rung } from "../model/queue.ts";
 import { age, plural, stamp, zoned } from "../util.ts";
 import { STEP_PREFIX, spreadText } from "./engineering.ts";
@@ -65,8 +66,17 @@ export function inspectTitle(item: QueueItem): string {
 }
 
 function statusOf(item: QueueItem): { label: string; tone: CanvasTone } {
-  const label = item.cls ?? (item.incident ? "INCIDENT" : item.rung === 1 ? "GATE" : "READY");
-  return { label, tone: RUNG_TONE[item.rung] };
+  return { label: itemClass(item), tone: RUNG_TONE[item.rung] };
+}
+
+function nextSection(item: QueueItem, state: InspectState): Section {
+  const listed =
+    state.others?.id === item.id ? state.others.entries.filter((e) => e.state === "listed") : [];
+  return {
+    kind: "rows",
+    title: "Next",
+    items: [{ chip: { label: verbOf(item), tone: "accent" }, text: nextText(item, listed) }],
+  };
 }
 
 function sameEntry(item: QueueItem, state: InspectState): Section | undefined {
@@ -283,6 +293,7 @@ export function inspectBoard(
   const chip = [`P${item.rung}`, since, item.note].filter(Boolean).join(" · ");
   const sections: Section[] = [
     { kind: "rows", items: [{ glyph: RUNG_TONE[item.rung], text: item.text }] },
+    nextSection(item, state),
   ];
   if (item.cause.length > 0) {
     sections.push({

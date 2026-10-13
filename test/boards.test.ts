@@ -3,6 +3,7 @@ import { expectView } from "@keelson/shared";
 import { attentionBoard, badge } from "../src/boards/attention";
 import { PANEL_SOURCES, staleText } from "../src/boards/doctor";
 import { engineeringBoard } from "../src/boards/engineering";
+import { inspectBoard } from "../src/boards/inspect";
 import { linesBoard } from "../src/boards/lines";
 import { stackBoard } from "../src/boards/stack";
 import { emptyFacts } from "../src/facts";
@@ -55,13 +56,14 @@ describe("every board passes the host's render gate", () => {
 });
 
 describe("what the boards say", () => {
-  test("the banner pill is the verdict with the incident count, and rows carry P chips", () => {
+  test("the banner pill is the verdict with the incident count, and rows carry rung and class", () => {
     const b = attentionBoard(model, facts, FIXTURE_NOW);
     expect(b.header?.status?.label).toMatch(/^BLOCKED · \d+ INCIDENTS?$/);
+    expect(b.header?.chip).toBe("3 broke · 1 gate · 2 ready · 21:58 UTC");
     const rows = b.sections[0];
     expect(rows?.kind).toBe("rows");
     if (rows?.kind !== "rows") return;
-    expect(rows.items[0]?.chip).toEqual({ label: "P0", tone: "error" });
+    expect(rows.items[0]?.chip).toEqual({ label: "P0 · ENV", tone: "error" });
     expect(rows.items[0]?.text).toStartWith(
       "Environment · maintenance mode; env-upgrade v0.28.2 in verify",
     );
@@ -71,6 +73,27 @@ describe("what the boards say", () => {
     });
     expect(rows.items[0]?.href).toBeUndefined();
     expect(rows.items[0]?.detail).toBeUndefined();
+  });
+
+  test("every queue row leads its trailing text with the verb the inspector's Next line names", () => {
+    const rows = attentionBoard(model, facts, FIXTURE_NOW).sections[0];
+    if (rows?.kind !== "rows") throw new Error("queue first");
+    expect(rows.items.map((r) => [r.chip?.label, r.trailing?.split(" · ")[0]])).toEqual([
+      ["P0 · ENV", "Re-dispatch"],
+      ["P0 · HALT", "Classify entry"],
+      ["P1 · TOOLCHAIN", "Absorb toolchain"],
+      ["P1 · GATE", "Approve runs"],
+      ["P2 · READY", "Review, then Roll out"],
+      ["P2 · READY", "Review on GitHub"],
+    ]);
+    model.queue.items.forEach((item, n) => {
+      const next = inspectBoard(model, { selected: item.id, item }, FIXTURE_NOW).sections.find(
+        (s) => "title" in s && s.title === "Next",
+      );
+      if (next?.kind !== "rows") throw new Error(`${item.id} has a Next line`);
+      expect(next.items[0]?.chip?.label).toBe(rows.items[n]?.trailing?.split(" · ")[0]);
+      expect(next.items[0]?.text.length).toBeGreaterThan(0);
+    });
   });
 
   test("the open item's row is marked selected and no other is", () => {
@@ -111,7 +134,7 @@ describe("what the boards say", () => {
     );
     expect(doctor.items[0]?.detail).toStartWith("Each panel keeps a source's last good read");
     expect(b.sections[1]?.kind).toBe("rows");
-    expect(b.header?.chip).toStartWith("⚠ DOCTOR · 1 PROBLEM · P0 ");
+    expect(b.header?.chip).toMatch(/^⚠ DOCTOR · 1 PROBLEM · \d+ broke · /);
     expect(() => expectView(ATTENTION_KEY, "board")(b)).not.toThrow();
   });
 

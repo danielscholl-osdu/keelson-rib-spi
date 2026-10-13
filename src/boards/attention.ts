@@ -10,6 +10,7 @@ import type { CanvasBoardView, CanvasTone, RibSurfaceBadge } from "@keelson/shar
 import type { Readiness } from "../act/readiness.ts";
 import type { Facts } from "../facts.ts";
 import type { Model } from "../model/index.ts";
+import { itemClass, verbOf } from "../model/next.ts";
 import type { Rung, Verdict } from "../model/queue.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
 import { age, clip, plural, zoned } from "../util.ts";
@@ -56,7 +57,7 @@ export function attentionBoard(
       ],
     };
   }
-  const { counts, items, verdict } = model.queue;
+  const { counts, items, verdict, incidents } = model.queue;
   const problems = doctor && doctor.tone !== "ok" ? doctorStatus(facts, now).problems.length : 0;
   const flag =
     doctor?.tone === "error"
@@ -64,7 +65,8 @@ export function attentionBoard(
       : problems > 0
         ? `⚠ DOCTOR · ${plural(problems, "PROBLEM", "PROBLEMS")} · `
         : "";
-  const chip = `${flag}P0 ${counts.p0} · P1 ${counts.p1} · P2 ${counts.p2}${model.sweptAt ? ` · ${zoned(model.sweptAt, now)}` : ""}`;
+  const gates = counts.p0 + counts.p1 - incidents;
+  const chip = `${flag}${incidents} broke · ${gates} gate · ${counts.p2} ready${model.sweptAt ? ` · ${zoned(model.sweptAt, now)}` : ""}`;
   const queue: Section = {
     kind: "rows",
     items:
@@ -76,13 +78,15 @@ export function attentionBoard(
             },
           ]
         : items.map((item) => {
-            const trailing = [item.note, age(item.since, now)].filter(Boolean).join(" · ");
+            const trailing = [verbOf(item), item.note, age(item.since, now)]
+              .filter(Boolean)
+              .join(" · ");
             return {
-              chip: { label: `P${item.rung}`, tone: RUNG_TONE[item.rung] },
+              chip: { label: `P${item.rung} · ${itemClass(item)}`, tone: RUNG_TONE[item.rung] },
               text: clip(`${item.scope} · ${item.text}`, 220),
               action: { type: INSPECT_ACTION, payload: { id: item.id } },
               ...(item.id === selected ? { selected: true } : {}),
-              ...(trailing ? { trailing } : {}),
+              trailing,
             };
           }),
   };

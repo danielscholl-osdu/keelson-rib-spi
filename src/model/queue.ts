@@ -648,6 +648,20 @@ function repoName(repo: string): string {
   return forkOf(repo)?.id ?? shortRepo(repo);
 }
 
+// A fork's first release is counted, not named; a release on a line already cut is the news.
+function releaseNames(
+  open: readonly { repo: string; tag: string }[],
+  repos: Record<string, RepoFact>,
+): string {
+  const named = open.filter((r) => repos[r.repo]?.release);
+  const first = open.length - named.length;
+  const names = named.map((r) => `${repoName(r.repo)} ${r.tag}`);
+  if (first > 0) names.push(plural(first, "first release"));
+  return names.length <= 1
+    ? (names[0] ?? "")
+    : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
 function releaseItems(
   repos: Record<string, RepoFact>,
   details: Parameters<typeof prFailures>[1],
@@ -696,11 +710,7 @@ function releaseItems(
       kind: "releases",
       rung: 2,
       scope: "fleet",
-      text: [
-        plural(open.length, "release PR"),
-        open.map((r) => `${repoName(r.repo)} ${r.tag}`).join(", "),
-        state,
-      ]
+      text: [plural(open.length, "release PR"), releaseNames(open, repos), state]
         .filter(Boolean)
         .join(" · "),
       since: oldest.pr.createdAt,
