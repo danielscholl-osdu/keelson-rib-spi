@@ -116,7 +116,7 @@ describe("what the boards say", () => {
     expect(badge(model).count).toBe(p0 + p1);
   });
 
-  test("services lead with gate tiles, then one row per fork, worst first, then fleet lanes", () => {
+  test("services lead with the gate and template tiles, then one row per fork, worst first, then fleet lanes", () => {
     const b = linesBoard(model, FIXTURE_NOW);
     expect(b.header?.status).toEqual({
       label: "1 HALTED · 1 BLOCKED · 3 UPDATES WAITING",
@@ -129,7 +129,7 @@ describe("what the boards say", () => {
       throw new Error("tiles, table, fleet");
     expect(tiles.items.map((i) => i.label)).toEqual([
       "Upstream · oldest held",
-      "Template · oldest PR",
+      "Template · osdu-spi",
       "Release · oldest PR",
     ]);
     expect(tiles.items[0]).toMatchObject({
@@ -137,9 +137,11 @@ describe("what the boards say", () => {
       tone: "warn",
       sub: "upstream reaches main in 1 h 53 min at the median · 8 syncs in 21 d",
     });
-    expect(tiles.items[1]?.sub).toBe(
-      "to v1.2.1 · template-sync PRs merge in 3 d 8 h at the median",
-    );
+    expect(tiles.items[1]).toMatchObject({
+      value: "v1.2.0",
+      delta: { text: "on every fork", direction: "flat", tone: "ok" },
+      sub: "released 10-05 22:43 · 5 open PRs carry v1.2.1 · oldest PR 4d, usually merged in 3 d 8 h · v1.2.1 in release PR #248",
+    });
     expect(tiles.items[2]).toMatchObject({
       value: "none",
       tone: "ok",
@@ -411,5 +413,45 @@ describe("what the boards say", () => {
     expect(refresh?.label).toBe("Brownfield · refresh");
     expect(refresh?.tone).toBe("warn");
     expect(refresh?.sub).toMatch(/^failed · then env-upgrade v0\.28\.2 green \d\d:\d\d · next /);
+  });
+});
+
+describe("a template release the forks have not taken yet", () => {
+  // v1.3.0 cut from main after the forks' PRs were opened at v1.2.0 +14.
+  function released() {
+    const f = fixtureFacts();
+    const repo = f.github.data?.repos["Azure/osdu-spi"];
+    if (!repo || !f.template.data) throw new Error("template facts");
+    repo.release = {
+      tag: "v1.3.0",
+      at: "2026-10-12T21:00:00Z",
+      url: "https://github.com/Azure/osdu-spi/releases/tag/v1.3.0",
+    };
+    repo.prs = repo.prs.filter((p) => !/release/.test(p.title));
+    f.template.data.latestTag = "v1.3.0";
+    f.template.data.mainAhead = 0;
+    return buildModel(f, FIXTURE_NOW);
+  }
+
+  test("the template tile leads with the release and how many forks are on it", () => {
+    const b = linesBoard(released(), FIXTURE_NOW);
+    const tiles = b.sections[0];
+    if (tiles?.kind !== "stats") throw new Error("tiles");
+    expect(tiles.items[1]).toMatchObject({
+      label: "Template · osdu-spi",
+      value: "v1.3.0",
+      delta: { text: "on 0 of 5 forks", tone: "info" },
+    });
+    expect(tiles.items[1]?.sub).toStartWith("released 21:00 · 5 open PRs carry v1.2.0 +14");
+  });
+
+  test("open PRs keep their position and the banner says a newer release is out", () => {
+    const model = released();
+    const set = model.queue.items.find((i) => i.id === "template-set");
+    expect(set?.text).toStartWith("5 template-sync PRs to v1.2.0 +14 (v1.3.0 is out)");
+    expect(set?.cause.find((c) => c.label === "latest")?.value).toBe(
+      "v1.3.0 is out; these PRs carry the template before it",
+    );
+    expect(model.lines.map((l) => l.template.target).filter(Boolean)).not.toContain("v1.3.0");
   });
 });

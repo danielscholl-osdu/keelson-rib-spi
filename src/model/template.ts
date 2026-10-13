@@ -18,6 +18,7 @@ import type {
 import type { Failure } from "./attribution.ts";
 import { type PrVerdict, prVerdict } from "./checks.ts";
 import type { LineModel } from "./lines.ts";
+import { semverCmp } from "./stack.ts";
 
 export interface TemplateRow {
   service: string;
@@ -64,6 +65,7 @@ export interface TemplateStep {
 export interface TemplateModel {
   head?: { sha: string; at: string };
   latestTag?: string;
+  release?: { tag: string; at: string; url: string };
   mainAhead?: number;
   releasePr?: PrFact;
   next?: string;
@@ -164,6 +166,12 @@ export function templateReleasePr(templateRepo: RepoFact | undefined): PrFact | 
   );
 }
 
+// Whether a position like "v1.2.0 +14" sits before release `tag`; a bare sha is not known to.
+export function predates(position: string | undefined, tag: string | undefined): boolean {
+  const version = position ? /^v?\d+\.\d+\.\d+/.exec(position)?.[0] : undefined;
+  return !!version && !!tag && semverCmp(version, tag) < 0;
+}
+
 // "chore: release 1.2.1" with tags like v1.2.0 names the next tag v1.2.1.
 export function nextTag(templateRepo: RepoFact | undefined, latestTag: string | undefined) {
   const pr = templateReleasePr(templateRepo);
@@ -224,6 +232,7 @@ export function buildTemplate(
   return {
     head: templateRepo?.head,
     latestTag,
+    release: templateRepo?.release,
     mainAhead: facts?.mainAhead,
     releasePr: templateReleasePr(templateRepo),
     next,

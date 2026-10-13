@@ -15,6 +15,7 @@ import type {
   TemplateFacts,
 } from "../facts.ts";
 import type { Gh } from "../forge.ts";
+import { semverCmp } from "../model/stack.ts";
 import { short } from "../util.ts";
 
 interface RawCommit {
@@ -87,28 +88,53 @@ export function firstParentChanges(head: string, commits: readonly RawCommit[]):
   return out;
 }
 
+// Older releases a commit is checked against before it falls back to its sha.
+const LABEL_TAGS = 5;
+
+// A template commit by the newest release it contains: "v1.2.0", "v1.2.0 +14".
 async function label(
   gh: Gh,
   marker: string,
-  tag: string | undefined,
+  tags: readonly string[],
   labels: Record<string, string>,
 ): Promise<string> {
-  if (!tag) return short(marker);
-  const key = `${tag}...${marker}`;
+  const newest = tags[0];
+  if (!newest) return short(marker);
+  const key = `${newest}@${marker}`;
   const known = labels[key];
   if (known) return known;
-  const cmp = await gh.rest<RawCompare>(
-    `repos/${TEMPLATE_REPO}/compare/${tag}...${marker}`,
-    "{status, ahead_by, behind_by, commits: []}",
-  );
-  const text =
-    cmp.status === "identical"
-      ? tag
-      : cmp.status === "ahead"
-        ? `${tag} +${cmp.ahead_by}`
-        : `${short(marker)} (before ${tag})`;
+  let text = short(marker);
+  for (const tag of tags.slice(0, LABEL_TAGS)) {
+    const cmp = await gh.rest<RawCompare>(
+      `repos/${TEMPLATE_REPO}/compare/${tag}...${marker}`,
+      "{status, ahead_by, behind_by, commits: []}",
+    );
+    if (cmp.status === "identical") text = tag;
+    else if (cmp.status === "ahead") text = `${tag} +${cmp.ahead_by}`;
+    else continue;
+    break;
+  }
   labels[key] = text;
   return text;
+}
+
+// Release tags newest first, read again only when a new release is cut.
+async function releaseTags(
+  gh: Gh,
+  latest: string | undefined,
+  state: TemplateState,
+): Promise<string[]> {
+  if (!latest) return [];
+  if (state.tags?.latest === latest) return state.tags.list;
+  try {
+    const names = await gh.rest<string[]>(`repos/${TEMPLATE_REPO}/tags?per_page=30`, "[.[].name]");
+    const list = names.filter((t) => /^v?\d+\.\d+\.\d+$/.test(t)).sort((a, b) => semverCmp(b, a));
+    if (!list.includes(latest)) list.unshift(latest);
+    state.tags = { latest, list };
+    return list;
+  } catch {
+    return [latest];
+  }
 }
 
 export interface TemplateState {
@@ -117,6 +143,7 @@ export interface TemplateState {
   aheads: Record<string, number>;
   files?: Record<string, string[]>;
   synced?: { head: string; paths: SyncedPaths };
+  tags?: { latest: string; list: string[] };
 }
 
 // A change's files never change, so each is read once; a failed read stays unread.
@@ -165,6 +192,7 @@ export async function readTemplate(
   const latestTag = template?.release?.tag;
   const facts: TemplateFacts = { latestTag, compares: {} };
   if (!head) return facts;
+  const tags = await releaseTags(gh, latestTag, state);
   if (latestTag) {
     const key = `${latestTag}...${head}`;
     if (state.aheads[key] === undefined) {
@@ -190,12 +218,14 @@ export async function readTemplate(
       entry = {
         marker,
         head,
-        label: await label(gh, marker, latestTag, state.labels),
+        label: await label(gh, marker, tags, state.labels),
         aheadBy: cmp.status === "identical" ? 0 : cmp.ahead_by,
         shas: cmp.commits.map((c) => c.sha),
         changes: firstParentChanges(head, cmp.commits),
       };
       state.compares[key] = entry;
+    } else {
+      entry.label = await label(gh, marker, tags, state.labels);
     }
     facts.compares[marker] = entry;
   }
@@ -212,7 +242,7 @@ export async function readTemplate(
     ),
   );
   const targets: Record<string, string> = {};
-  for (const sha of moved) targets[sha] = await label(gh, sha, latestTag, state.labels);
+  for (const sha of moved) targets[sha] = await label(gh, sha, tags, state.labels);
   if (moved.size > 0) facts.targets = targets;
   return facts;
 }

@@ -86,6 +86,7 @@ const cacheFileSchema = z.object({
         paths: z.object({ dirs: z.array(z.string()), files: z.array(z.string()) }),
       })
       .optional(),
+    tags: z.object({ latest: z.string(), list: z.array(z.string()) }).optional(),
   }),
   upstream: z.record(z.string(), z.unknown()),
   approvals: z.record(z.string(), z.unknown()).optional(),

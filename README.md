@@ -80,9 +80,13 @@ the number of releases the environment trailed at day end. Sweeper folds to one
 line while every run in the window is green. Times are local, the zone Keelson
 draws its timelines and clocks in; days are UTC because the schedules are.
 
-The Services panel opens with three gate tiles. Each shows the oldest item the
-gate holds now and the 21-day median wait: upstream (a sync PR opened to the
-integration PR merged after it), template (template-sync PRs) and release.
+The Services panel opens with three tiles. **Upstream** and **Release** show
+the oldest item their gate holds now and the 21-day median wait: upstream (a
+sync PR opened to the integration PR merged after it) and release.
+**Template** is the newest `osdu-spi` release, how many forks are on it, what
+the open template-sync PRs carry, and their oldest wait. A template commit is
+named by the newest release it contains, `v1.2.0 +14`, so forks and PRs read
+against releases even after a newer one is cut.
 
 The table is one row per fork, worst first, one column per station of the line
 (upstream, sync, cascade, main, release, lane) plus template. A clear station

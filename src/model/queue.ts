@@ -27,7 +27,7 @@ import {
   stoppedAttempts,
   usualText,
 } from "./stack.ts";
-import type { TemplateModel } from "./template.ts";
+import { predates, type TemplateModel } from "./template.ts";
 
 export type Rung = 0 | 1 | 2;
 export type Verdict = "BLOCKED" | "ATTENTION" | "MOVING" | "CONVERGED";
@@ -587,6 +587,8 @@ function templateSetItem(
     targets.length === 1 && targets[0]
       ? `to ${targets[0]}`
       : `at template ${short(template.head?.sha)}`;
+  const tag = template.latestTag;
+  const behindRelease = targets.length === 1 && predates(targets[0], tag);
   const red = open.filter((l) => l.templatePr && realFailure(l.templatePr));
   const cause: Fact[] = [
     {
@@ -598,6 +600,9 @@ function templateSetItem(
       label: "PRs",
       value: `${plural(open.length, "fork")} · ${open.map((l) => l.fork.id).join(", ")}`,
     },
+    ...(behindRelease
+      ? [{ label: "latest", value: `${tag} is out; these PRs carry the template before it` }]
+      : []),
     {
       label: "review",
       value: `${open.filter((l) => l.templatePr?.pr.reviewDecision === "APPROVED").length} of ${open.length} approved`,
@@ -614,7 +619,7 @@ function templateSetItem(
     kind: "template-set",
     rung: 2,
     scope: "fleet",
-    text: `${plural(open.length, "template-sync PR")} ${to} · ${suffix}`,
+    text: `${plural(open.length, "template-sync PR")} ${to}${behindRelease ? ` (${tag} is out)` : ""} · ${suffix}`,
     since: oldest.templatePr?.pr.createdAt,
     url: oldest.templatePr?.pr.url,
     effects: open.map((l) => ({

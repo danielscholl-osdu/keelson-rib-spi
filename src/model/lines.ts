@@ -153,9 +153,16 @@ function pastTag(label: string | undefined): boolean {
   return !!label && / \+\d+$/.test(label);
 }
 
-// Template main past its last tag reads as the release its open release PR will cut.
-function asRelease(label: string | undefined, next: string | undefined, atHead: boolean) {
+// Template main past its last tag reads as the release its open release PR will cut;
+// a commit past an older tag stays as it is.
+function asRelease(
+  label: string | undefined,
+  next: string | undefined,
+  atHead: boolean,
+  latest: string | undefined,
+) {
   if (!pastTag(label)) return label;
+  if (latest && !label?.startsWith(`${latest} +`)) return label;
   if (next) return next;
   return atHead ? "main" : label;
 }
@@ -225,6 +232,7 @@ export function buildLine(input: {
   targets: Record<string, string>;
   templateHead?: { sha: string; at: string };
   templateNext?: string;
+  templateLatest?: string;
   details: Record<string, JobDetail>;
   stack: StackModel;
   now: Date;
@@ -238,6 +246,7 @@ export function buildLine(input: {
     targets,
     templateHead,
     templateNext,
+    templateLatest,
     details,
     stack,
     now,
@@ -443,11 +452,18 @@ export function buildLine(input: {
     lane,
     template: {
       marker,
-      label: atHead ? asRelease(compare?.label, templateNext, true) : compare?.label,
+      label: atHead
+        ? asRelease(compare?.label, templateNext, true, templateLatest)
+        : compare?.label,
       behind: templateBehind,
       target:
         targetSha && targetSha !== marker
-          ? asRelease(targets[targetSha], templateNext, targetSha === templateHead?.sha)
+          ? asRelease(
+              targets[targetSha],
+              templateNext,
+              targetSha === templateHead?.sha,
+              templateLatest,
+            )
           : undefined,
       awaitingRun,
     },

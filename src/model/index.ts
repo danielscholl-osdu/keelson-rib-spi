@@ -48,6 +48,7 @@ export function buildModel(facts: Facts, now: Date): Model {
       targets: facts.template.data?.targets ?? {},
       templateHead: templateRepo?.head,
       templateNext,
+      templateLatest: facts.template.data?.latestTag ?? templateRepo?.release?.tag,
       details,
       stack,
       now,

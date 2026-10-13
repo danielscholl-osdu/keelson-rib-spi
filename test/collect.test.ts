@@ -8,7 +8,7 @@ import {
   parseHalt,
   parseUpstreamSha,
 } from "../src/collect/github";
-import { changeOf, firstParentChanges } from "../src/collect/template";
+import { changeOf, firstParentChanges, readTemplate } from "../src/collect/template";
 import { FORKS, PLANNED, STACK_REPO, TEMPLATE_REPO } from "../src/config";
 import { Gh } from "../src/forge";
 
@@ -257,5 +257,78 @@ describe("GraphQL reads", () => {
     expect(res.data.a.name).toBe("x");
     expect(res.errors[0]?.type).toBe("NOT_FOUND");
     expect(calls).toHaveLength(1);
+  });
+});
+
+describe("template positions", () => {
+  test("a commit is named by the newest release it contains, even from a cached compare", async () => {
+    const head = "5af540b0000000000000000000000000000000000";
+    const marker = "ea9a2e10000000000000000000000000000000000";
+    const target = "bb49a030000000000000000000000000000000000";
+    const status: Record<string, { status: string; ahead_by: number }> = {
+      [`v1.3.0...${marker}`]: { status: "behind", ahead_by: 0 },
+      [`v1.2.0...${marker}`]: { status: "identical", ahead_by: 0 },
+      [`v1.3.0...${target}`]: { status: "behind", ahead_by: 0 },
+      [`v1.2.0...${target}`]: { status: "ahead", ahead_by: 14 },
+      [`v1.3.0...${head}`]: { status: "identical", ahead_by: 0 },
+    };
+    const reads: string[] = [];
+    const exec: RibExec = {
+      runJSON: async (_cmd: string, args: string[]) => {
+        const path = args[1] ?? "";
+        reads.push(path);
+        if (path.endsWith("/tags?per_page=30")) {
+          return { ok: true as const, data: ["v1.2.0", "v1.3.0", "v1.1.0"] as never };
+        }
+        const cmp = status[path.split("/compare/")[1] ?? ""];
+        return cmp
+          ? { ok: true as const, data: { ...cmp, behind_by: 0, commits: [] } as never }
+          : { ok: false as const, error: `no fake for ${path}`, code: 1 };
+      },
+      runText: async () => ({ ok: false as const, error: "unused", code: 1 }),
+    };
+    const fork = FORKS[0];
+    if (!fork) throw new Error("fork");
+    const repos = {
+      [TEMPLATE_REPO]: {
+        repo: TEMPLATE_REPO,
+        url: "",
+        head: { sha: head, at: "2026-10-13T17:55:00Z" },
+        release: { tag: "v1.3.0", at: "2026-10-13T17:55:57Z", url: "" },
+        prs: [],
+        issues: [],
+        deployments: [],
+      },
+      [fork.repo]: {
+        repo: fork.repo,
+        url: "",
+        marker,
+        prs: [{ headMarker: target }],
+        issues: [],
+        deployments: [],
+      },
+    } as never;
+    const state = {
+      compares: {
+        [`${marker}...${head}@v1.3.0#parents`]: {
+          marker,
+          head,
+          label: "ea9a2e1 (before v1.3.0)",
+          aheadBy: 30,
+          shas: [],
+          changes: [],
+        },
+      },
+      labels: {},
+      aheads: {},
+    };
+    const facts = await readTemplate(new Gh(exec), repos, state);
+    expect(facts.compares[marker]?.label).toBe("v1.2.0");
+    expect(facts.targets?.[target]).toBe("v1.2.0 +14");
+    const before = reads.length;
+    await readTemplate(new Gh(exec), repos, state);
+    expect(
+      reads.slice(before).filter((r) => r.includes("/tags") || r.includes("v1.2.0...")),
+    ).toEqual([]);
   });
 });
