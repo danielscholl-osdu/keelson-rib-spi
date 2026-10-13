@@ -6324,7 +6324,825 @@
             "url": "https://github.com/Azure/osdu-spi-partition/actions/runs/36581245594",
             "attempt": 1
           }
-        ]
+        ],
+        "mainRunJobs": {
+          "37499442304": [
+            {
+              "id": 112392355864,
+              "name": "Check Initialization",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T16:55:02Z",
+              "completedAt": "2026-10-06T16:55:07Z",
+              "url": "https://github.com/Azure/osdu-spi-partition/actions/runs/37499442304/job/112392355864",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:03Z",
+                  "completedAt": "2026-10-06T16:55:03Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Checkout Code",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:03Z",
+                  "completedAt": "2026-10-06T16:55:05Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Verify Initialization Status",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:05Z",
+                  "completedAt": "2026-10-06T16:55:05Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Post Checkout Code",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:05Z",
+                  "completedAt": "2026-10-06T16:55:05Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:05Z",
+                  "completedAt": "2026-10-06T16:55:05Z"
+                }
+              ]
+            },
+            {
+              "id": 112392426146,
+              "name": "Check Paths",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T16:55:13Z",
+              "completedAt": "2026-10-06T16:55:18Z",
+              "url": "https://github.com/Azure/osdu-spi-partition/actions/runs/37499442304/job/112392426146",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:14Z",
+                  "completedAt": "2026-10-06T16:55:15Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:15Z",
+                  "completedAt": "2026-10-06T16:55:16Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Check for build-relevant changes",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:16Z",
+                  "completedAt": "2026-10-06T16:55:16Z"
+                },
+                {
+                  "number": 4,
+                  "name": "List upstream-owned files the PR changes",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T16:55:16Z",
+                  "completedAt": "2026-10-06T16:55:16Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Assert upstream ownership split (ADR-038)",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T16:55:16Z",
+                  "completedAt": "2026-10-06T16:55:16Z"
+                },
+                {
+                  "number": 10,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:16Z",
+                  "completedAt": "2026-10-06T16:55:16Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:16Z",
+                  "completedAt": "2026-10-06T16:55:17Z"
+                }
+              ]
+            },
+            {
+              "id": 112392426347,
+              "name": "Check Repository",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T16:55:13Z",
+              "completedAt": "2026-10-06T16:55:18Z",
+              "url": "https://github.com/Azure/osdu-spi-partition/actions/runs/37499442304/job/112392426347",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:14Z",
+                  "completedAt": "2026-10-06T16:55:14Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:14Z",
+                  "completedAt": "2026-10-06T16:55:15Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Check Repository Initialization",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:15Z",
+                  "completedAt": "2026-10-06T16:55:15Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Check if Java Repository",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:15Z",
+                  "completedAt": "2026-10-06T16:55:15Z"
+                },
+                {
+                  "number": 8,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:15Z",
+                  "completedAt": "2026-10-06T16:55:16Z"
+                },
+                {
+                  "number": 9,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:16Z",
+                  "completedAt": "2026-10-06T16:55:16Z"
+                }
+              ]
+            },
+            {
+              "id": 112392511470,
+              "name": "Java Build",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T16:55:23Z",
+              "completedAt": "2026-10-06T16:57:03Z",
+              "url": "https://github.com/Azure/osdu-spi-partition/actions/runs/37499442304/job/112392511470",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:23Z",
+                  "completedAt": "2026-10-06T16:55:25Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:25Z",
+                  "completedAt": "2026-10-06T16:55:26Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Restore local actions for sync PRs",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T16:55:26Z",
+                  "completedAt": "2026-10-06T16:55:26Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Set up JDK",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:26Z",
+                  "completedAt": "2026-10-06T16:55:29Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Cache Maven packages",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:29Z",
+                  "completedAt": "2026-10-06T16:55:34Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Setup Maven Settings",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:34Z",
+                  "completedAt": "2026-10-06T16:55:34Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Run Java Build",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:55:34Z",
+                  "completedAt": "2026-10-06T16:57:00Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Post Run Java Build",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:00Z",
+                  "completedAt": "2026-10-06T16:57:00Z"
+                },
+                {
+                  "number": 12,
+                  "name": "Post Cache Maven packages",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:00Z",
+                  "completedAt": "2026-10-06T16:57:01Z"
+                },
+                {
+                  "number": 13,
+                  "name": "Post Set up JDK",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:01Z",
+                  "completedAt": "2026-10-06T16:57:01Z"
+                },
+                {
+                  "number": 14,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:01Z",
+                  "completedAt": "2026-10-06T16:57:01Z"
+                },
+                {
+                  "number": 15,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:01Z",
+                  "completedAt": "2026-10-06T16:57:01Z"
+                }
+              ]
+            },
+            {
+              "id": 112393297850,
+              "name": "Docker Build",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T16:57:09Z",
+              "completedAt": "2026-10-06T16:58:03Z",
+              "url": "https://github.com/Azure/osdu-spi-partition/actions/runs/37499442304/job/112393297850",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:10Z",
+                  "completedAt": "2026-10-06T16:57:11Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:11Z",
+                  "completedAt": "2026-10-06T16:57:12Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Service Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:12Z",
+                  "completedAt": "2026-10-06T16:57:50Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Acceptance Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:50Z",
+                  "completedAt": "2026-10-06T16:57:56Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Load Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:56Z",
+                  "completedAt": "2026-10-06T16:57:57Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Post Load Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:57Z",
+                  "completedAt": "2026-10-06T16:57:57Z"
+                },
+                {
+                  "number": 8,
+                  "name": "Post Acceptance Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:57Z",
+                  "completedAt": "2026-10-06T16:57:59Z"
+                },
+                {
+                  "number": 9,
+                  "name": "Post Service Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:59Z",
+                  "completedAt": "2026-10-06T16:58:01Z"
+                },
+                {
+                  "number": 10,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:58:01Z",
+                  "completedAt": "2026-10-06T16:58:01Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:58:01Z",
+                  "completedAt": "2026-10-06T16:58:01Z"
+                }
+              ]
+            },
+            {
+              "id": 112393298029,
+              "name": "Check Code Quality",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T16:57:11Z",
+              "completedAt": "2026-10-06T16:57:17Z",
+              "url": "https://github.com/Azure/osdu-spi-partition/actions/runs/37499442304/job/112393298029",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:12Z",
+                  "completedAt": "2026-10-06T16:57:13Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Checkout Code",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:13Z",
+                  "completedAt": "2026-10-06T16:57:14Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Restore local actions for sync PRs",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T16:57:14Z",
+                  "completedAt": "2026-10-06T16:57:14Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Validate Commit Messages",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T16:57:14Z",
+                  "completedAt": "2026-10-06T16:57:14Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Check for Merge Conflicts",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:14Z",
+                  "completedAt": "2026-10-06T16:57:14Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Verify Branch Status",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T16:57:14Z",
+                  "completedAt": "2026-10-06T16:57:14Z"
+                },
+                {
+                  "number": 12,
+                  "name": "Post Checkout Code",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:14Z",
+                  "completedAt": "2026-10-06T16:57:14Z"
+                },
+                {
+                  "number": 13,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:14Z",
+                  "completedAt": "2026-10-06T16:57:14Z"
+                }
+              ]
+            },
+            {
+              "id": 112393747578,
+              "name": "Docker Push",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T16:58:09Z",
+              "completedAt": "2026-10-06T16:59:28Z",
+              "url": "https://github.com/Azure/osdu-spi-partition/actions/runs/37499442304/job/112393747578",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:58:10Z",
+                  "completedAt": "2026-10-06T16:58:10Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:58:10Z",
+                  "completedAt": "2026-10-06T16:58:12Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Docker Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:58:12Z",
+                  "completedAt": "2026-10-06T16:59:13Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Acceptance Image Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:13Z",
+                  "completedAt": "2026-10-06T16:59:21Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Load Image Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:21Z",
+                  "completedAt": "2026-10-06T16:59:21Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Post Load Image Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:21Z",
+                  "completedAt": "2026-10-06T16:59:21Z"
+                },
+                {
+                  "number": 8,
+                  "name": "Post Acceptance Image Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:21Z",
+                  "completedAt": "2026-10-06T16:59:23Z"
+                },
+                {
+                  "number": 9,
+                  "name": "Post Docker Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:23Z",
+                  "completedAt": "2026-10-06T16:59:26Z"
+                },
+                {
+                  "number": 10,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:26Z",
+                  "completedAt": "2026-10-06T16:59:26Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:26Z",
+                  "completedAt": "2026-10-06T16:59:26Z"
+                }
+              ]
+            },
+            {
+              "id": 112394388638,
+              "name": "Deploy Gate",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T16:59:33Z",
+              "completedAt": "2026-10-06T16:59:40Z",
+              "url": "https://github.com/Azure/osdu-spi-partition/actions/runs/37499442304/job/112394388638",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:34Z",
+                  "completedAt": "2026-10-06T16:59:35Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:35Z",
+                  "completedAt": "2026-10-06T16:59:36Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Decide",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:36Z",
+                  "completedAt": "2026-10-06T16:59:36Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:36Z",
+                  "completedAt": "2026-10-06T16:59:37Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:37Z",
+                  "completedAt": "2026-10-06T16:59:37Z"
+                }
+              ]
+            },
+            {
+              "id": 112394469770,
+              "name": "Deploy and Test",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T16:59:44Z",
+              "completedAt": "2026-10-06T17:07:25Z",
+              "url": "https://github.com/Azure/osdu-spi-partition/actions/runs/37499442304/job/112394469770",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:44Z",
+                  "completedAt": "2026-10-06T16:59:46Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Checkout",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:46Z",
+                  "completedAt": "2026-10-06T16:59:47Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Log in as deploy identity",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:47Z",
+                  "completedAt": "2026-10-06T16:59:53Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Set up uv",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:53Z",
+                  "completedAt": "2026-10-06T16:59:54Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Install spi",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:54Z",
+                  "completedAt": "2026-10-06T17:00:01Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Connect to cluster",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:00:01Z",
+                  "completedAt": "2026-10-06T17:00:05Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Match stack version",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:00:05Z",
+                  "completedAt": "2026-10-06T17:00:09Z"
+                },
+                {
+                  "number": 8,
+                  "name": "Confirm environment deployable",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:00:09Z",
+                  "completedAt": "2026-10-06T17:04:21Z"
+                },
+                {
+                  "number": 9,
+                  "name": "Borrow",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:04:21Z",
+                  "completedAt": "2026-10-06T17:04:31Z"
+                },
+                {
+                  "number": 10,
+                  "name": "Verify",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:04:31Z",
+                  "completedAt": "2026-10-06T17:06:32Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Mint test callers",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:06:32Z",
+                  "completedAt": "2026-10-06T17:06:33Z"
+                },
+                {
+                  "number": 12,
+                  "name": "Log in to GHCR",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:06:33Z",
+                  "completedAt": "2026-10-06T17:06:34Z"
+                },
+                {
+                  "number": 13,
+                  "name": "Prove",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:06:34Z",
+                  "completedAt": "2026-10-06T17:07:16Z"
+                },
+                {
+                  "number": 14,
+                  "name": "Upload suite reports",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:07:16Z",
+                  "completedAt": "2026-10-06T17:07:17Z"
+                },
+                {
+                  "number": 15,
+                  "name": "Restore",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:07:17Z",
+                  "completedAt": "2026-10-06T17:07:22Z"
+                },
+                {
+                  "number": 27,
+                  "name": "Post Log in to GHCR",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:07:22Z",
+                  "completedAt": "2026-10-06T17:07:22Z"
+                },
+                {
+                  "number": 28,
+                  "name": "Post Set up uv",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:07:22Z",
+                  "completedAt": "2026-10-06T17:07:23Z"
+                },
+                {
+                  "number": 29,
+                  "name": "Post Log in as deploy identity",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:07:23Z",
+                  "completedAt": "2026-10-06T17:07:23Z"
+                },
+                {
+                  "number": 30,
+                  "name": "Post Checkout",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:07:23Z",
+                  "completedAt": "2026-10-06T17:07:24Z"
+                },
+                {
+                  "number": 31,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:07:24Z",
+                  "completedAt": "2026-10-06T17:07:24Z"
+                }
+              ]
+            },
+            {
+              "id": 112397948987,
+              "name": "Validation Summary",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T17:07:32Z",
+              "completedAt": "2026-10-06T17:07:36Z",
+              "url": "https://github.com/Azure/osdu-spi-partition/actions/runs/37499442304/job/112397948987",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:07:33Z",
+                  "completedAt": "2026-10-06T17:07:33Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Summarize",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:07:33Z",
+                  "completedAt": "2026-10-06T17:07:33Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Comment on the pull request",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T17:07:33Z",
+                  "completedAt": "2026-10-06T17:07:33Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Report",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:07:33Z",
+                  "completedAt": "2026-10-06T17:07:33Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:07:33Z",
+                  "completedAt": "2026-10-06T17:07:33Z"
+                }
+              ]
+            }
+          ]
+        }
       },
       "Azure/osdu-spi-legal": {
         "sync": [
@@ -6664,7 +7482,825 @@
             "url": "https://github.com/Azure/osdu-spi-legal/actions/runs/36645679375",
             "attempt": 1
           }
-        ]
+        ],
+        "mainRunJobs": {
+          "37537951640": [
+            {
+              "id": 112523621770,
+              "name": "Check Initialization",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T22:02:13Z",
+              "completedAt": "2026-10-06T22:02:17Z",
+              "url": "https://github.com/Azure/osdu-spi-legal/actions/runs/37537951640/job/112523621770",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:02:14Z",
+                  "completedAt": "2026-10-06T22:02:14Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Checkout Code",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:02:14Z",
+                  "completedAt": "2026-10-06T22:02:15Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Verify Initialization Status",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:02:15Z",
+                  "completedAt": "2026-10-06T22:02:15Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Post Checkout Code",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:02:15Z",
+                  "completedAt": "2026-10-06T22:02:15Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:02:15Z",
+                  "completedAt": "2026-10-06T22:02:15Z"
+                }
+              ]
+            },
+            {
+              "id": 112523702824,
+              "name": "Check Paths",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T22:03:00Z",
+              "completedAt": "2026-10-06T22:03:03Z",
+              "url": "https://github.com/Azure/osdu-spi-legal/actions/runs/37537951640/job/112523702824",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:03:00Z",
+                  "completedAt": "2026-10-06T22:03:01Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:03:01Z",
+                  "completedAt": "2026-10-06T22:03:02Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Check for build-relevant changes",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:03:02Z",
+                  "completedAt": "2026-10-06T22:03:02Z"
+                },
+                {
+                  "number": 4,
+                  "name": "List upstream-owned files the PR changes",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T22:03:02Z",
+                  "completedAt": "2026-10-06T22:03:02Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Assert upstream ownership split (ADR-038)",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T22:03:02Z",
+                  "completedAt": "2026-10-06T22:03:02Z"
+                },
+                {
+                  "number": 10,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:03:02Z",
+                  "completedAt": "2026-10-06T22:03:02Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:03:02Z",
+                  "completedAt": "2026-10-06T22:03:02Z"
+                }
+              ]
+            },
+            {
+              "id": 112523702974,
+              "name": "Check Repository",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T22:02:24Z",
+              "completedAt": "2026-10-06T22:02:28Z",
+              "url": "https://github.com/Azure/osdu-spi-legal/actions/runs/37537951640/job/112523702974",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:02:25Z",
+                  "completedAt": "2026-10-06T22:02:26Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:02:26Z",
+                  "completedAt": "2026-10-06T22:02:26Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Check Repository Initialization",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:02:26Z",
+                  "completedAt": "2026-10-06T22:02:26Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Check if Java Repository",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:02:26Z",
+                  "completedAt": "2026-10-06T22:02:26Z"
+                },
+                {
+                  "number": 8,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:02:26Z",
+                  "completedAt": "2026-10-06T22:02:27Z"
+                },
+                {
+                  "number": 9,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:02:27Z",
+                  "completedAt": "2026-10-06T22:02:27Z"
+                }
+              ]
+            },
+            {
+              "id": 112523987872,
+              "name": "Java Build",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T22:03:13Z",
+              "completedAt": "2026-10-06T22:06:53Z",
+              "url": "https://github.com/Azure/osdu-spi-legal/actions/runs/37537951640/job/112523987872",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:03:50Z",
+                  "completedAt": "2026-10-06T22:03:52Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:03:52Z",
+                  "completedAt": "2026-10-06T22:03:53Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Restore local actions for sync PRs",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T22:03:53Z",
+                  "completedAt": "2026-10-06T22:03:53Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Set up JDK",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:03:53Z",
+                  "completedAt": "2026-10-06T22:03:55Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Cache Maven packages",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:03:55Z",
+                  "completedAt": "2026-10-06T22:03:58Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Setup Maven Settings",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:03:58Z",
+                  "completedAt": "2026-10-06T22:03:58Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Run Java Build",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:03:58Z",
+                  "completedAt": "2026-10-06T22:06:48Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Post Run Java Build",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:06:48Z",
+                  "completedAt": "2026-10-06T22:06:49Z"
+                },
+                {
+                  "number": 12,
+                  "name": "Post Cache Maven packages",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:06:49Z",
+                  "completedAt": "2026-10-06T22:06:50Z"
+                },
+                {
+                  "number": 13,
+                  "name": "Post Set up JDK",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:06:50Z",
+                  "completedAt": "2026-10-06T22:06:50Z"
+                },
+                {
+                  "number": 14,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:06:50Z",
+                  "completedAt": "2026-10-06T22:06:50Z"
+                },
+                {
+                  "number": 15,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:06:50Z",
+                  "completedAt": "2026-10-06T22:06:50Z"
+                }
+              ]
+            },
+            {
+              "id": 112525394538,
+              "name": "Docker Build",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T22:09:12Z",
+              "completedAt": "2026-10-06T22:09:56Z",
+              "url": "https://github.com/Azure/osdu-spi-legal/actions/runs/37537951640/job/112525394538",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:09:13Z",
+                  "completedAt": "2026-10-06T22:09:13Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:09:13Z",
+                  "completedAt": "2026-10-06T22:09:14Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Service Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:09:14Z",
+                  "completedAt": "2026-10-06T22:09:46Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Acceptance Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:09:46Z",
+                  "completedAt": "2026-10-06T22:09:51Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Load Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:09:51Z",
+                  "completedAt": "2026-10-06T22:09:51Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Post Load Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:09:51Z",
+                  "completedAt": "2026-10-06T22:09:51Z"
+                },
+                {
+                  "number": 8,
+                  "name": "Post Acceptance Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:09:51Z",
+                  "completedAt": "2026-10-06T22:09:53Z"
+                },
+                {
+                  "number": 9,
+                  "name": "Post Service Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:09:53Z",
+                  "completedAt": "2026-10-06T22:09:55Z"
+                },
+                {
+                  "number": 10,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:09:55Z",
+                  "completedAt": "2026-10-06T22:09:55Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:09:55Z",
+                  "completedAt": "2026-10-06T22:09:55Z"
+                }
+              ]
+            },
+            {
+              "id": 112525394543,
+              "name": "Check Code Quality",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T22:08:48Z",
+              "completedAt": "2026-10-06T22:08:52Z",
+              "url": "https://github.com/Azure/osdu-spi-legal/actions/runs/37537951640/job/112525394543",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:08:49Z",
+                  "completedAt": "2026-10-06T22:08:49Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Checkout Code",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:08:49Z",
+                  "completedAt": "2026-10-06T22:08:50Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Restore local actions for sync PRs",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T22:08:50Z",
+                  "completedAt": "2026-10-06T22:08:50Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Validate Commit Messages",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T22:08:50Z",
+                  "completedAt": "2026-10-06T22:08:50Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Check for Merge Conflicts",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:08:50Z",
+                  "completedAt": "2026-10-06T22:08:50Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Verify Branch Status",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T22:08:50Z",
+                  "completedAt": "2026-10-06T22:08:50Z"
+                },
+                {
+                  "number": 12,
+                  "name": "Post Checkout Code",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:08:50Z",
+                  "completedAt": "2026-10-06T22:08:50Z"
+                },
+                {
+                  "number": 13,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:08:50Z",
+                  "completedAt": "2026-10-06T22:08:50Z"
+                }
+              ]
+            },
+            {
+              "id": 112526469534,
+              "name": "Docker Push",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T22:10:10Z",
+              "completedAt": "2026-10-06T22:10:58Z",
+              "url": "https://github.com/Azure/osdu-spi-legal/actions/runs/37537951640/job/112526469534",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:10:11Z",
+                  "completedAt": "2026-10-06T22:10:12Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:10:12Z",
+                  "completedAt": "2026-10-06T22:10:12Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Docker Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:10:12Z",
+                  "completedAt": "2026-10-06T22:10:46Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Acceptance Image Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:10:46Z",
+                  "completedAt": "2026-10-06T22:10:51Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Load Image Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:10:51Z",
+                  "completedAt": "2026-10-06T22:10:52Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Post Load Image Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:10:52Z",
+                  "completedAt": "2026-10-06T22:10:52Z"
+                },
+                {
+                  "number": 8,
+                  "name": "Post Acceptance Image Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:10:52Z",
+                  "completedAt": "2026-10-06T22:10:54Z"
+                },
+                {
+                  "number": 9,
+                  "name": "Post Docker Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:10:54Z",
+                  "completedAt": "2026-10-06T22:10:56Z"
+                },
+                {
+                  "number": 10,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:10:56Z",
+                  "completedAt": "2026-10-06T22:10:57Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:10:57Z",
+                  "completedAt": "2026-10-06T22:10:57Z"
+                }
+              ]
+            },
+            {
+              "id": 112526843285,
+              "name": "Deploy Gate",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T22:11:18Z",
+              "completedAt": "2026-10-06T22:11:24Z",
+              "url": "https://github.com/Azure/osdu-spi-legal/actions/runs/37537951640/job/112526843285",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:11:19Z",
+                  "completedAt": "2026-10-06T22:11:20Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:11:20Z",
+                  "completedAt": "2026-10-06T22:11:21Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Decide",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:11:21Z",
+                  "completedAt": "2026-10-06T22:11:21Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:11:21Z",
+                  "completedAt": "2026-10-06T22:11:22Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:11:22Z",
+                  "completedAt": "2026-10-06T22:11:22Z"
+                }
+              ]
+            },
+            {
+              "id": 112526998331,
+              "name": "Deploy and Test",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T22:11:37Z",
+              "completedAt": "2026-10-06T22:18:17Z",
+              "url": "https://github.com/Azure/osdu-spi-legal/actions/runs/37537951640/job/112526998331",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:11:38Z",
+                  "completedAt": "2026-10-06T22:11:40Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Checkout",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:11:40Z",
+                  "completedAt": "2026-10-06T22:11:41Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Log in as deploy identity",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:11:41Z",
+                  "completedAt": "2026-10-06T22:11:48Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Set up uv",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:11:48Z",
+                  "completedAt": "2026-10-06T22:11:50Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Install spi",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:11:50Z",
+                  "completedAt": "2026-10-06T22:11:56Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Connect to cluster",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:11:56Z",
+                  "completedAt": "2026-10-06T22:11:59Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Match stack version",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:11:59Z",
+                  "completedAt": "2026-10-06T22:12:03Z"
+                },
+                {
+                  "number": 8,
+                  "name": "Confirm environment deployable",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:12:03Z",
+                  "completedAt": "2026-10-06T22:12:14Z"
+                },
+                {
+                  "number": 9,
+                  "name": "Borrow",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:12:14Z",
+                  "completedAt": "2026-10-06T22:12:22Z"
+                },
+                {
+                  "number": 10,
+                  "name": "Verify",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:12:22Z",
+                  "completedAt": "2026-10-06T22:16:30Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Mint test callers",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:16:30Z",
+                  "completedAt": "2026-10-06T22:16:30Z"
+                },
+                {
+                  "number": 12,
+                  "name": "Log in to GHCR",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:16:30Z",
+                  "completedAt": "2026-10-06T22:16:32Z"
+                },
+                {
+                  "number": 13,
+                  "name": "Prove",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:16:32Z",
+                  "completedAt": "2026-10-06T22:18:09Z"
+                },
+                {
+                  "number": 14,
+                  "name": "Upload suite reports",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:18:09Z",
+                  "completedAt": "2026-10-06T22:18:10Z"
+                },
+                {
+                  "number": 15,
+                  "name": "Restore",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:18:10Z",
+                  "completedAt": "2026-10-06T22:18:14Z"
+                },
+                {
+                  "number": 27,
+                  "name": "Post Log in to GHCR",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:18:14Z",
+                  "completedAt": "2026-10-06T22:18:14Z"
+                },
+                {
+                  "number": 28,
+                  "name": "Post Set up uv",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:18:14Z",
+                  "completedAt": "2026-10-06T22:18:14Z"
+                },
+                {
+                  "number": 29,
+                  "name": "Post Log in as deploy identity",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:18:14Z",
+                  "completedAt": "2026-10-06T22:18:15Z"
+                },
+                {
+                  "number": 30,
+                  "name": "Post Checkout",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:18:15Z",
+                  "completedAt": "2026-10-06T22:18:15Z"
+                },
+                {
+                  "number": 31,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:18:15Z",
+                  "completedAt": "2026-10-06T22:18:15Z"
+                }
+              ]
+            },
+            {
+              "id": 112529459035,
+              "name": "Validation Summary",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T22:19:43Z",
+              "completedAt": "2026-10-06T22:19:47Z",
+              "url": "https://github.com/Azure/osdu-spi-legal/actions/runs/37537951640/job/112529459035",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:19:44Z",
+                  "completedAt": "2026-10-06T22:19:44Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Summarize",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:19:44Z",
+                  "completedAt": "2026-10-06T22:19:44Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Comment on the pull request",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T22:19:44Z",
+                  "completedAt": "2026-10-06T22:19:44Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Report",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:19:44Z",
+                  "completedAt": "2026-10-06T22:19:44Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T22:19:44Z",
+                  "completedAt": "2026-10-06T22:19:44Z"
+                }
+              ]
+            }
+          ]
+        }
       },
       "Azure/osdu-spi-entitlements": {
         "sync": [
@@ -7019,7 +8655,825 @@
             "url": "https://github.com/Azure/osdu-spi-entitlements/actions/runs/37457528945",
             "attempt": 1
           }
-        ]
+        ],
+        "mainRunJobs": {
+          "37499230123": [
+            {
+              "id": 112391628328,
+              "name": "Check Initialization",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T16:53:26Z",
+              "completedAt": "2026-10-06T16:53:30Z",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/actions/runs/37499230123/job/112391628328",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:27Z",
+                  "completedAt": "2026-10-06T16:53:28Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Checkout Code",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:28Z",
+                  "completedAt": "2026-10-06T16:53:28Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Verify Initialization Status",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:28Z",
+                  "completedAt": "2026-10-06T16:53:28Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Post Checkout Code",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:28Z",
+                  "completedAt": "2026-10-06T16:53:29Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:29Z",
+                  "completedAt": "2026-10-06T16:53:29Z"
+                }
+              ]
+            },
+            {
+              "id": 112391699280,
+              "name": "Check Paths",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T16:53:35Z",
+              "completedAt": "2026-10-06T16:53:39Z",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/actions/runs/37499230123/job/112391699280",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:35Z",
+                  "completedAt": "2026-10-06T16:53:36Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:36Z",
+                  "completedAt": "2026-10-06T16:53:37Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Check for build-relevant changes",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:37Z",
+                  "completedAt": "2026-10-06T16:53:37Z"
+                },
+                {
+                  "number": 4,
+                  "name": "List upstream-owned files the PR changes",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T16:53:37Z",
+                  "completedAt": "2026-10-06T16:53:37Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Assert upstream ownership split (ADR-038)",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T16:53:37Z",
+                  "completedAt": "2026-10-06T16:53:37Z"
+                },
+                {
+                  "number": 10,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:37Z",
+                  "completedAt": "2026-10-06T16:53:37Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:37Z",
+                  "completedAt": "2026-10-06T16:53:37Z"
+                }
+              ]
+            },
+            {
+              "id": 112391699502,
+              "name": "Check Repository",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T16:53:35Z",
+              "completedAt": "2026-10-06T16:53:41Z",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/actions/runs/37499230123/job/112391699502",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:36Z",
+                  "completedAt": "2026-10-06T16:53:37Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:37Z",
+                  "completedAt": "2026-10-06T16:53:38Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Check Repository Initialization",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:38Z",
+                  "completedAt": "2026-10-06T16:53:38Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Check if Java Repository",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:38Z",
+                  "completedAt": "2026-10-06T16:53:38Z"
+                },
+                {
+                  "number": 8,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:38Z",
+                  "completedAt": "2026-10-06T16:53:38Z"
+                },
+                {
+                  "number": 9,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:38Z",
+                  "completedAt": "2026-10-06T16:53:38Z"
+                }
+              ]
+            },
+            {
+              "id": 112391786722,
+              "name": "Java Build",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T16:53:47Z",
+              "completedAt": "2026-10-06T16:56:26Z",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/actions/runs/37499230123/job/112391786722",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:48Z",
+                  "completedAt": "2026-10-06T16:53:49Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:49Z",
+                  "completedAt": "2026-10-06T16:53:51Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Restore local actions for sync PRs",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T16:53:51Z",
+                  "completedAt": "2026-10-06T16:53:51Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Set up JDK",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:51Z",
+                  "completedAt": "2026-10-06T16:53:53Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Cache Maven packages",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:53Z",
+                  "completedAt": "2026-10-06T16:53:54Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Setup Maven Settings",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:54Z",
+                  "completedAt": "2026-10-06T16:53:54Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Run Java Build",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:53:54Z",
+                  "completedAt": "2026-10-06T16:56:22Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Post Run Java Build",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:56:22Z",
+                  "completedAt": "2026-10-06T16:56:22Z"
+                },
+                {
+                  "number": 12,
+                  "name": "Post Cache Maven packages",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:56:22Z",
+                  "completedAt": "2026-10-06T16:56:22Z"
+                },
+                {
+                  "number": 13,
+                  "name": "Post Set up JDK",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:56:22Z",
+                  "completedAt": "2026-10-06T16:56:23Z"
+                },
+                {
+                  "number": 14,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:56:23Z",
+                  "completedAt": "2026-10-06T16:56:23Z"
+                },
+                {
+                  "number": 15,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:56:23Z",
+                  "completedAt": "2026-10-06T16:56:23Z"
+                }
+              ]
+            },
+            {
+              "id": 112393020834,
+              "name": "Check Code Quality",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T16:56:32Z",
+              "completedAt": "2026-10-06T16:56:38Z",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/actions/runs/37499230123/job/112393020834",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:56:32Z",
+                  "completedAt": "2026-10-06T16:56:34Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Checkout Code",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:56:34Z",
+                  "completedAt": "2026-10-06T16:56:35Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Restore local actions for sync PRs",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T16:56:35Z",
+                  "completedAt": "2026-10-06T16:56:35Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Validate Commit Messages",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T16:56:35Z",
+                  "completedAt": "2026-10-06T16:56:35Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Check for Merge Conflicts",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:56:35Z",
+                  "completedAt": "2026-10-06T16:56:35Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Verify Branch Status",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T16:56:35Z",
+                  "completedAt": "2026-10-06T16:56:35Z"
+                },
+                {
+                  "number": 12,
+                  "name": "Post Checkout Code",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:56:35Z",
+                  "completedAt": "2026-10-06T16:56:35Z"
+                },
+                {
+                  "number": 13,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:56:35Z",
+                  "completedAt": "2026-10-06T16:56:35Z"
+                }
+              ]
+            },
+            {
+              "id": 112393020925,
+              "name": "Docker Build",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T16:56:31Z",
+              "completedAt": "2026-10-06T16:57:44Z",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/actions/runs/37499230123/job/112393020925",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:56:32Z",
+                  "completedAt": "2026-10-06T16:56:33Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:56:33Z",
+                  "completedAt": "2026-10-06T16:56:33Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Service Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:56:33Z",
+                  "completedAt": "2026-10-06T16:57:30Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Acceptance Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:30Z",
+                  "completedAt": "2026-10-06T16:57:36Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Load Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:36Z",
+                  "completedAt": "2026-10-06T16:57:37Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Post Load Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:37Z",
+                  "completedAt": "2026-10-06T16:57:37Z"
+                },
+                {
+                  "number": 8,
+                  "name": "Post Acceptance Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:37Z",
+                  "completedAt": "2026-10-06T16:57:39Z"
+                },
+                {
+                  "number": 9,
+                  "name": "Post Service Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:39Z",
+                  "completedAt": "2026-10-06T16:57:42Z"
+                },
+                {
+                  "number": 10,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:42Z",
+                  "completedAt": "2026-10-06T16:57:42Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:42Z",
+                  "completedAt": "2026-10-06T16:57:42Z"
+                }
+              ]
+            },
+            {
+              "id": 112393605553,
+              "name": "Docker Push",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T16:57:51Z",
+              "completedAt": "2026-10-06T16:58:46Z",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/actions/runs/37499230123/job/112393605553",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:52Z",
+                  "completedAt": "2026-10-06T16:57:52Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:52Z",
+                  "completedAt": "2026-10-06T16:57:53Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Docker Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:57:53Z",
+                  "completedAt": "2026-10-06T16:58:34Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Acceptance Image Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:58:34Z",
+                  "completedAt": "2026-10-06T16:58:40Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Load Image Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:58:40Z",
+                  "completedAt": "2026-10-06T16:58:40Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Post Load Image Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:58:40Z",
+                  "completedAt": "2026-10-06T16:58:40Z"
+                },
+                {
+                  "number": 8,
+                  "name": "Post Acceptance Image Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:58:40Z",
+                  "completedAt": "2026-10-06T16:58:42Z"
+                },
+                {
+                  "number": 9,
+                  "name": "Post Docker Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:58:42Z",
+                  "completedAt": "2026-10-06T16:58:45Z"
+                },
+                {
+                  "number": 10,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:58:45Z",
+                  "completedAt": "2026-10-06T16:58:45Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:58:45Z",
+                  "completedAt": "2026-10-06T16:58:45Z"
+                }
+              ]
+            },
+            {
+              "id": 112394073571,
+              "name": "Deploy Gate",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T16:58:51Z",
+              "completedAt": "2026-10-06T16:58:59Z",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/actions/runs/37499230123/job/112394073571",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:58:53Z",
+                  "completedAt": "2026-10-06T16:58:53Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:58:53Z",
+                  "completedAt": "2026-10-06T16:58:55Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Decide",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:58:55Z",
+                  "completedAt": "2026-10-06T16:58:55Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:58:55Z",
+                  "completedAt": "2026-10-06T16:58:55Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:58:55Z",
+                  "completedAt": "2026-10-06T16:58:55Z"
+                }
+              ]
+            },
+            {
+              "id": 112394165597,
+              "name": "Deploy and Test",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T16:59:05Z",
+              "completedAt": "2026-10-06T17:06:15Z",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/actions/runs/37499230123/job/112394165597",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:06Z",
+                  "completedAt": "2026-10-06T16:59:08Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Checkout",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:08Z",
+                  "completedAt": "2026-10-06T16:59:09Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Log in as deploy identity",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:09Z",
+                  "completedAt": "2026-10-06T16:59:15Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Set up uv",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:15Z",
+                  "completedAt": "2026-10-06T16:59:17Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Install spi",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:17Z",
+                  "completedAt": "2026-10-06T16:59:26Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Connect to cluster",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:26Z",
+                  "completedAt": "2026-10-06T16:59:29Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Match stack version",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:29Z",
+                  "completedAt": "2026-10-06T16:59:33Z"
+                },
+                {
+                  "number": 8,
+                  "name": "Confirm environment deployable",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:33Z",
+                  "completedAt": "2026-10-06T16:59:43Z"
+                },
+                {
+                  "number": 9,
+                  "name": "Borrow",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:43Z",
+                  "completedAt": "2026-10-06T16:59:55Z"
+                },
+                {
+                  "number": 10,
+                  "name": "Verify",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T16:59:55Z",
+                  "completedAt": "2026-10-06T17:04:23Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Mint test callers",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:04:23Z",
+                  "completedAt": "2026-10-06T17:04:24Z"
+                },
+                {
+                  "number": 12,
+                  "name": "Log in to GHCR",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:04:24Z",
+                  "completedAt": "2026-10-06T17:04:24Z"
+                },
+                {
+                  "number": 13,
+                  "name": "Prove",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:04:24Z",
+                  "completedAt": "2026-10-06T17:06:06Z"
+                },
+                {
+                  "number": 14,
+                  "name": "Upload suite reports",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:06:06Z",
+                  "completedAt": "2026-10-06T17:06:08Z"
+                },
+                {
+                  "number": 15,
+                  "name": "Restore",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:06:08Z",
+                  "completedAt": "2026-10-06T17:06:12Z"
+                },
+                {
+                  "number": 27,
+                  "name": "Post Log in to GHCR",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:06:12Z",
+                  "completedAt": "2026-10-06T17:06:12Z"
+                },
+                {
+                  "number": 28,
+                  "name": "Post Set up uv",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:06:12Z",
+                  "completedAt": "2026-10-06T17:06:12Z"
+                },
+                {
+                  "number": 29,
+                  "name": "Post Log in as deploy identity",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:06:12Z",
+                  "completedAt": "2026-10-06T17:06:13Z"
+                },
+                {
+                  "number": 30,
+                  "name": "Post Checkout",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:06:13Z",
+                  "completedAt": "2026-10-06T17:06:13Z"
+                },
+                {
+                  "number": 31,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:06:13Z",
+                  "completedAt": "2026-10-06T17:06:13Z"
+                }
+              ]
+            },
+            {
+              "id": 112397429861,
+              "name": "Validation Summary",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-06T17:06:23Z",
+              "completedAt": "2026-10-06T17:06:27Z",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/actions/runs/37499230123/job/112397429861",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:06:24Z",
+                  "completedAt": "2026-10-06T17:06:24Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Summarize",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:06:24Z",
+                  "completedAt": "2026-10-06T17:06:24Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Comment on the pull request",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-06T17:06:24Z",
+                  "completedAt": "2026-10-06T17:06:24Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Report",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:06:24Z",
+                  "completedAt": "2026-10-06T17:06:24Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-06T17:06:24Z",
+                  "completedAt": "2026-10-06T17:06:24Z"
+                }
+              ]
+            }
+          ]
+        }
       },
       "Azure/osdu-spi-schema": {
         "sync": [
@@ -7374,7 +9828,825 @@
             "url": "https://github.com/Azure/osdu-spi-schema/actions/runs/37663202717",
             "attempt": 1
           }
-        ]
+        ],
+        "mainRunJobs": {
+          "37689691236": [
+            {
+              "id": 113026396150,
+              "name": "Check Initialization",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-07T21:29:19Z",
+              "completedAt": "2026-10-07T21:29:25Z",
+              "url": "https://github.com/Azure/osdu-spi-schema/actions/runs/37689691236/job/113026396150",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:29:20Z",
+                  "completedAt": "2026-10-07T21:29:21Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Checkout Code",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:29:21Z",
+                  "completedAt": "2026-10-07T21:29:22Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Verify Initialization Status",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:29:22Z",
+                  "completedAt": "2026-10-07T21:29:22Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Post Checkout Code",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:29:22Z",
+                  "completedAt": "2026-10-07T21:29:22Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:29:22Z",
+                  "completedAt": "2026-10-07T21:29:22Z"
+                }
+              ]
+            },
+            {
+              "id": 113026641371,
+              "name": "Check Paths",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-07T21:29:55Z",
+              "completedAt": "2026-10-07T21:30:01Z",
+              "url": "https://github.com/Azure/osdu-spi-schema/actions/runs/37689691236/job/113026641371",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:29:56Z",
+                  "completedAt": "2026-10-07T21:29:57Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:29:57Z",
+                  "completedAt": "2026-10-07T21:29:59Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Check for build-relevant changes",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:29:59Z",
+                  "completedAt": "2026-10-07T21:29:59Z"
+                },
+                {
+                  "number": 4,
+                  "name": "List upstream-owned files the PR changes",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-07T21:29:59Z",
+                  "completedAt": "2026-10-07T21:29:59Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Assert upstream ownership split (ADR-038)",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-07T21:29:59Z",
+                  "completedAt": "2026-10-07T21:29:59Z"
+                },
+                {
+                  "number": 10,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:29:59Z",
+                  "completedAt": "2026-10-07T21:29:59Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:29:59Z",
+                  "completedAt": "2026-10-07T21:29:59Z"
+                }
+              ]
+            },
+            {
+              "id": 113026641518,
+              "name": "Check Repository",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-07T21:29:55Z",
+              "completedAt": "2026-10-07T21:29:58Z",
+              "url": "https://github.com/Azure/osdu-spi-schema/actions/runs/37689691236/job/113026641518",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:29:55Z",
+                  "completedAt": "2026-10-07T21:29:56Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:29:56Z",
+                  "completedAt": "2026-10-07T21:29:56Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Check Repository Initialization",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:29:56Z",
+                  "completedAt": "2026-10-07T21:29:56Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Check if Java Repository",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:29:56Z",
+                  "completedAt": "2026-10-07T21:29:56Z"
+                },
+                {
+                  "number": 8,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:29:56Z",
+                  "completedAt": "2026-10-07T21:29:57Z"
+                },
+                {
+                  "number": 9,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:29:57Z",
+                  "completedAt": "2026-10-07T21:29:57Z"
+                }
+              ]
+            },
+            {
+              "id": 113026879697,
+              "name": "Java Build",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-07T21:30:35Z",
+              "completedAt": "2026-10-07T21:32:29Z",
+              "url": "https://github.com/Azure/osdu-spi-schema/actions/runs/37689691236/job/113026879697",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:30:35Z",
+                  "completedAt": "2026-10-07T21:30:36Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:30:36Z",
+                  "completedAt": "2026-10-07T21:30:38Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Restore local actions for sync PRs",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-07T21:30:38Z",
+                  "completedAt": "2026-10-07T21:30:38Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Set up JDK",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:30:38Z",
+                  "completedAt": "2026-10-07T21:30:39Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Cache Maven packages",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:30:39Z",
+                  "completedAt": "2026-10-07T21:30:40Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Setup Maven Settings",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:30:40Z",
+                  "completedAt": "2026-10-07T21:30:40Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Run Java Build",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:30:40Z",
+                  "completedAt": "2026-10-07T21:32:26Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Post Run Java Build",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:32:26Z",
+                  "completedAt": "2026-10-07T21:32:26Z"
+                },
+                {
+                  "number": 12,
+                  "name": "Post Cache Maven packages",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:32:26Z",
+                  "completedAt": "2026-10-07T21:32:27Z"
+                },
+                {
+                  "number": 13,
+                  "name": "Post Set up JDK",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:32:27Z",
+                  "completedAt": "2026-10-07T21:32:27Z"
+                },
+                {
+                  "number": 14,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:32:27Z",
+                  "completedAt": "2026-10-07T21:32:27Z"
+                },
+                {
+                  "number": 15,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:32:28Z",
+                  "completedAt": "2026-10-07T21:32:28Z"
+                }
+              ]
+            },
+            {
+              "id": 113027897865,
+              "name": "Check Code Quality",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-07T21:33:07Z",
+              "completedAt": "2026-10-07T21:33:14Z",
+              "url": "https://github.com/Azure/osdu-spi-schema/actions/runs/37689691236/job/113027897865",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:33:08Z",
+                  "completedAt": "2026-10-07T21:33:09Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Checkout Code",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:33:09Z",
+                  "completedAt": "2026-10-07T21:33:11Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Restore local actions for sync PRs",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-07T21:33:11Z",
+                  "completedAt": "2026-10-07T21:33:11Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Validate Commit Messages",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-07T21:33:11Z",
+                  "completedAt": "2026-10-07T21:33:11Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Check for Merge Conflicts",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:33:11Z",
+                  "completedAt": "2026-10-07T21:33:11Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Verify Branch Status",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-07T21:33:11Z",
+                  "completedAt": "2026-10-07T21:33:11Z"
+                },
+                {
+                  "number": 12,
+                  "name": "Post Checkout Code",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:33:11Z",
+                  "completedAt": "2026-10-07T21:33:11Z"
+                },
+                {
+                  "number": 13,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:33:11Z",
+                  "completedAt": "2026-10-07T21:33:11Z"
+                }
+              ]
+            },
+            {
+              "id": 113027897895,
+              "name": "Docker Build",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-07T21:33:07Z",
+              "completedAt": "2026-10-07T21:34:27Z",
+              "url": "https://github.com/Azure/osdu-spi-schema/actions/runs/37689691236/job/113027897895",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:33:08Z",
+                  "completedAt": "2026-10-07T21:33:08Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:33:08Z",
+                  "completedAt": "2026-10-07T21:33:11Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Service Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:33:11Z",
+                  "completedAt": "2026-10-07T21:34:05Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Acceptance Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:34:05Z",
+                  "completedAt": "2026-10-07T21:34:13Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Load Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:34:13Z",
+                  "completedAt": "2026-10-07T21:34:18Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Post Load Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:34:18Z",
+                  "completedAt": "2026-10-07T21:34:20Z"
+                },
+                {
+                  "number": 8,
+                  "name": "Post Acceptance Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:34:20Z",
+                  "completedAt": "2026-10-07T21:34:22Z"
+                },
+                {
+                  "number": 9,
+                  "name": "Post Service Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:34:22Z",
+                  "completedAt": "2026-10-07T21:34:25Z"
+                },
+                {
+                  "number": 10,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:34:25Z",
+                  "completedAt": "2026-10-07T21:34:25Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:34:25Z",
+                  "completedAt": "2026-10-07T21:34:25Z"
+                }
+              ]
+            },
+            {
+              "id": 113028680156,
+              "name": "Docker Push",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-07T21:35:07Z",
+              "completedAt": "2026-10-07T21:37:02Z",
+              "url": "https://github.com/Azure/osdu-spi-schema/actions/runs/37689691236/job/113028680156",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:35:07Z",
+                  "completedAt": "2026-10-07T21:35:08Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:35:08Z",
+                  "completedAt": "2026-10-07T21:35:09Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Docker Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:35:09Z",
+                  "completedAt": "2026-10-07T21:36:03Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Acceptance Image Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:36:03Z",
+                  "completedAt": "2026-10-07T21:36:10Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Load Image Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:36:10Z",
+                  "completedAt": "2026-10-07T21:36:50Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Post Load Image Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:36:50Z",
+                  "completedAt": "2026-10-07T21:36:54Z"
+                },
+                {
+                  "number": 8,
+                  "name": "Post Acceptance Image Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:36:54Z",
+                  "completedAt": "2026-10-07T21:36:57Z"
+                },
+                {
+                  "number": 9,
+                  "name": "Post Docker Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:36:57Z",
+                  "completedAt": "2026-10-07T21:37:00Z"
+                },
+                {
+                  "number": 10,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:37:00Z",
+                  "completedAt": "2026-10-07T21:37:00Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:37:00Z",
+                  "completedAt": "2026-10-07T21:37:00Z"
+                }
+              ]
+            },
+            {
+              "id": 113029722532,
+              "name": "Deploy Gate",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-07T21:37:20Z",
+              "completedAt": "2026-10-07T21:37:24Z",
+              "url": "https://github.com/Azure/osdu-spi-schema/actions/runs/37689691236/job/113029722532",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:37:21Z",
+                  "completedAt": "2026-10-07T21:37:21Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:37:21Z",
+                  "completedAt": "2026-10-07T21:37:22Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Decide",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:37:22Z",
+                  "completedAt": "2026-10-07T21:37:22Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:37:22Z",
+                  "completedAt": "2026-10-07T21:37:23Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:37:23Z",
+                  "completedAt": "2026-10-07T21:37:23Z"
+                }
+              ]
+            },
+            {
+              "id": 113029874583,
+              "name": "Deploy and Test",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-07T21:37:48Z",
+              "completedAt": "2026-10-07T21:44:57Z",
+              "url": "https://github.com/Azure/osdu-spi-schema/actions/runs/37689691236/job/113029874583",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:37:49Z",
+                  "completedAt": "2026-10-07T21:37:51Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Checkout",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:37:51Z",
+                  "completedAt": "2026-10-07T21:37:52Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Log in as deploy identity",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:37:52Z",
+                  "completedAt": "2026-10-07T21:37:58Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Set up uv",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:37:58Z",
+                  "completedAt": "2026-10-07T21:37:59Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Install spi",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:37:59Z",
+                  "completedAt": "2026-10-07T21:38:07Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Connect to cluster",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:38:07Z",
+                  "completedAt": "2026-10-07T21:38:11Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Match stack version",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:38:11Z",
+                  "completedAt": "2026-10-07T21:38:15Z"
+                },
+                {
+                  "number": 8,
+                  "name": "Confirm environment deployable",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:38:15Z",
+                  "completedAt": "2026-10-07T21:38:27Z"
+                },
+                {
+                  "number": 9,
+                  "name": "Borrow",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:38:27Z",
+                  "completedAt": "2026-10-07T21:38:35Z"
+                },
+                {
+                  "number": 10,
+                  "name": "Verify",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:38:35Z",
+                  "completedAt": "2026-10-07T21:39:25Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Mint test callers",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:39:25Z",
+                  "completedAt": "2026-10-07T21:39:27Z"
+                },
+                {
+                  "number": 12,
+                  "name": "Log in to GHCR",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:39:27Z",
+                  "completedAt": "2026-10-07T21:39:28Z"
+                },
+                {
+                  "number": 13,
+                  "name": "Prove",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:39:28Z",
+                  "completedAt": "2026-10-07T21:44:45Z"
+                },
+                {
+                  "number": 14,
+                  "name": "Upload suite reports",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:44:45Z",
+                  "completedAt": "2026-10-07T21:44:47Z"
+                },
+                {
+                  "number": 15,
+                  "name": "Restore",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:44:47Z",
+                  "completedAt": "2026-10-07T21:44:52Z"
+                },
+                {
+                  "number": 27,
+                  "name": "Post Log in to GHCR",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:44:52Z",
+                  "completedAt": "2026-10-07T21:44:52Z"
+                },
+                {
+                  "number": 28,
+                  "name": "Post Set up uv",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:44:52Z",
+                  "completedAt": "2026-10-07T21:44:53Z"
+                },
+                {
+                  "number": 29,
+                  "name": "Post Log in as deploy identity",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:44:53Z",
+                  "completedAt": "2026-10-07T21:44:53Z"
+                },
+                {
+                  "number": 30,
+                  "name": "Post Checkout",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:44:53Z",
+                  "completedAt": "2026-10-07T21:44:54Z"
+                },
+                {
+                  "number": 31,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:44:54Z",
+                  "completedAt": "2026-10-07T21:44:54Z"
+                }
+              ]
+            },
+            {
+              "id": 113032779654,
+              "name": "Validation Summary",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-07T21:45:24Z",
+              "completedAt": "2026-10-07T21:45:26Z",
+              "url": "https://github.com/Azure/osdu-spi-schema/actions/runs/37689691236/job/113032779654",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:45:24Z",
+                  "completedAt": "2026-10-07T21:45:25Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Summarize",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:45:25Z",
+                  "completedAt": "2026-10-07T21:45:25Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Comment on the pull request",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-07T21:45:25Z",
+                  "completedAt": "2026-10-07T21:45:25Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Report",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:45:25Z",
+                  "completedAt": "2026-10-07T21:45:25Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T21:45:25Z",
+                  "completedAt": "2026-10-07T21:45:25Z"
+                }
+              ]
+            }
+          ]
+        }
       },
       "Azure/osdu-spi-file": {
         "sync": [
@@ -7714,7 +10986,825 @@
             "url": "https://github.com/Azure/osdu-spi-file/actions/runs/37542448812",
             "attempt": 1
           }
-        ]
+        ],
+        "mainRunJobs": {
+          "37562529096": [
+            {
+              "id": 112602804629,
+              "name": "Check Initialization",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-07T02:33:17Z",
+              "completedAt": "2026-10-07T02:33:20Z",
+              "url": "https://github.com/Azure/osdu-spi-file/actions/runs/37562529096/job/112602804629",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:17Z",
+                  "completedAt": "2026-10-07T02:33:18Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Checkout Code",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:18Z",
+                  "completedAt": "2026-10-07T02:33:18Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Verify Initialization Status",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:18Z",
+                  "completedAt": "2026-10-07T02:33:19Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Post Checkout Code",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:19Z",
+                  "completedAt": "2026-10-07T02:33:19Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:19Z",
+                  "completedAt": "2026-10-07T02:33:19Z"
+                }
+              ]
+            },
+            {
+              "id": 112602838200,
+              "name": "Check Repository",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-07T02:33:24Z",
+              "completedAt": "2026-10-07T02:33:28Z",
+              "url": "https://github.com/Azure/osdu-spi-file/actions/runs/37562529096/job/112602838200",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:25Z",
+                  "completedAt": "2026-10-07T02:33:25Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:25Z",
+                  "completedAt": "2026-10-07T02:33:26Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Check Repository Initialization",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:26Z",
+                  "completedAt": "2026-10-07T02:33:26Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Check if Java Repository",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:26Z",
+                  "completedAt": "2026-10-07T02:33:26Z"
+                },
+                {
+                  "number": 8,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:26Z",
+                  "completedAt": "2026-10-07T02:33:26Z"
+                },
+                {
+                  "number": 9,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:26Z",
+                  "completedAt": "2026-10-07T02:33:26Z"
+                }
+              ]
+            },
+            {
+              "id": 112602838246,
+              "name": "Check Paths",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-07T02:33:24Z",
+              "completedAt": "2026-10-07T02:33:30Z",
+              "url": "https://github.com/Azure/osdu-spi-file/actions/runs/37562529096/job/112602838246",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:26Z",
+                  "completedAt": "2026-10-07T02:33:26Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:26Z",
+                  "completedAt": "2026-10-07T02:33:27Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Check for build-relevant changes",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:27Z",
+                  "completedAt": "2026-10-07T02:33:28Z"
+                },
+                {
+                  "number": 4,
+                  "name": "List upstream-owned files the PR changes",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-07T02:33:28Z",
+                  "completedAt": "2026-10-07T02:33:28Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Assert upstream ownership split (ADR-038)",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-07T02:33:28Z",
+                  "completedAt": "2026-10-07T02:33:28Z"
+                },
+                {
+                  "number": 10,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:28Z",
+                  "completedAt": "2026-10-07T02:33:28Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:28Z",
+                  "completedAt": "2026-10-07T02:33:28Z"
+                }
+              ]
+            },
+            {
+              "id": 112602881480,
+              "name": "Java Build",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-07T02:33:35Z",
+              "completedAt": "2026-10-07T02:38:40Z",
+              "url": "https://github.com/Azure/osdu-spi-file/actions/runs/37562529096/job/112602881480",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:36Z",
+                  "completedAt": "2026-10-07T02:33:38Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:38Z",
+                  "completedAt": "2026-10-07T02:33:39Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Restore local actions for sync PRs",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-07T02:33:39Z",
+                  "completedAt": "2026-10-07T02:33:39Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Set up JDK",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:39Z",
+                  "completedAt": "2026-10-07T02:33:41Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Cache Maven packages",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:41Z",
+                  "completedAt": "2026-10-07T02:33:41Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Setup Maven Settings",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:41Z",
+                  "completedAt": "2026-10-07T02:33:41Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Run Java Build",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:33:41Z",
+                  "completedAt": "2026-10-07T02:38:36Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Post Run Java Build",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:38:36Z",
+                  "completedAt": "2026-10-07T02:38:36Z"
+                },
+                {
+                  "number": 12,
+                  "name": "Post Cache Maven packages",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:38:36Z",
+                  "completedAt": "2026-10-07T02:38:37Z"
+                },
+                {
+                  "number": 13,
+                  "name": "Post Set up JDK",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:38:37Z",
+                  "completedAt": "2026-10-07T02:38:37Z"
+                },
+                {
+                  "number": 14,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:38:37Z",
+                  "completedAt": "2026-10-07T02:38:37Z"
+                },
+                {
+                  "number": 15,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:38:37Z",
+                  "completedAt": "2026-10-07T02:38:37Z"
+                }
+              ]
+            },
+            {
+              "id": 112604168552,
+              "name": "Check Code Quality",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-07T02:38:44Z",
+              "completedAt": "2026-10-07T02:38:50Z",
+              "url": "https://github.com/Azure/osdu-spi-file/actions/runs/37562529096/job/112604168552",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:38:45Z",
+                  "completedAt": "2026-10-07T02:38:46Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Checkout Code",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:38:46Z",
+                  "completedAt": "2026-10-07T02:38:48Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Restore local actions for sync PRs",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-07T02:38:48Z",
+                  "completedAt": "2026-10-07T02:38:48Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Validate Commit Messages",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-07T02:38:48Z",
+                  "completedAt": "2026-10-07T02:38:48Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Check for Merge Conflicts",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:38:48Z",
+                  "completedAt": "2026-10-07T02:38:48Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Verify Branch Status",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-07T02:38:48Z",
+                  "completedAt": "2026-10-07T02:38:48Z"
+                },
+                {
+                  "number": 12,
+                  "name": "Post Checkout Code",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:38:48Z",
+                  "completedAt": "2026-10-07T02:38:48Z"
+                },
+                {
+                  "number": 13,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:38:48Z",
+                  "completedAt": "2026-10-07T02:38:48Z"
+                }
+              ]
+            },
+            {
+              "id": 112604168619,
+              "name": "Docker Build",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-07T02:38:45Z",
+              "completedAt": "2026-10-07T02:40:24Z",
+              "url": "https://github.com/Azure/osdu-spi-file/actions/runs/37562529096/job/112604168619",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:38:46Z",
+                  "completedAt": "2026-10-07T02:38:46Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:38:46Z",
+                  "completedAt": "2026-10-07T02:38:47Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Service Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:38:47Z",
+                  "completedAt": "2026-10-07T02:40:07Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Acceptance Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:40:07Z",
+                  "completedAt": "2026-10-07T02:40:16Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Load Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:40:16Z",
+                  "completedAt": "2026-10-07T02:40:17Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Post Load Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:40:17Z",
+                  "completedAt": "2026-10-07T02:40:17Z"
+                },
+                {
+                  "number": 8,
+                  "name": "Post Acceptance Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:40:17Z",
+                  "completedAt": "2026-10-07T02:40:19Z"
+                },
+                {
+                  "number": 9,
+                  "name": "Post Service Image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:40:19Z",
+                  "completedAt": "2026-10-07T02:40:22Z"
+                },
+                {
+                  "number": 10,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:40:22Z",
+                  "completedAt": "2026-10-07T02:40:22Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:40:22Z",
+                  "completedAt": "2026-10-07T02:40:22Z"
+                }
+              ]
+            },
+            {
+              "id": 112604597622,
+              "name": "Docker Push",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-07T02:40:32Z",
+              "completedAt": "2026-10-07T02:41:42Z",
+              "url": "https://github.com/Azure/osdu-spi-file/actions/runs/37562529096/job/112604597622",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:40:33Z",
+                  "completedAt": "2026-10-07T02:40:33Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:40:33Z",
+                  "completedAt": "2026-10-07T02:40:34Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Docker Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:40:34Z",
+                  "completedAt": "2026-10-07T02:41:27Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Acceptance Image Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:41:27Z",
+                  "completedAt": "2026-10-07T02:41:34Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Load Image Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:41:34Z",
+                  "completedAt": "2026-10-07T02:41:34Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Post Load Image Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:41:34Z",
+                  "completedAt": "2026-10-07T02:41:34Z"
+                },
+                {
+                  "number": 8,
+                  "name": "Post Acceptance Image Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:41:34Z",
+                  "completedAt": "2026-10-07T02:41:37Z"
+                },
+                {
+                  "number": 9,
+                  "name": "Post Docker Build and Push",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:41:37Z",
+                  "completedAt": "2026-10-07T02:41:40Z"
+                },
+                {
+                  "number": 10,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:41:40Z",
+                  "completedAt": "2026-10-07T02:41:40Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:41:40Z",
+                  "completedAt": "2026-10-07T02:41:40Z"
+                }
+              ]
+            },
+            {
+              "id": 112604915230,
+              "name": "Deploy Gate",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-07T02:41:47Z",
+              "completedAt": "2026-10-07T02:41:50Z",
+              "url": "https://github.com/Azure/osdu-spi-file/actions/runs/37562529096/job/112604915230",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:41:47Z",
+                  "completedAt": "2026-10-07T02:41:48Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:41:48Z",
+                  "completedAt": "2026-10-07T02:41:49Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Decide",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:41:49Z",
+                  "completedAt": "2026-10-07T02:41:49Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Post Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:41:49Z",
+                  "completedAt": "2026-10-07T02:41:49Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:41:49Z",
+                  "completedAt": "2026-10-07T02:41:49Z"
+                }
+              ]
+            },
+            {
+              "id": 112604956968,
+              "name": "Deploy and Test",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-07T02:41:56Z",
+              "completedAt": "2026-10-07T02:48:35Z",
+              "url": "https://github.com/Azure/osdu-spi-file/actions/runs/37562529096/job/112604956968",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:41:57Z",
+                  "completedAt": "2026-10-07T02:41:58Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Checkout",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:41:58Z",
+                  "completedAt": "2026-10-07T02:41:59Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Log in as deploy identity",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:41:59Z",
+                  "completedAt": "2026-10-07T02:42:02Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Set up uv",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:42:02Z",
+                  "completedAt": "2026-10-07T02:42:03Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Install spi",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:42:03Z",
+                  "completedAt": "2026-10-07T02:42:10Z"
+                },
+                {
+                  "number": 6,
+                  "name": "Connect to cluster",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:42:10Z",
+                  "completedAt": "2026-10-07T02:42:14Z"
+                },
+                {
+                  "number": 7,
+                  "name": "Match stack version",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:42:14Z",
+                  "completedAt": "2026-10-07T02:42:18Z"
+                },
+                {
+                  "number": 8,
+                  "name": "Confirm environment deployable",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:42:18Z",
+                  "completedAt": "2026-10-07T02:42:31Z"
+                },
+                {
+                  "number": 9,
+                  "name": "Borrow",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:42:31Z",
+                  "completedAt": "2026-10-07T02:42:39Z"
+                },
+                {
+                  "number": 10,
+                  "name": "Verify",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:42:39Z",
+                  "completedAt": "2026-10-07T02:45:21Z"
+                },
+                {
+                  "number": 11,
+                  "name": "Mint test callers",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:45:21Z",
+                  "completedAt": "2026-10-07T02:45:23Z"
+                },
+                {
+                  "number": 12,
+                  "name": "Log in to GHCR",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:45:23Z",
+                  "completedAt": "2026-10-07T02:45:23Z"
+                },
+                {
+                  "number": 13,
+                  "name": "Prove",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:45:24Z",
+                  "completedAt": "2026-10-07T02:48:24Z"
+                },
+                {
+                  "number": 14,
+                  "name": "Upload suite reports",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:48:24Z",
+                  "completedAt": "2026-10-07T02:48:26Z"
+                },
+                {
+                  "number": 15,
+                  "name": "Restore",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:48:26Z",
+                  "completedAt": "2026-10-07T02:48:31Z"
+                },
+                {
+                  "number": 27,
+                  "name": "Post Log in to GHCR",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:48:31Z",
+                  "completedAt": "2026-10-07T02:48:31Z"
+                },
+                {
+                  "number": 28,
+                  "name": "Post Set up uv",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:48:31Z",
+                  "completedAt": "2026-10-07T02:48:31Z"
+                },
+                {
+                  "number": 29,
+                  "name": "Post Log in as deploy identity",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:48:31Z",
+                  "completedAt": "2026-10-07T02:48:32Z"
+                },
+                {
+                  "number": 30,
+                  "name": "Post Checkout",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:48:32Z",
+                  "completedAt": "2026-10-07T02:48:32Z"
+                },
+                {
+                  "number": 31,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:48:32Z",
+                  "completedAt": "2026-10-07T02:48:32Z"
+                }
+              ]
+            },
+            {
+              "id": 112606677661,
+              "name": "Validation Summary",
+              "status": "completed",
+              "conclusion": "success",
+              "startedAt": "2026-10-07T02:48:39Z",
+              "completedAt": "2026-10-07T02:48:43Z",
+              "url": "https://github.com/Azure/osdu-spi-file/actions/runs/37562529096/job/112606677661",
+              "steps": [
+                {
+                  "number": 1,
+                  "name": "Set up job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:48:40Z",
+                  "completedAt": "2026-10-07T02:48:40Z"
+                },
+                {
+                  "number": 2,
+                  "name": "Summarize",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:48:40Z",
+                  "completedAt": "2026-10-07T02:48:40Z"
+                },
+                {
+                  "number": 3,
+                  "name": "Comment on the pull request",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "startedAt": "2026-10-07T02:48:40Z",
+                  "completedAt": "2026-10-07T02:48:40Z"
+                },
+                {
+                  "number": 4,
+                  "name": "Report",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:48:40Z",
+                  "completedAt": "2026-10-07T02:48:40Z"
+                },
+                {
+                  "number": 5,
+                  "name": "Complete job",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "startedAt": "2026-10-07T02:48:40Z",
+                  "completedAt": "2026-10-07T02:48:41Z"
+                }
+              ]
+            }
+          ]
+        }
       }
     }
   },

@@ -6,7 +6,7 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-import type { CheckFact, PrFact } from "../facts.ts";
+import type { CheckFact, ForkRuns, JobDetail, PrFact, RunFact } from "../facts.ts";
 
 export const FAILED_CONCLUSIONS = new Set([
   "FAILURE",
@@ -71,4 +71,24 @@ export function prReady(pr: PrFact, failures: readonly { hidden: boolean }[]): b
   return (
     failures.every((f) => f.hidden) && prVerdict(pr) === "green" && !pr.draft && !needsReview(pr)
   );
+}
+
+// A main run proves main only when its Java Build ran; a skipped build says nothing.
+export function javaBuilt(jobs: readonly JobDetail[]): boolean {
+  return jobs.some(
+    (j) => /Java Build/i.test(j.name) && (j.conclusion === "success" || j.conclusion === "failure"),
+  );
+}
+
+// The newest completed main run whose Java Build ran, walking only runs whose jobs were read.
+export function provingRun(
+  runs: ForkRuns | undefined,
+): { run: RunFact; jobs: JobDetail[] } | undefined {
+  for (const run of runs?.main ?? []) {
+    if (run.status !== "completed") continue;
+    const jobs = runs?.mainRunJobs?.[String(run.id)];
+    if (!jobs) return undefined;
+    if (javaBuilt(jobs)) return { run, jobs };
+  }
+  return undefined;
 }

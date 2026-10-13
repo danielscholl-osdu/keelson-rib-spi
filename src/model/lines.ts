@@ -29,7 +29,7 @@ import {
   prFailures,
   toolchainText,
 } from "./attribution.ts";
-import { prVerdict } from "./checks.ts";
+import { provingRun, prVerdict } from "./checks.ts";
 import { type LineHistory, lineHistory, windowDays } from "./history.ts";
 import type { StackModel } from "./stack.ts";
 
@@ -212,21 +212,22 @@ function failureText(f: Failure | undefined): string {
   return `${f.check}${tool ? `: ${tool}` : f.reason ? `: ${f.reason}` : ""}`;
 }
 
-function mainFailure(runs: ForkRuns | undefined): MainFailure | undefined {
-  const last = runs?.main.find((r) => r.status === "completed");
+function mainFailure(
+  proof: { run: RunFact; jobs: JobDetail[] } | undefined,
+): MainFailure | undefined {
+  const run = proof?.run;
   if (
-    !last ||
-    last.conclusion === "success" ||
-    last.conclusion === "cancelled" ||
-    last.conclusion === "skipped"
+    !proof ||
+    !run ||
+    run.conclusion === "success" ||
+    run.conclusion === "cancelled" ||
+    run.conclusion === "skipped"
   ) {
     return undefined;
   }
-  const job = runs?.mainJobs?.find(
-    (j) => j.conclusion === "failure" && j.name !== "Validation Summary",
-  );
+  const job = proof.jobs.find((j) => j.conclusion === "failure" && j.name !== "Validation Summary");
   const cls = job ? classOf(job.name, "human", job.failedStep, job) : "UNREAD";
-  return { run: last, job, cls };
+  return { run, job, cls };
 }
 
 export function buildLine(input: {
@@ -279,7 +280,8 @@ export function buildLine(input: {
       (l) => l.startsWith("cascade-") || l === "validated" || l === "upstream-held",
     ) ?? [];
   const labelsIssue = issues.find((i) => /Label Configuration Update Required/i.test(i.title));
-  const mainRed = mainFailure(runs);
+  const proof = provingRun(runs);
+  const mainRed = mainFailure(proof);
   const syncRun = runs?.sync.find((r) => r.status === "completed");
   const templateRun = runs?.template.find((r) => r.status === "completed");
   const cascadeRunning = runs?.cascade.some((r) => r.status !== "completed") ?? false;
@@ -352,6 +354,7 @@ export function buildLine(input: {
     stations.push({ id: "main", state: "waiting", text: `gate 2 · PR #${cascadePr.pr.number}` });
   else if (mainRed && mainRed.cls !== "ENV")
     stations.push({ id: "main", state: "stopped", text: "main red" });
+  else if (!proof) stations.push({ id: "main", state: "unknown", text: "unproven" });
   else stations.push({ id: "main", state: "idle", text: "idle" });
   // release
   if (releasePr)
@@ -449,7 +452,7 @@ export function buildLine(input: {
     cascadeLabels,
     labelsIssue,
     mainRed,
-    mainRun: runs?.main.find((r) => r.status === "completed"),
+    mainRun: proof?.run,
     runsRead: runs !== undefined,
     repoRead: repo !== undefined,
     cascadeRunning,

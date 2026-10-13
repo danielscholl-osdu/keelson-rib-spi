@@ -35,7 +35,7 @@ import {
   type RepoFact,
 } from "./facts.ts";
 import { type CallCounter, Gh, Glab } from "./forge.ts";
-import { failedChecks } from "./model/checks.ts";
+import { failedChecks, javaBuilt } from "./model/checks.ts";
 import { buildModel, type Model } from "./model/index.ts";
 import type { Store } from "./store.ts";
 import { errorText, pool } from "./util.ts";
@@ -45,6 +45,7 @@ const FACTS_FILE = "facts.json";
 const DISPATCH_SKEW_MS = 30_000;
 const DISPATCH_WAIT_MS = 3 * 60_000;
 const CACHE_FILE = "cache.json";
+const PROOF_WALK = 5;
 
 const measuredSchema = z.object({
   at: z.string().optional(),
@@ -313,16 +314,23 @@ export class Sweeper {
     const runs = await readForkRuns(gh);
     await pool(FORKS, 3, async (fork) => {
       const entry = runs[fork.repo];
-      const last = entry?.main.find((r) => r.status === "completed");
-      if (!entry || !last || last.conclusion === "success") return;
-      const key = String(last.id);
-      const known = this.cache.lifecycle.runJobs[key];
-      try {
-        entry.mainJobs = known ?? (await readRunJobs(gh, this.detailCache, fork.repo, last));
-        this.cache.lifecycle.runJobs[key] = entry.mainJobs;
-      } catch {
-        entry.mainJobs = known;
+      if (!entry) return;
+      const read: Record<string, JobDetail[]> = {};
+      for (const run of entry.main.filter((r) => r.status === "completed").slice(0, PROOF_WALK)) {
+        const key = String(run.id);
+        let jobs = this.cache.lifecycle.runJobs[key];
+        if (!jobs) {
+          try {
+            jobs = await readRunJobs(gh, this.detailCache, fork.repo, run);
+          } catch {
+            break;
+          }
+          this.cache.lifecycle.runJobs[key] = jobs;
+        }
+        read[key] = jobs;
+        if (javaBuilt(jobs)) break;
       }
+      entry.mainRunJobs = read;
     });
     return runs;
   }
@@ -367,14 +375,14 @@ export class Sweeper {
       }
     }
     for (const entry of Object.values(this.facts.runs.data ?? {})) {
-      const last = entry.main.find((r) => r.status === "completed");
-      if (last) liveRuns.add(String(last.id));
+      for (const key of Object.keys(entry.mainRunJobs ?? {})) liveRuns.add(key);
     }
     for (const key of Object.keys(this.cache.lifecycle.runJobs)) {
       if (!liveRuns.has(key)) delete this.cache.lifecycle.runJobs[key];
     }
     for (const [repo, entry] of Object.entries(this.facts.runs.data ?? {})) {
-      for (const j of entry.mainJobs ?? []) keep.add(`${repo}#${j.id}`);
+      for (const jobs of Object.values(entry.mainRunJobs ?? {}))
+        for (const j of jobs) keep.add(`${repo}#${j.id}`);
     }
     this.detailCache.prune(keep);
     this.cache.details = this.detailCache.snapshot();

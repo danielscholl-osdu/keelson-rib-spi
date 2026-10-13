@@ -412,3 +412,95 @@ describe("a Borrow 401 on the fork's own image", () => {
     expect(cls("Prove", "denied: ghcr.io/azure/osdu-spi-legal-test requires auth")).toBe("TEST");
   });
 });
+
+// The shape of a Validation push that ran no build: crs-conversion's init push, 13 October.
+function skippedRun(
+  f: ReturnType<typeof fixtureFacts>,
+  repo: string,
+  id: number,
+  conclusion: string,
+) {
+  const runs = f.runs.data?.[repo];
+  const newest = runs?.main[0];
+  const jobs = newest && runs.mainRunJobs?.[String(newest.id)];
+  if (!runs || !newest || !jobs) throw new Error(`fixture has ${repo} main jobs`);
+  runs.main.unshift({
+    ...newest,
+    id,
+    conclusion,
+    createdAt: "2026-10-12T21:00:00Z",
+    updatedAt: "2026-10-12T21:00:20Z",
+    url: `https://github.com/${repo}/actions/runs/${id}`,
+  });
+  runs.mainRunJobs = {
+    ...runs.mainRunJobs,
+    [String(id)]: jobs.map((j) => ({
+      ...j,
+      id: j.id + 1_000_000,
+      conclusion: /^(Deploy Gate|Validation Summary)$/.test(j.name) ? "success" : "skipped",
+      steps: [],
+      failedStep: undefined,
+    })),
+  };
+  return runs;
+}
+
+describe("main reads only from a run whose Java Build ran", () => {
+  const PARTITION = "Azure/osdu-spi-partition";
+  const partition = (f: ReturnType<typeof fixtureFacts>) => {
+    const m = buildModel(f, FIXTURE_NOW);
+    return { m, line: m.lines.find((l) => l.fork.id === "partition") };
+  };
+  const station = (line: ReturnType<typeof partition>["line"]) =>
+    line?.stations.find((s) => s.id === "main");
+
+  test("a run whose Java Build was skipped, with no built run behind it, reads unproven", () => {
+    const f = fixtureFacts();
+    const runs = skippedRun(f, PARTITION, 38444623292, "success");
+    runs.main = runs.main.slice(0, 1);
+    const { m, line } = partition(f);
+    expect(station(line)).toEqual({ id: "main", state: "unknown", text: "unproven" });
+    expect(line?.mainRun).toBeUndefined();
+    expect(line?.mainRed).toBeUndefined();
+    expect(line?.pill.kind).not.toBe("broken");
+    expect(m.queue.items.some((i) => i.id === "main:partition")).toBe(false);
+  });
+
+  test("a failed run whose Java Build was skipped sets nothing red", () => {
+    const f = fixtureFacts();
+    const runs = skippedRun(f, PARTITION, 38444623293, "failure");
+    runs.main = runs.main.slice(0, 1);
+    const { m, line } = partition(f);
+    expect(station(line)?.text).toBe("unproven");
+    expect(m.queue.items.some((i) => i.id === "main:partition")).toBe(false);
+  });
+
+  test("a skipped newest run over a built green run reads green from the built run", () => {
+    const f = fixtureFacts();
+    const built = f.runs.data?.[PARTITION]?.main[0];
+    skippedRun(f, PARTITION, 38444623294, "success");
+    const { line } = partition(f);
+    expect(station(line)).toEqual({ id: "main", state: "idle", text: "idle" });
+    expect(line?.mainRun?.id).toBe(built?.id);
+  });
+
+  test("a skipped newest run over a built red run stays red", () => {
+    const f = fixtureFacts();
+    const runs = f.runs.data?.[PARTITION];
+    const built = runs?.main[0];
+    const jobs = built && runs?.mainRunJobs?.[String(built.id)];
+    if (!runs || !built || !jobs) throw new Error("fixture has partition main jobs");
+    runs.main[0] = { ...built, conclusion: "failure" };
+    runs.mainRunJobs = {
+      [String(built.id)]: jobs.map((j) =>
+        j.name === "Java Build" ? { ...j, conclusion: "failure", failedStep: "Build" } : j,
+      ),
+    };
+    skippedRun(f, PARTITION, 38444623295, "success");
+    const { m, line } = partition(f);
+    expect(line?.mainRed?.run.id).toBe(built.id);
+    expect(line?.mainRed?.job?.name).toBe("Java Build");
+    expect(station(line)?.text).toBe("main red");
+    expect(m.queue.items.find((i) => i.id === "main:partition")?.rung).toBe(0);
+  });
+});

@@ -113,7 +113,7 @@ function mainCell(line: LineModel, now: Date): Cell {
     return line.mainRed.cls === "ENV"
       ? station("⊘ red on the stack", "neutral", line.mainRed.run.url)
       : station("✕ main red", "error", line.mainRed.run.url);
-  return line.runsRead ? CLEAR : "?";
+  return line.mainRun ? CLEAR : "?";
 }
 
 function releaseCell(line: LineModel, now: Date): Cell {

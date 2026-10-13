@@ -198,7 +198,8 @@ export interface ForkRuns {
   template: RunFact[];
   cascade: RunFact[];
   main: RunFact[];
-  mainJobs?: JobDetail[];
+  // Jobs of the completed main runs read, newest first, by run id.
+  mainRunJobs?: Record<string, JobDetail[]>;
 }
 
 export interface LifecycleRun extends RunFact {
