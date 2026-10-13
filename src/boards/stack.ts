@@ -463,7 +463,11 @@ function history(model: Model, now: Date): Section[] {
   ];
 }
 
-export function stackBoard(model: Model, now: Date): CanvasBoardView {
+export function stackBoard(
+  model: Model,
+  now: Date,
+  opts: { stale?: string } = {},
+): CanvasBoardView {
   const { stack } = model;
   if (!model.measured) {
     return {
@@ -473,10 +477,11 @@ export function stackBoard(model: Model, now: Date): CanvasBoardView {
     };
   }
   const chip = [
+    opts.stale,
     stack.declaration?.location,
     stack.declaration?.profile,
     "remote",
-    model.sweptAt ? zoned(model.sweptAt, now) : undefined,
+    opts.stale ? undefined : model.sweptAt ? zoned(model.sweptAt, now) : undefined,
   ]
     .filter(Boolean)
     .join(" · ");

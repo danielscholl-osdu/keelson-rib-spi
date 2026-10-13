@@ -347,6 +347,7 @@ function status(model: Model): { label: string; tone: CanvasTone } {
 
 export interface EngineeringOptions {
   selected?: string;
+  stale?: string;
   scopes?: string[];
   last?: ActionEntry;
 }
@@ -391,7 +392,9 @@ export function engineeringBoard(
     view: "board",
     header: {
       status: status(model),
-      chip: `${TEMPLATE_REPO} · ${zoned(model.sweptAt, now) ?? "not swept"}`,
+      chip: opts.stale
+        ? `${opts.stale} · ${TEMPLATE_REPO}`
+        : `${TEMPLATE_REPO} · ${zoned(model.sweptAt, now) ?? "not swept"}`,
     },
     sections,
   };

@@ -265,7 +265,11 @@ function fleetLane(model: Model, track: "upstream" | "template"): Row | undefine
   };
 }
 
-export function linesBoard(model: Model, now: Date): CanvasBoardView {
+export function linesBoard(
+  model: Model,
+  now: Date,
+  opts: { stale?: string } = {},
+): CanvasBoardView {
   if (!model.measured) {
     return {
       view: "board",
@@ -357,7 +361,11 @@ export function linesBoard(model: Model, now: Date): CanvasBoardView {
     view: "board",
     header: {
       status: { label, tone },
-      chip: [gitlab ? `GitLab read ${gitlab}` : undefined, zoned(model.sweptAt, now) ?? "not swept"]
+      chip: [
+        opts.stale,
+        gitlab ? `GitLab read ${gitlab}` : undefined,
+        opts.stale ? undefined : (zoned(model.sweptAt, now) ?? "not swept"),
+      ]
         .filter(Boolean)
         .join(" · "),
     },

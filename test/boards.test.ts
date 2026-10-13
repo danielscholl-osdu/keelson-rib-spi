@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { expectView } from "@keelson/shared";
 import { attentionBoard, badge } from "../src/boards/attention";
+import { PANEL_SOURCES, staleText } from "../src/boards/doctor";
 import { engineeringBoard } from "../src/boards/engineering";
 import { linesBoard } from "../src/boards/lines";
 import { stackBoard } from "../src/boards/stack";
@@ -110,7 +111,29 @@ describe("what the boards say", () => {
     );
     expect(doctor.items[0]?.detail).toStartWith("Each panel keeps a source's last good read");
     expect(b.sections[1]?.kind).toBe("rows");
+    expect(b.header?.chip).toStartWith("⚠ DOCTOR · 1 PROBLEM · P0 ");
     expect(() => expectView(ATTENTION_KEY, "board")(b)).not.toThrow();
+  });
+
+  test("a panel whose source failed its last read says so in its header", () => {
+    const f = fixtureFacts();
+    f.github = {
+      ...f.github,
+      error: "API rate limit exceeded",
+      errorAt: FIXTURE_NOW.toISOString(),
+    };
+    const m = buildModel(f, FIXTURE_NOW);
+    const stale = staleText(f, PANEL_SOURCES.engineering, FIXTURE_NOW);
+    expect(stale).toMatch(/^⚠ GitHub unread since \d\d:\d\d$/);
+    expect(engineeringBoard(m, FIXTURE_NOW, { stale }).header?.chip).toBe(
+      `${stale} · Azure/osdu-spi`,
+    );
+    const lines = linesBoard(m, FIXTURE_NOW, {
+      stale: staleText(f, PANEL_SOURCES.lines, FIXTURE_NOW),
+    });
+    expect(lines.header?.chip).toMatch(/^⚠ GitHub unread since \d\d:\d\d · GitLab read /);
+    expect(staleText(fixtureFacts(), PANEL_SOURCES.stack, FIXTURE_NOW)).toBeUndefined();
+    expect(attentionBoard(m, f, FIXTURE_NOW).header?.chip).toStartWith("⚠ DOCTOR · ");
   });
 
   test("the badge counts P0 and P1 only", () => {

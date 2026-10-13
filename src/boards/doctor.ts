@@ -122,6 +122,40 @@ export function actChecks(facts: Facts, act: Readiness | undefined): Check[] {
   return checks;
 }
 
+const SOURCE_LABEL: Record<AreaName, string> = {
+  github: "GitHub",
+  runs: "fork runs",
+  approvals: "approvals",
+  lifecycle: "lifecycle runs",
+  details: "job steps",
+  upstream: "GitLab",
+  template: "template compares",
+  auth: "sign-in",
+};
+
+// What each panel is drawn from, so a failed read marks the panels it leaves behind.
+export const PANEL_SOURCES = {
+  stack: ["github", "lifecycle"],
+  engineering: ["github", "runs", "template"],
+  lines: ["github", "runs", "upstream", "template"],
+} as const satisfies Record<string, readonly AreaName[]>;
+
+// "⚠ GitHub unread since 13:41" when a panel's latest read of a source failed.
+export function staleText(
+  facts: Facts,
+  sources: readonly AreaName[],
+  now: Date,
+): string | undefined {
+  const failed = sources.filter((a) => facts[a].error);
+  if (failed.length === 0) return undefined;
+  const last = failed
+    .map((a) => facts[a].at)
+    .filter((at): at is string => !!at)
+    .sort()[0];
+  const names = failed.map((a) => SOURCE_LABEL[a]).join(", ");
+  return last ? `⚠ ${names} unread since ${stamp(last, now)}` : `⚠ ${names} never read`;
+}
+
 export interface DoctorStatus {
   state: "dark" | "partial" | "clear" | "waiting";
   problems: string[];

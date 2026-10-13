@@ -13,7 +13,7 @@ import type { Model } from "../model/index.ts";
 import type { Rung, Verdict } from "../model/queue.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
 import { age, clip, plural, zoned } from "../util.ts";
-import { doctorRow } from "./doctor.ts";
+import { doctorRow, doctorStatus } from "./doctor.ts";
 
 type Section = CanvasBoardView["sections"][number];
 
@@ -57,7 +57,14 @@ export function attentionBoard(
     };
   }
   const { counts, items, verdict } = model.queue;
-  const chip = `P0 ${counts.p0} · P1 ${counts.p1} · P2 ${counts.p2}${model.sweptAt ? ` · ${zoned(model.sweptAt, now)}` : ""}`;
+  const problems = doctor && doctor.tone !== "ok" ? doctorStatus(facts, now).problems.length : 0;
+  const flag =
+    doctor?.tone === "error"
+      ? "⚠ DOCTOR · GITHUB DARK · "
+      : problems > 0
+        ? `⚠ DOCTOR · ${plural(problems, "PROBLEM", "PROBLEMS")} · `
+        : "";
+  const chip = `${flag}P0 ${counts.p0} · P1 ${counts.p1} · P2 ${counts.p2}${model.sweptAt ? ` · ${zoned(model.sweptAt, now)}` : ""}`;
   const queue: Section = {
     kind: "rows",
     items:

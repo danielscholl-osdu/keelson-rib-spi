@@ -26,6 +26,7 @@ import { ROLL_OUT, ROLLOUT_ITEM, SYNC_FORKS } from "./act/rollout.ts";
 import { ACT_ACTION, registerVerb } from "./act/verbs.ts";
 import { AGENTS, resolveAgent } from "./agent.ts";
 import { attentionBoard, badge } from "./boards/attention.ts";
+import { PANEL_SOURCES, staleText } from "./boards/doctor.ts";
 import { engineeringBoard, STEP_PREFIX } from "./boards/engineering.ts";
 import { type InspectState, inspectBoard, inspectTitle, stepTitle } from "./boards/inspect.ts";
 import { linesBoard } from "./boards/lines.ts";
@@ -64,14 +65,17 @@ const othersCache = new Map<string, { at: number; entries: ForkEntry[] }>();
 const COMPOSERS: Record<(typeof VIEW_KEYS)[number], Composer> = {
   [ATTENTION_KEY]: (s, now) =>
     attentionBoard(s.model, s.facts, now, { selected: inspect.selected, act: readiness }),
-  [STACK_KEY]: (s, now) => stackBoard(s.model, now),
+  [STACK_KEY]: (s, now) =>
+    stackBoard(s.model, now, { stale: staleText(s.facts, PANEL_SOURCES.stack, now) }),
   [ENGINEERING_KEY]: (s, now) =>
     engineeringBoard(s.model, now, {
       selected: inspect.selected,
+      stale: staleText(s.facts, PANEL_SOURCES.engineering, now),
       scopes: s.facts.auth.data?.gh.scopes,
       last: actionLog.lastFor(ROLLOUT_ITEM),
     }),
-  [LINES_KEY]: (s, now) => linesBoard(s.model, now),
+  [LINES_KEY]: (s, now) =>
+    linesBoard(s.model, now, { stale: staleText(s.facts, PANEL_SOURCES.lines, now) }),
   [INSPECT_KEY]: (s, now) =>
     inspectBoard(s.model, inspect, now, actionLog.lastFor(inspect.selected), {
       scopes: s.facts.auth.data?.gh.scopes,
