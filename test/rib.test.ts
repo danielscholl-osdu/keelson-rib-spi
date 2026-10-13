@@ -34,7 +34,7 @@ describe("rib contract shape", () => {
     for (const surface of rib.surfaces ?? []) ribSurfaceDescriptorSchema.parse(surface);
   });
 
-  test("one SPI tab: banner, stack, lines, doctor footer, badge", () => {
+  test("one SPI tab: banner, stack, lines, badge", () => {
     const surface = rib.surfaces?.[0];
     expect(rib.surfaces).toHaveLength(1);
     expect(surface?.title).toBe("SPI");

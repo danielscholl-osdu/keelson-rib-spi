@@ -1,11 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { expectView } from "@keelson/shared";
 import { attentionBoard, badge } from "../src/boards/attention";
-import { doctorBoard } from "../src/boards/doctor";
 import { linesBoard } from "../src/boards/lines";
 import { stackBoard } from "../src/boards/stack";
 import { emptyFacts } from "../src/facts";
-import { ATTENTION_KEY, DOCTOR_KEY, LINES_KEY, STACK_KEY } from "../src/keys";
+import { ATTENTION_KEY, LINES_KEY, STACK_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
 import { FIXTURE_NOW, fixtureFacts } from "./harness";
 
@@ -17,7 +16,6 @@ function boards(m = model, f = facts) {
     [ATTENTION_KEY]: attentionBoard(m, f, FIXTURE_NOW),
     [STACK_KEY]: stackBoard(m, FIXTURE_NOW),
     [LINES_KEY]: linesBoard(m, FIXTURE_NOW),
-    [DOCTOR_KEY]: doctorBoard(f, FIXTURE_NOW),
   };
 }
 
@@ -42,6 +40,12 @@ describe("every board passes the host's render gate", () => {
     const m = buildModel(f, FIXTURE_NOW);
     const board = attentionBoard(m, f, FIXTURE_NOW);
     expect(board.header?.status?.label).toBe("DARK");
+    const rows = board.sections[0];
+    if (rows?.kind !== "rows") throw new Error("doctor row first");
+    expect(rows.items[0]).toMatchObject({
+      glyph: "error",
+      text: "Doctor · GitHub unreadable: gh api graphql: HTTP 502",
+    });
     expect(() => expectView(ATTENTION_KEY, "board")(board)).not.toThrow();
   });
 });
@@ -58,6 +62,37 @@ describe("what the boards say", () => {
       "Shared stack · maintenance mode; env-upgrade v0.28.2 in verify",
     );
     expect(rows.items[0]?.detail).toContain("partition template-sync PR #174");
+  });
+
+  test("the doctor is one quiet row under the queue while every source reads", () => {
+    const b = attentionBoard(model, facts, FIXTURE_NOW);
+    expect(b.sections).toHaveLength(2);
+    const doctor = b.sections[1];
+    if (doctor?.kind !== "rows") throw new Error("doctor row last");
+    expect(doctor.items).toHaveLength(1);
+    expect(doctor.items[0]).toMatchObject({ glyph: "ok", text: "Doctor · all clear" });
+    expect(doctor.items[0]?.trailing).toMatch(/^swept \d\d:\d\d · 13\.0 s · 38 calls$/);
+    expect(doctor.items[0]?.detail).toContain("✓ gh · signed in as operator");
+    expect(doctor.items[0]?.detail).toContain("✓ GitLab upstream lag · read ");
+  });
+
+  test("a source that stops reading moves the doctor above the queue and names it", () => {
+    const f = fixtureFacts();
+    f.upstream = {
+      ...f.upstream,
+      error: "glab: 401 Unauthorized",
+      errorAt: FIXTURE_NOW.toISOString(),
+    };
+    const b = attentionBoard(buildModel(f, FIXTURE_NOW), f, FIXTURE_NOW);
+    const doctor = b.sections[0];
+    if (doctor?.kind !== "rows") throw new Error("doctor row first");
+    expect(doctor.items[0]?.glyph).toBe("warn");
+    expect(doctor.items[0]?.text).toMatch(
+      /^Doctor · GitLab upstream lag failed \d\d:\d\d: glab: 401 Unauthorized$/,
+    );
+    expect(doctor.items[0]?.detail).toStartWith("Each panel keeps a source's last good read");
+    expect(b.sections[1]?.kind).toBe("rows");
+    expect(() => expectView(ATTENTION_KEY, "board")(b)).not.toThrow();
   });
 
   test("the badge counts P0 and P1 only", () => {
@@ -170,5 +205,34 @@ describe("what the boards say", () => {
     expect(stats.items.map((i) => i.label)).toEqual(["Running", "Last refresh", "Smoke"]);
     expect(b.sections.some((s) => s.kind === "timeline")).toBe(false);
     expect(() => expectView(STACK_KEY, "board")(b)).not.toThrow();
+  });
+
+  test("a refresh that failed before a green upgrade is amber, not red", () => {
+    const f = fixtureFacts();
+    const lc = f.lifecycle.data;
+    const [latest, ...older] = lc?.upgrade ?? [];
+    const green = older.find((r) => r.conclusion === "success" && r.jobs);
+    if (!lc || !latest || !green) throw new Error("fixture has upgrade runs");
+    f.lifecycle.data = {
+      ...lc,
+      upgrade: [
+        {
+          ...latest,
+          status: "completed",
+          conclusion: "success",
+          updatedAt: "2026-10-12T22:05:00Z",
+          jobs: green.jobs,
+        },
+        ...older,
+      ],
+    };
+    const b = stackBoard(buildModel(f, FIXTURE_NOW), FIXTURE_NOW);
+    expect(b.header?.status).toEqual({ label: "DEPLOYABLE", tone: "ok" });
+    const stats = b.sections[0];
+    if (stats?.kind !== "stats") throw new Error("stats first");
+    const refresh = stats.items[1];
+    expect(refresh?.label).toBe("Last refresh");
+    expect(refresh?.tone).toBe("warn");
+    expect(refresh?.sub).toMatch(/^failed · then env-upgrade v0\.28\.2 green \d\d:\d\d$/);
   });
 });

@@ -8,10 +8,9 @@ import { join } from "node:path";
 import { expectView } from "@keelson/shared";
 import { runJSON, runText } from "@keelson/shared/exec";
 import { attentionBoard, badge } from "../src/boards/attention.ts";
-import { doctorBoard } from "../src/boards/doctor.ts";
 import { linesBoard } from "../src/boards/lines.ts";
 import { stackBoard } from "../src/boards/stack.ts";
-import { ATTENTION_KEY, DOCTOR_KEY, LINES_KEY, STACK_KEY } from "../src/keys.ts";
+import { ATTENTION_KEY, LINES_KEY, STACK_KEY } from "../src/keys.ts";
 import { attemptText, overdue, usualText } from "../src/model/stack.ts";
 import { Store } from "../src/store.ts";
 import { Sweeper } from "../src/sweep.ts";
@@ -77,7 +76,6 @@ const boards = {
   [ATTENTION_KEY]: attentionBoard(m, sweeper.facts, now),
   [STACK_KEY]: stackBoard(m, now),
   [LINES_KEY]: linesBoard(m, now),
-  [DOCTOR_KEY]: doctorBoard(sweeper.facts, now),
 };
 let bad = 0;
 for (const [key, board] of Object.entries(boards)) {

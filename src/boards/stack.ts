@@ -161,18 +161,32 @@ function lastAttemptStat(model: Model, now: Date): Stat | undefined {
   };
 }
 
-function healthyStats(model: Model, now: Date): Stat[] {
+// A later green upgrade proves the stack, so a failed refresh before it is amber.
+function refreshStat(model: Model, now: Date): Stat {
   const { stack } = model;
   const refresh = stack.lifecycle.refresh.last;
+  if (!refresh) return { label: "Last refresh", value: null, sub: "no refresh in 21 days" };
+  const green = stack.lastGreen;
+  const proven =
+    runTone(refresh) === "error" &&
+    green !== undefined &&
+    Date.parse(green.createdAt) > Date.parse(refresh.createdAt);
+  return {
+    label: "Last refresh",
+    clock: { at: refresh.updatedAt, mode: "since" },
+    tone: proven ? "warn" : runTone(refresh),
+    sub: proven
+      ? `${runResult(refresh)} · then ${runName(green)} green ${stamp(green.updatedAt, now) ?? ""}`.trim()
+      : runResult(refresh),
+  };
+}
+
+function healthyStats(model: Model, now: Date): Stat[] {
+  const { stack } = model;
   const smoke = stack.lifecycle.smoke;
   return [
     runningStat(model, now),
-    {
-      label: "Last refresh",
-      ...(refresh ? { clock: { at: refresh.updatedAt, mode: "since" as const } } : { value: null }),
-      tone: refresh ? runTone(refresh) : "neutral",
-      sub: refresh ? runResult(refresh) : "no refresh in 21 days",
-    },
+    refreshStat(model, now),
     {
       label: "Smoke",
       value: smoke.streak ? `${smoke.streak.n} ${smoke.streak.green ? "green" : "red"}` : null,

@@ -64,6 +64,25 @@ describe("the fleet on 12 October", () => {
     expect(set?.text).toContain("once the stack is deployable");
   });
 
+  test("once the stack is deployable again, the lanes it failed and the template set say so", () => {
+    const f = fixtureFacts();
+    const lc = f.lifecycle.data;
+    if (!lc) throw new Error("fixture has lifecycle runs");
+    const cut = Date.parse("2026-10-11T22:00:00Z");
+    f.lifecycle.data = {
+      ...lc,
+      refresh: lc.refresh.filter((r) => Date.parse(r.createdAt) < cut),
+      upgrade: lc.upgrade.filter((r) => Date.parse(r.createdAt) < cut),
+    };
+    const items = buildModel(f, FIXTURE_NOW).queue.items;
+    const lanes = items.find((i) => i.id === "stack:lanes");
+    expect(lanes?.text).toBe("deployable again; 5 fork lanes failed before it recovered");
+    expect(lanes?.note).toBe("re-run now");
+    expect(items.find((i) => i.id === "template-set")?.text).toBe(
+      "5 template-sync PRs to v1.2.1 (unreleased) · mergeable together after the lane re-run · review required",
+    );
+  });
+
   test("each line wears its worst state: a halt is red, a failing PR amber, an update calm", () => {
     const pill = Object.fromEntries(model.lines.map((l) => [l.fork.id, l.pill]));
     expect(pill).toEqual({

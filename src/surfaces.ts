@@ -7,7 +7,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import type { RibSurfaceDescriptor } from "@keelson/shared";
-import { ATTENTION_KEY, BADGE_KEY, DOCTOR_KEY, LINES_KEY, STACK_KEY, SURFACE_ID } from "./keys.ts";
+import { ATTENTION_KEY, BADGE_KEY, LINES_KEY, STACK_KEY, SURFACE_ID } from "./keys.ts";
 
 export const REFRESH_ACTION = "refresh";
 
@@ -55,14 +55,6 @@ export const SURFACES: readonly RibSurfaceDescriptor[] = [
           ],
         },
       ],
-      footer: {
-        key: DOCTOR_KEY,
-        title: "Doctor",
-        byline: "can the rib see",
-        glyph: { char: "✚", tone: "neutral" },
-        collapsible: true,
-        collapsed: true,
-      },
     },
   },
 ];

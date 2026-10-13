@@ -13,6 +13,5 @@ export const ATTENTION_KEY = "rib:spi:attention";
 export const BADGE_KEY = "rib:spi:badge";
 export const STACK_KEY = "rib:spi:stack";
 export const LINES_KEY = "rib:spi:lines";
-export const DOCTOR_KEY = "rib:spi:doctor";
 
-export const BOARD_KEYS = [ATTENTION_KEY, STACK_KEY, LINES_KEY, DOCTOR_KEY] as const;
+export const BOARD_KEYS = [ATTENTION_KEY, STACK_KEY, LINES_KEY] as const;

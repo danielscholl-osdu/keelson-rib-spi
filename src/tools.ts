@@ -8,6 +8,7 @@
 
 import { type ToolDefinition, z } from "@keelson/shared";
 import { verdictLabel } from "./boards/attention.ts";
+import { doctorStatus } from "./boards/doctor.ts";
 import { FORKS, REPOS, shortRepo } from "./config.ts";
 import { classifyPr, type PrClass, prFailures } from "./model/attribution.ts";
 import { prVerdict } from "./model/checks.ts";
@@ -116,41 +117,44 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
   return [
     tool(
       "spi_watchstand",
-      "One-word SPI verdict (BLOCKED, ATTENTION, MOVING or CONVERGED) with the ranked needs-a-person queue behind it. Start here for 'is the SPI fleet healthy'. P0 broke unattended, P1 is a gate or decision, P2 is ready work. Each line's kind is broken (main red), halted (automation stopped, no PR open), blocked (an open PR fails on a real failure), stale, waiting (an update waits on review or the stack), unmeasured or current.",
+      "One-word SPI verdict (BLOCKED, ATTENTION, MOVING or CONVERGED) with the ranked needs-a-person queue behind it. Start here for 'is the SPI fleet healthy'. P0 broke unattended, P1 is a gate or decision, P2 is ready work. Each line's kind is broken (main red), halted (automation stopped, no PR open), blocked (an open PR fails on a real failure), stale, waiting (an update waits on review or the stack), unmeasured or current. doctor says whether the rib read every source (clear, partial, dark); when it did not, panels show each source's last good read.",
       z.object({}),
       () => {
         const m = sweeper.model;
         const t = now();
-        return (
-          notMeasured(m) ?? {
-            verdict: m.queue.verdict,
-            label: verdictLabel(m),
-            counts: m.queue.counts,
-            swept: m.sweptAt,
-            stack: {
-              declared: m.stack.declared,
-              running: m.stack.running?.version,
-              deployable: m.stack.deployable,
-              maintenance: m.stack.maintenance.state,
-              inflight: runView(m.stack.inflight, t),
-            },
-            lines: m.lines.map((l) => ({
-              service: l.fork.id,
-              state: l.pill.label,
-              kind: l.pill.kind,
-              why: l.why,
-            })),
-            queue: m.queue.items.map((i) => ({
-              rung: `P${i.rung}`,
-              scope: i.scope,
-              text: i.text,
-              age: age(i.since, t),
-              note: i.note,
-              url: i.url,
-              effects: i.effects.length,
-            })),
-          }
-        );
+        const doctor = doctorStatus(sweeper.facts, t);
+        const waiting = notMeasured(m);
+        return waiting
+          ? { ...waiting, doctor }
+          : {
+              verdict: m.queue.verdict,
+              label: verdictLabel(m),
+              counts: m.queue.counts,
+              swept: m.sweptAt,
+              doctor,
+              stack: {
+                declared: m.stack.declared,
+                running: m.stack.running?.version,
+                deployable: m.stack.deployable,
+                maintenance: m.stack.maintenance.state,
+                inflight: runView(m.stack.inflight, t),
+              },
+              lines: m.lines.map((l) => ({
+                service: l.fork.id,
+                state: l.pill.label,
+                kind: l.pill.kind,
+                why: l.why,
+              })),
+              queue: m.queue.items.map((i) => ({
+                rung: `P${i.rung}`,
+                scope: i.scope,
+                text: i.text,
+                age: age(i.since, t),
+                note: i.note,
+                url: i.url,
+                effects: i.effects.length,
+              })),
+            };
       },
     ),
     tool(

@@ -19,20 +19,11 @@ import {
 } from "@keelson/shared";
 import { AGENTS, resolveAgent } from "./agent.ts";
 import { attentionBoard, badge } from "./boards/attention.ts";
-import { doctorBoard } from "./boards/doctor.ts";
 import { linesBoard } from "./boards/lines.ts";
 import { stackBoard } from "./boards/stack.ts";
 import { INFLIGHT_POLL_MS, SWEEP_MS } from "./config.ts";
 import { Gh } from "./forge.ts";
-import {
-  ATTENTION_KEY,
-  BADGE_KEY,
-  BOARD_KEYS,
-  DOCTOR_KEY,
-  LINES_KEY,
-  RIB_ID,
-  STACK_KEY,
-} from "./keys.ts";
+import { ATTENTION_KEY, BADGE_KEY, BOARD_KEYS, LINES_KEY, RIB_ID, STACK_KEY } from "./keys.ts";
 import { Store } from "./store.ts";
 import { REFRESH_ACTION, SURFACES } from "./surfaces.ts";
 import { Sweeper } from "./sweep.ts";
@@ -44,7 +35,6 @@ const COMPOSERS: Record<(typeof BOARD_KEYS)[number], Composer> = {
   [ATTENTION_KEY]: (s, now) => attentionBoard(s.model, s.facts, now),
   [STACK_KEY]: (s, now) => stackBoard(s.model, now),
   [LINES_KEY]: (s, now) => linesBoard(s.model, now),
-  [DOCTOR_KEY]: (s, now) => doctorBoard(s.facts, now),
 };
 
 function badgeOf(data: unknown): RibSurfaceBadge {

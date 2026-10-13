@@ -11,6 +11,9 @@ import type { Facts } from "../facts.ts";
 import type { Model } from "../model/index.ts";
 import type { QueueItem, Rung, Verdict } from "../model/queue.ts";
 import { age, clip, plural, zoned } from "../util.ts";
+import { doctorRow } from "./doctor.ts";
+
+type Section = CanvasBoardView["sections"][number];
 
 const RUNG_TONE: Record<Rung, CanvasTone> = { 0: "error", 1: "caution", 2: "info" };
 const VERDICT_TONE: Record<Verdict, CanvasTone> = {
@@ -45,55 +48,56 @@ export function verdictLabel(model: Model): string {
 }
 
 export function attentionBoard(model: Model, facts: Facts, now: Date): CanvasBoardView {
+  const doctor = doctorRow(facts, now);
   if (!model.measured) {
     const error = facts.github.error;
     return {
       view: "board",
       header: { status: { label: error ? "DARK" : "SWEEPING", tone: "neutral" } },
       sections: [
-        {
-          kind: "rows",
-          items: [
-            {
-              glyph: error ? "error" : "neutral",
-              text: error
-                ? `GitHub could not be read: ${clip(error, 160)}. Open the Doctor below.`
-                : "The first sweep is reading GitHub and GitLab.",
+        doctor && doctor.tone !== "ok"
+          ? doctor.section
+          : {
+              kind: "rows",
+              items: [{ glyph: "neutral", text: "The first sweep is reading GitHub and GitLab." }],
             },
-          ],
-        },
       ],
     };
   }
   const { counts, items, verdict } = model.queue;
   const chip = `P0 ${counts.p0} · P1 ${counts.p1} · P2 ${counts.p2}${model.sweptAt ? ` · ${zoned(model.sweptAt, now)}` : ""}`;
+  const queue: Section = {
+    kind: "rows",
+    items:
+      items.length === 0
+        ? [
+            {
+              glyph: "ok",
+              text: "Nothing needs a person. Every line is current and the stack is deployable.",
+            },
+          ]
+        : items.map((item) => {
+            const detail = effectsDetail(item);
+            const trailing = [item.note, age(item.since, now)].filter(Boolean).join(" · ");
+            return {
+              chip: { label: `P${item.rung}`, tone: RUNG_TONE[item.rung] },
+              text: clip(`${item.scope} · ${item.text}`, 220),
+              ...(item.url ? { href: item.url } : {}),
+              ...(trailing ? { trailing } : {}),
+              ...(detail ? { detail } : {}),
+            };
+          }),
+  };
+  // A rib that cannot see outranks the queue it builds; one that can sits quietly last.
+  const sections = !doctor
+    ? [queue]
+    : doctor.tone === "ok"
+      ? [queue, doctor.section]
+      : [doctor.section, queue];
   return {
     view: "board",
     header: { status: { label: verdictLabel(model), tone: VERDICT_TONE[verdict] }, chip },
-    sections: [
-      {
-        kind: "rows",
-        items:
-          items.length === 0
-            ? [
-                {
-                  glyph: "ok",
-                  text: "Nothing needs a person. Every line is current and the stack is deployable.",
-                },
-              ]
-            : items.map((item) => {
-                const detail = effectsDetail(item);
-                const trailing = [item.note, age(item.since, now)].filter(Boolean).join(" · ");
-                return {
-                  chip: { label: `P${item.rung}`, tone: RUNG_TONE[item.rung] },
-                  text: clip(`${item.scope} · ${item.text}`, 220),
-                  ...(item.url ? { href: item.url } : {}),
-                  ...(trailing ? { trailing } : {}),
-                  ...(detail ? { detail } : {}),
-                };
-              }),
-      },
-    ],
+    sections,
   };
 }
 

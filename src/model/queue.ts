@@ -138,7 +138,10 @@ function stackItems(
       id: "stack:lanes",
       rung: 1,
       scope: "Shared stack",
-      text: `${plural(loose.length, "fork lane")} failed on the environment${oldest.f.reason ? `: ${oldest.f.reason}` : ""}`,
+      text:
+        stack.deployable.state === "yes"
+          ? `deployable again; ${plural(loose.length, "fork lane")} failed before it recovered`
+          : `${plural(loose.length, "fork lane")} failed on the environment${oldest.f.reason ? `: ${oldest.f.reason}` : ""}`,
       since: oldest.f.at,
       url: oldest.f.url ?? oldest.f.prUrl,
       note: stack.deployable.state === "yes" ? "re-run now" : undefined,
@@ -336,9 +339,11 @@ function templateSetItem(
       : b,
   );
   const suffix = [
-    stack.deployable.state !== "yes" && blockedByEnv
-      ? "mergeable together once the stack is deployable"
-      : "mergeable together",
+    !blockedByEnv
+      ? "mergeable together"
+      : stack.deployable.state === "yes"
+        ? "mergeable together after the lane re-run"
+        : "mergeable together once the stack is deployable",
     review ? "review required" : undefined,
   ]
     .filter(Boolean)

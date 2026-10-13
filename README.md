@@ -15,7 +15,6 @@ sign-ins; it makes no GitHub or GitLab change and does not touch the cluster.
 | Needs attention (banner) | What needs a person, ranked by what it blocks? | the incidents and gates the sweep finds |
 | Shared stack | Can forks deploy? If not, since when and what has been tried? Is the stack on its declared version? | `shared.yaml`, releases, and every env-refresh, env-upgrade, smoke and sweeper run with its jobs and steps |
 | Service lines | Where is each fork with upstream, the osdu-spi template and its release, and which template changes has it not taken? | PRs, checks, issues, `Upstream-Sha` trailers, GitLab master, `.github/.template-sync-commit` on main and at each template-sync PR head, template compares, Sync Template runs |
-| Doctor (footer) | Can the rib see? | sign-in probes, the GitHub budget, each read's age and last error |
 
 The banner's pill is the tab's verdict (`BLOCKED`, `ATTENTION`, `MOVING`,
 `CONVERGED`) and the nav badge counts P0 and P1 items. P0 broke unattended, P1
@@ -23,12 +22,20 @@ is a gate or a decision, P2 is ready work. A red check is classified by its
 failed step before it counts: a lane that failed in `Confirm environment
 deployable` is the stack's fault and folds under the stack incident.
 
+The banner's last row is the doctor: `Doctor · all clear` while every source
+reads, with the sign-in probes, the GitHub budget and each read's age behind its
+disclosure. When a sign-in, the budget or a read fails, that row moves above the
+queue, amber or red, and names what failed; every panel keeps that source's last
+good read until it reads again.
+
 When forks cannot deploy, the stack panel says since when (`MAINTENANCE MODE`
 when the maintenance hold is the reason), the stage the latest attempt is in or
 stopped at with how long each stage took, a timeline since the last green run,
 and every attempt in order, cancelled ones included. A step that runs past every
-green run of its kind turns amber. Times are local, the zone Keelson draws its
-timelines and clocks in.
+green run of its kind turns amber. When forks can deploy, it shows the running
+version, the last refresh and the smoke streak; a refresh that failed before a
+later green upgrade reads amber, since the upgrade proved the stack after it.
+Times are local, the zone Keelson draws its timelines and clocks in.
 
 Service lines is one row per fork, and its state is the line's worst. Red means
 main is red, or the line stopped with nothing open to act on: a sync halt, a
