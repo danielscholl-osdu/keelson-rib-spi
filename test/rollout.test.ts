@@ -134,6 +134,25 @@ describe("Roll out", () => {
 });
 
 describe("the panel's buttons", () => {
+  test("Sync all forks names up to three forks, then counts", () => {
+    const label = (behind: string[]) => {
+      const m = model();
+      const rows = m.template.rows.map((r) =>
+        behind.includes(r.service) ? r : { ...r, behind: 0, pr: undefined },
+      );
+      const b = engineeringBoard({ ...m, template: { ...m.template, rows } }, FIXTURE_NOW);
+      const actions = b.sections.find((s) => s.kind === "actions");
+      if (actions?.kind !== "actions") throw new Error("actions");
+      return actions.items[0];
+    };
+    expect(label(["file"])).toMatchObject({
+      label: "Sync all forks · file",
+      confirm: { confirmLabel: "Sync all forks · file" },
+    });
+    expect(label(["legal", "schema", "file"])?.label).toBe("Sync all forks · legal, schema, file");
+    expect(label(["entitlements", "legal", "schema", "file"])?.label).toBe("Sync all forks · 4");
+  });
+
   test("sit under the rollout table and say why they cannot run", () => {
     const b = engineeringBoard(model(), FIXTURE_NOW);
     expect(() => expectView(ENGINEERING_KEY, "board")(b)).not.toThrow();

@@ -16,6 +16,7 @@ import { itemClass, nextText, verbOf } from "../model/next.ts";
 import { diffText, type ItemKind, type QueueItem, type Rung } from "../model/queue.ts";
 import { age, plural, stamp, zoned } from "../util.ts";
 import { STEP_PREFIX, spreadText } from "./engineering.ts";
+import { names } from "./fold.ts";
 
 type Section = CanvasBoardView["sections"][number];
 type Row = Extract<Section, { kind: "rows" }>["items"][number];
@@ -43,6 +44,9 @@ export const KIND_TITLE: Record<ItemKind, string> = {
   "template-pr": "osdu-spi PR",
   bump: "env bump",
 };
+
+// A listed rule is the one to copy; absent forks fold into one line.
+const ENTRY_ORDER: EntryState[] = ["listed", "unlisted", "unread"];
 
 const ENTRY_BADGE: Record<EntryState, { text: string; tone: CanvasTone }> = {
   absent: { text: "absent", tone: "neutral" },
@@ -92,15 +96,24 @@ function sameEntry(item: QueueItem, state: InspectState): Section | undefined {
       : undefined;
   }
   const several = item.halt.entries.length > 1;
-  const items: Row[] = state.others.entries.map((e) => {
+  const name = (e: ForkEntry) => (several ? `${e.fork} · ${e.entry}` : e.fork);
+  const entries = state.others.entries;
+  const items: Row[] = ENTRY_ORDER.flatMap((s) => entries.filter((e) => e.state === s)).map((e) => {
     const badge = ENTRY_BADGE[e.state];
     return {
       chip: { label: badge.text, tone: badge.tone },
-      text: several ? `${e.fork} · ${e.entry}` : e.fork,
+      text: name(e),
       ...(e.verdict ? { trailing: e.verdict } : {}),
       ...(e.url ? { href: e.url } : {}),
     };
   });
+  const absent = entries.filter((e) => e.state === "absent");
+  if (absent.length > 0) {
+    items.push({
+      glyph: "neutral",
+      text: `${plural(absent.length, "fork")} ${absent.length === 1 ? "has" : "have"} no such entry upstream · ${names(absent.map(name))}`,
+    });
+  }
   return items.length > 0 ? { kind: "rows", title, items } : undefined;
 }
 

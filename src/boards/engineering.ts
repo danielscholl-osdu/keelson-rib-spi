@@ -8,7 +8,7 @@
 
 import type { CanvasBoardView, CanvasTone } from "@keelson/shared";
 import type { ActionEntry } from "../act/log.ts";
-import { heldText, rolloutActions, rolloutTargets } from "../act/rollout.ts";
+import { heldText, rolloutActions, rolloutTargets, syncTargets } from "../act/rollout.ts";
 import { writeBlocked } from "../act/verbs.ts";
 import { FORKS, githubUrl, HISTORY_DAYS, TEMPLATE_REPO } from "../config.ts";
 import type { PrClass } from "../model/attribution.ts";
@@ -283,7 +283,7 @@ function reviewCell(row: TemplateRow): Cell {
     case "CHANGES_REQUESTED":
       return cell("changes requested", "warn", pr.url);
     case "REVIEW_REQUIRED":
-      return cell("required", "info", `${pr.url}/files`);
+      return cell("needs review", "warn", `${pr.url}/files`);
     default:
       return cell("not required", "neutral", pr.url);
   }
@@ -384,6 +384,20 @@ function rollout(model: Model, now: Date): Section[] {
   return fold ? [table, headLine(head)] : [table];
 }
 
+type Action = ReturnType<typeof rolloutActions>[number];
+
+// Up to three forks by name, then a count.
+function syncNamed(action: Action, model: Model): Action {
+  const forks = syncTargets(model.template).targets.map((t) => t.label);
+  if (forks.length === 0) return action;
+  const label = `Sync all forks · ${forks.length <= 3 ? forks.join(", ") : forks.length}`;
+  return {
+    ...action,
+    label,
+    ...(action.confirm ? { confirm: { ...action.confirm, confirmLabel: label } } : {}),
+  };
+}
+
 function links(model: Model): Section | undefined {
   const open = model.template.rows.filter((r) => r.pr).length;
   if (open === 0) return undefined;
@@ -395,7 +409,8 @@ function links(model: Model): Section | undefined {
       {
         icon: "↗",
         text: `Review on GitHub · ${plural(open, "template-sync PR")} in one list`,
-        trailing: "empty until the browser signs in to the Azure org's SSO",
+        trailing: plural(open, "PR"),
+        detail: "The list is empty until the browser signs in to the Azure org's SSO.",
         href: REVIEW_SEARCH,
       },
     ],
@@ -466,7 +481,7 @@ export function engineeringBoard(
       { swept: model.sweptAt ?? "" },
       now,
       writeBlocked(model.sweptAt, opts.scopes),
-    ),
+    ).map((a) => (a.label.startsWith("Sync all forks") ? syncNamed(a, model) : a)),
   });
   const link = links(model);
   if (link) sections.push(link);

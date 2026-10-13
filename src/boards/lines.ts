@@ -423,11 +423,13 @@ function workTable(model: Model, now: Date): Section | undefined {
   };
 }
 
-function fleetColumn(d: FleetDay) {
+// Every fill draws at full tone, so forks not yet created are named in the tooltip, not drawn.
+function fleetColumn(d: FleetDay, total: number) {
   if (d.unread) return { label: `${d.day.key} · unread`, segments: [{ label: "unread", n: null }] };
   const behind = d.halted + d.failing + d.waiting;
+  const absent = total - d.forks;
   return {
-    label: `${d.day.key} · ${behind} of ${d.forks} not caught up`,
+    label: `${d.day.key} · ${behind} of ${d.forks} not caught up${absent > 0 ? `, ${absent} not forked yet` : ""}`,
     segments: [
       { label: "halted", n: d.halted, tone: "error" as const },
       { label: "failing", n: d.failing, tone: "warn" as const },
@@ -439,23 +441,7 @@ function fleetColumn(d: FleetDay) {
 function fleetLane(days: readonly FleetDay[], track: string, total: number): Row {
   return {
     text: track,
-    bar: {
-      total,
-      rest: "ok",
-      columns: days.map((d) => {
-        const column = fleetColumn(d);
-        const absent = total - d.forks;
-        return d.unread || absent === 0
-          ? column
-          : {
-              ...column,
-              segments: [
-                ...column.segments,
-                { label: "no fork yet", n: absent, tone: "neutral" as const },
-              ],
-            };
-      }),
-    },
+    bar: { total, rest: "ok", columns: days.map((d) => fleetColumn(d, total)) },
   };
 }
 
@@ -463,7 +449,6 @@ const FLEET_KEY = [
   { label: "halted", tone: "error" as const },
   { label: "failing", tone: "warn" as const },
   { label: "waiting on review", tone: "info" as const },
-  { label: "no fork yet", tone: "neutral" as const },
 ];
 
 function fleet(model: Model): Section[] {

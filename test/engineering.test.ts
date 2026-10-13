@@ -98,7 +98,7 @@ describe("the engineering system panel", () => {
     expect(text(row("schema")?.on)).toBe("v1.2.0 +2");
     expect(text(row("entitlements")?.pr)).toBe("#48 → v1.2.0 +14");
     expect(text(row("entitlements")?.checks)).toBe("⊘ red on the stack");
-    expect(text(row("entitlements")?.review)).toBe("required");
+    expect(row("entitlements")?.review).toMatchObject({ value: "needs\u00a0review", tone: "warn" });
     expect(text(row("legal")?.review)).toBe("approved");
     expect(row("entitlements")?.dependabot).toMatchObject({ value: "2\u00a0open", tone: "info" });
     expect(row("file")?.dependabot).toMatchObject({ tone: "ok" });
@@ -109,6 +109,10 @@ describe("the engineering system panel", () => {
       "Held back from Roll out: partition #174, entitlements #48, legal #33, schema #37 and file #51 are red on the stack",
     );
     expect(review.items[1]?.text).toBe("Review on GitHub · 5 template-sync PRs in one list");
+    expect(review.items[1]?.trailing).toBe("5 PRs");
+    expect(review.items[1]?.detail).toBe(
+      "The list is empty until the browser signs in to the Azure org's SSO.",
+    );
     expect(review.items[1]?.href).toStartWith("https://github.com/search?type=pullrequests&q=");
     expect(review.items[1]?.href).toContain("label%3Atemplate-sync");
   });

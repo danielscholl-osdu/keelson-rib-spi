@@ -94,9 +94,48 @@ describe("the inspector", () => {
     const rows = same(read);
     if (rows?.kind !== "rows") throw new Error("one row per fork");
     expect(rows.items.map((r) => [r.text, r.chip?.label, r.trailing])).toEqual([
-      ["legal", "unlisted", undefined],
-      ["partition", "absent", undefined],
       ["file", "listed", "strip"],
+      ["legal", "unlisted", undefined],
+      ["1 fork has no such entry upstream · partition", undefined, undefined],
+    ]);
+  });
+
+  test("forks that list the entry lead, and absent forks fold into one line", () => {
+    const halt = item("halt:entitlements");
+    const absent = ["partition", "legal", "schema", "file", "indexer", "workflow"].map((fork) => ({
+      fork,
+      entry: "schemathesis-tests",
+      state: "absent" as const,
+    }));
+    const b = inspectBoard(
+      model,
+      {
+        selected: halt.id,
+        item: halt,
+        others: {
+          id: halt.id,
+          entries: [
+            ...absent.slice(0, 3),
+            { fork: "storage", entry: "schemathesis-tests", state: "listed", verdict: "strip" },
+            { fork: "unit", entry: "schemathesis-tests", state: "unread" },
+            ...absent.slice(3),
+            { fork: "search", entry: "schemathesis-tests", state: "listed", verdict: "strip" },
+          ],
+        },
+      },
+      FIXTURE_NOW,
+    );
+    const rows = section(b, "Same entry in other forks");
+    if (rows?.kind !== "rows") throw new Error("other forks");
+    expect(rows.items.map((r) => [r.chip?.label, r.text, r.trailing])).toEqual([
+      ["listed", "storage", "strip"],
+      ["listed", "search", "strip"],
+      ["?", "unit", undefined],
+      [
+        undefined,
+        "6 forks have no such entry upstream · partition, legal, schema, file, indexer and workflow",
+        undefined,
+      ],
     ]);
   });
 

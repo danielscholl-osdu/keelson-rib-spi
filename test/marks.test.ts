@@ -62,7 +62,6 @@ describe("keys and spans", () => {
       ["halted", "error"],
       ["failing", "warn"],
       ["waiting on review", "info"],
-      ["no fork yet", "neutral"],
     ]);
   });
 });
@@ -94,10 +93,10 @@ describe("fleet denominators", () => {
     if (!bar || !("columns" in bar)) throw new Error("a column bar");
     const first = bar.columns[0];
     const today = bar.columns.at(-1);
-    expect(first?.label).toMatch(/^09-22 · \d+ of 3 not caught up$/);
-    expect(first?.segments.at(-1)).toEqual({ label: "no fork yet", n: 2, tone: "neutral" });
+    expect(first?.label).toMatch(/^09-22 · \d+ of 3 not caught up, 2 not forked yet$/);
+    expect(first?.segments.map((s) => s.tone)).not.toContain("neutral");
     expect(today?.label).toMatch(/^10-12 · \d+ of 5 not caught up$/);
-    expect(today?.segments.some((s) => s.label === "no fork yet")).toBe(false);
+    expect(today?.label).not.toContain("forked");
   });
 });
 
