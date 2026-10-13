@@ -6,17 +6,19 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
+import { readFileSync } from "node:fs";
+
 // The service identity map is configuration, never derived from names:
 // entitlements builds as entitlements-v2 and schema's upstream is schema-service.
 export interface ServiceDef {
   id: string;
   upstream: string;
-  prefix: string;
+  prefix?: string;
   repo?: string;
   seeded?: string;
 }
 
-export const SERVICES: readonly ServiceDef[] = [
+const DEFAULT_SERVICES: readonly ServiceDef[] = [
   {
     id: "partition",
     repo: "Azure/osdu-spi-partition",
@@ -52,10 +54,67 @@ export const SERVICES: readonly ServiceDef[] = [
     prefix: "file",
     seeded: "2026-09-29",
   },
-  { id: "storage", upstream: "osdu/platform/system/storage", prefix: "storage" },
-  { id: "indexer", upstream: "osdu/platform/system/indexer-service", prefix: "indexer" },
-  { id: "search", upstream: "osdu/platform/system/search-service", prefix: "search" },
+  {
+    id: "storage",
+    repo: "Azure/osdu-spi-storage",
+    upstream: "osdu/platform/system/storage",
+    prefix: "storage",
+    seeded: "2026-10-13",
+  },
+  {
+    id: "indexer",
+    repo: "Azure/osdu-spi-indexer",
+    upstream: "osdu/platform/system/indexer-service",
+    prefix: "indexer",
+    seeded: "2026-10-13",
+  },
+  {
+    id: "search",
+    repo: "Azure/osdu-spi-search",
+    upstream: "osdu/platform/system/search-service",
+    prefix: "search",
+    seeded: "2026-10-13",
+  },
+  {
+    id: "workflow",
+    repo: "Azure/osdu-spi-workflow",
+    upstream: "osdu/platform/data-flow/ingestion/ingestion-workflow",
+    prefix: "workflow",
+    seeded: "2026-10-13",
+  },
+  {
+    id: "indexer-queue",
+    repo: "Azure/osdu-spi-indexer-queue",
+    upstream: "osdu/platform/system/indexer-queue",
+    seeded: "2026-10-13",
+  },
+  {
+    id: "unit",
+    repo: "Azure/osdu-spi-unit",
+    upstream: "osdu/platform/system/reference/unit-service",
+    prefix: "unit",
+    seeded: "2026-10-13",
+  },
+  {
+    id: "crs-catalog",
+    repo: "Azure/osdu-spi-crs-catalog",
+    upstream: "osdu/platform/system/reference/crs-catalog-service",
+    prefix: "crs-catalog",
+    seeded: "2026-10-13",
+  },
+  {
+    id: "crs-conversion",
+    repo: "Azure/osdu-spi-crs-conversion",
+    upstream: "osdu/platform/system/reference/crs-conversion-service",
+    prefix: "crs-converter",
+    seeded: "2026-10-13",
+  },
 ];
+
+const servicesFile = process.env.RIB_SPI_SERVICES_FILE;
+export const SERVICES: readonly ServiceDef[] = servicesFile
+  ? (JSON.parse(readFileSync(servicesFile, "utf8")) as ServiceDef[])
+  : DEFAULT_SERVICES;
 
 export type ForkDef = ServiceDef & { repo: string };
 
