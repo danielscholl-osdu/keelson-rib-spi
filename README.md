@@ -18,6 +18,7 @@ cluster, and the `spi_*` tools stay read-only.
 |---|---|---|
 | Needs attention (banner) | What needs a person, ranked by what it blocks? | the incidents and gates the sweep finds |
 | Environment | Can forks deploy? Is the environment on the latest release, does it deploy from nothing, and does the running one keep proving itself on schedule? | `shared.yaml`, stack releases, the lifecycle workflows' schedules, and every env-refresh, env-upgrade, smoke and sweeper run with its jobs and steps |
+| Engineering system | What is the newest `osdu-spi` release, which forks run it, what waits on the template itself, and where does each fork's rollout stand? | `osdu-spi` releases, tags, compares and open and merged PRs; each fork's marker, template-sync PR, Sync Template runs and schedule, and open Dependabot PRs |
 | Services | Where is each fork with upstream, the osdu-spi template and its release, how long does change wait at each gate, and how has each line moved over 21 days? | open and merged PRs, checks, open and closed halt issues, `Upstream-Sha` trailers, GitLab master, `.github/.template-sync-commit` on main and at each template-sync PR head, template compares, Sync Template runs |
 
 The banner's pill is the tab's verdict (`BLOCKED`, `ATTENTION`, `MOVING`,
@@ -80,13 +81,30 @@ the number of releases the environment trailed at day end. Sweeper folds to one
 line while every run in the window is green. Times are local, the zone Keelson
 draws its timelines and clocks in; days are UTC because the schedules are.
 
-The Services panel opens with three tiles. **Upstream** and **Release** show
+The Engineering system panel treats the `osdu-spi` template as the one shared
+input it is. **Release** is the newest release and how many forks are on it,
+whether main is the release, and the version an open release PR will cut.
+**Rollout** is the oldest open template-sync PR, what the open set carries, the
+next scheduled Sync Template and the usual merge wait. **Template PRs** is what
+waits on `osdu-spi` itself, Dependabot and the release PR included, and what
+merged since the release. A template commit is named by the newest release it
+contains, `v1.2.0 +14`, so forks and PRs read against releases even after a
+newer one is cut.
+
+Under the tiles, the release ladder has one step per fork position, newest
+first: how many changes it brings, what they reach in a fork (images, actions,
+workflows, settings, fork resources), and how far it has spread. A fork whose
+PR does not reach a step counts as having no PR for it, so a fresh release
+reads `0 of 5 · no PR carries it yet` until Sync Template moves the PRs. A step
+opens its inspector with the change titles and the compare. The rollout table
+is one row per fork: where it is, its template-sync PR and what it carries,
+checks (a failure the environment caused reads as red on the stack), review,
+the last Sync Template run, and open Dependabot PRs. A link opens every open
+template-sync PR in one GitHub list for review.
+
+The Services panel opens with two tiles. **Upstream** and **Release** show
 the oldest item their gate holds now and the 21-day median wait: upstream (a
 sync PR opened to the integration PR merged after it) and release.
-**Template** is the newest `osdu-spi` release, how many forks are on it, what
-the open template-sync PRs carry, and their oldest wait. A template commit is
-named by the newest release it contains, `v1.2.0 +14`, so forks and PRs read
-against releases even after a newer one is cut.
 
 The table is one row per fork, worst first, one column per station of the line
 (upstream, sync, cascade, main, release, lane) plus template. A clear station

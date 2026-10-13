@@ -120,6 +120,8 @@ export interface LineModel {
   syncRun?: RunFact;
   syncFailedSince?: number;
   templateRun?: RunFact;
+  // A Sync Template run queued or in progress now.
+  templateSyncing?: RunFact;
   templateDelivery: Delivery;
   lane: { ok: number; failed: number; last?: DeploymentFact };
   template: {
@@ -448,6 +450,7 @@ export function buildLine(input: {
     syncRun,
     syncFailedSince,
     templateRun,
+    templateSyncing: runs?.template.find((r) => r.status !== "completed"),
     templateDelivery,
     lane,
     template: {

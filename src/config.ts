@@ -67,6 +67,7 @@ export const STACK_REPO = "Azure/osdu-spi-stack";
 export const GITLAB_HOST = "community.opengroup.org";
 export const DECLARATION_PATH = "ops/environments/shared.yaml";
 export const MARKER_PATH = ".github/.template-sync-commit";
+export const SYNC_TEMPLATE_WORKFLOW = "sync-template.yml";
 export const LANE_ENVIRONMENT = "spi-stack";
 
 export const REPOS: readonly string[] = [TEMPLATE_REPO, STACK_REPO, ...FORKS.map((f) => f.repo)];

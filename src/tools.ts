@@ -260,7 +260,7 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
     ),
     tool(
       "spi_template",
-      "Template currency: the osdu-spi commit each fork last adopted (.github/.template-sync-commit) and the version its template-sync PR moves it to, how far behind main it is, what blocks the PR, the last Sync Template delivery, the unadopted changes by title, and the ladder: one step per fork position on template history, newest first, with the step's changes, what they reach in a fork (images, actions, workflows, settings, fork resources, or template only per sync-config.json) and which forks have adopted it. Main past the last tag reads as the version its open release PR will tag, for example v1.2.1 while the osdu-spi release PR for 1.2.1 is open.",
+      "The engineering system: the newest osdu-spi release and how many forks are on it, the open PRs on osdu-spi itself (Dependabot, features, the release PR) with their verdicts, PRs merged since the release, the next scheduled Sync Template, and per fork: the osdu-spi commit it last adopted (.github/.template-sync-commit) and the version its template-sync PR moves it to, how far behind main it is, what blocks the PR, its review decision and whether it is ready to merge, the last Sync Template delivery or one running now, its open Dependabot PRs, the unadopted changes by title, and the ladder: one step per fork position on template history, newest first, with the step's changes, what they reach in a fork (images, actions, workflows, settings, fork resources, or template only per sync-config.json) and which forks have adopted it. Main past the last tag reads as the version its open release PR will tag, for example v1.2.1 while the osdu-spi release PR for 1.2.1 is open.",
       z.object({}),
       () => {
         const m = sweeper.model;
@@ -274,6 +274,18 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
             mainAhead: tm.mainAhead,
             releasePr: tm.releasePr?.url,
             current: tm.current,
+            onRelease: tm.onRelease,
+            nextSync: tm.nextSync,
+            mergedPrs: tm.merged,
+            templatePrs: tm.prs.map((p) => ({
+              number: p.pr.number,
+              title: p.pr.title,
+              url: p.pr.url,
+              class: p.cls,
+              verdict: p.verdict,
+              review: p.pr.reviewDecision,
+              age: age(p.pr.createdAt, t),
+            })),
             forks: tm.rows.map((r) => ({
               service: r.service,
               on: r.label,
@@ -285,6 +297,8 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
                     url: r.pr.url,
                     age: age(r.pr.createdAt, t),
                     verdict: r.verdict,
+                    review: r.pr.reviewDecision,
+                    ready: r.ready,
                   }
                 : undefined,
               blockedBy: [...new Set(r.failures.map((f) => f.cls))],
@@ -292,7 +306,13 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
                 state: r.delivery.state,
                 at: r.delivery.run?.createdAt,
                 url: r.delivery.run?.url,
+                running: r.syncing?.url,
               },
+              dependabot: r.dependabot.map((p) => ({
+                number: p.number,
+                title: p.title,
+                url: p.url,
+              })),
             })),
             unadopted: tm.changes.map((c) => ({
               title: c.title,

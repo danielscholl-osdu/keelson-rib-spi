@@ -13,6 +13,7 @@ import {
   LIFECYCLE_WORKFLOWS,
   type LifecycleKind,
   STACK_REPO,
+  SYNC_TEMPLATE_WORKFLOW,
   TEMPLATE_REPO,
 } from "../config.ts";
 import type {
@@ -76,7 +77,7 @@ export async function readForkRuns(gh: Gh): Promise<Record<string, ForkRuns>> {
     const base = `repos/${f.repo}/actions`;
     const [sync, template, cascade, main] = await Promise.all([
       runs(gh, `${base}/workflows/sync.yml/runs?per_page=10`),
-      runs(gh, `${base}/workflows/sync-template.yml/runs?per_page=5`),
+      runs(gh, `${base}/workflows/${SYNC_TEMPLATE_WORKFLOW}/runs?per_page=5`),
       runs(gh, `${base}/workflows/cascade.yml/runs?per_page=5`),
       runs(gh, `${base}/workflows/validate.yml/runs?branch=main&event=push&per_page=5`),
     ]);

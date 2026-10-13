@@ -12,7 +12,8 @@ import type { ActionEntry } from "../act/log.ts";
 import type { EntryState, ForkEntry } from "../collect/filters.ts";
 import type { Model } from "../model/index.ts";
 import { diffText, type ItemKind, type QueueItem, type Rung } from "../model/queue.ts";
-import { age, zoned } from "../util.ts";
+import { age, plural, stamp, zoned } from "../util.ts";
+import { STEP_PREFIX, spreadText } from "./engineering.ts";
 
 type Section = CanvasBoardView["sections"][number];
 type Row = Extract<Section, { kind: "rows" }>["items"][number];
@@ -48,7 +49,7 @@ const ENTRY_BADGE: Record<EntryState, { text: string; tone: CanvasTone }> = {
 };
 
 export interface InspectState {
-  // The queue item id the operator last opened.
+  // The queue item id the operator last opened, or a ladder step as "step:<marker>".
   selected?: string;
   // The item as it was when opened, so a cleared item still says what it was.
   item?: QueueItem;
@@ -167,6 +168,81 @@ function lastAction(entry: ActionEntry | undefined, now: Date): Section {
   };
 }
 
+export function stepTitle(model: Model, id: string): string | undefined {
+  const step = model.template.steps.find((s) => `${STEP_PREFIX}${s.marker}` === id);
+  return step ? `osdu-spi · ${step.label}` : undefined;
+}
+
+// One step of the release ladder: the changes it brings and where each fork stands on it.
+function stepBoard(model: Model, id: string, now: Date): CanvasBoardView {
+  const steps = model.template.steps;
+  const at = steps.findIndex((s) => `${STEP_PREFIX}${s.marker}` === id);
+  const step = steps[at];
+  if (!step) {
+    return {
+      view: "board",
+      header: { status: { label: "MOVED", tone: "neutral" } },
+      sections: [
+        {
+          kind: "rows",
+          items: [
+            { glyph: "ok", text: "No fork sits at this position any more; the ladder redrew." },
+          ],
+        },
+      ],
+    };
+  }
+  const older = steps[at + 1];
+  const total = model.template.rows.length;
+  const sections: Section[] = [
+    {
+      kind: "rows",
+      items: [
+        {
+          glyph: step.head ? "info" : "neutral",
+          text: older
+            ? `${plural(step.changes.length, "change")} from ${older.label} to ${step.label}${step.consequences.length ? `, reaching ${step.consequences.join(", ")}` : ""}.`
+            : `${step.label} is the oldest position a fork holds.`,
+        },
+      ],
+    },
+  ];
+  if (step.changes.length > 0) {
+    sections.push({
+      kind: "rows",
+      title: `Changes · ${step.changes.length}`,
+      items: step.changes.map((c) => ({
+        text: c.title,
+        trailing: [c.pr ? `#${c.pr}` : undefined, stamp(c.at, now)].filter(Boolean).join(" · "),
+        href: c.url,
+      })),
+    });
+  }
+  const forks: Row[] = [
+    ...step.adopted.map((f) => ({ glyph: "ok" as const, text: f, trailing: "on it" })),
+    ...step.waiting.map((f) => ({ glyph: "info" as const, text: f, trailing: "PR waits" })),
+    ...step.failing.map((f) => ({ glyph: "warn" as const, text: f, trailing: "PR fails" })),
+    ...step.noPr.map((f) => ({ glyph: "neutral" as const, text: f, trailing: "no PR carries it" })),
+    ...step.unmeasured.map((f) => ({ glyph: "neutral" as const, text: f, trailing: "unread" })),
+  ];
+  sections.push({ kind: "rows", title: "Forks", items: forks });
+  if (step.url) {
+    sections.push({
+      kind: "rows",
+      title: "Evidence",
+      items: [{ icon: "↗", text: "Compare on GitHub", href: step.url }],
+    });
+  }
+  return {
+    view: "board",
+    header: {
+      status: { label: step.label, tone: step.head ? "info" : "neutral" },
+      chip: spreadText(step, total),
+    },
+    sections,
+  };
+}
+
 export function inspectBoard(
   model: Model,
   state: InspectState,
@@ -174,6 +250,7 @@ export function inspectBoard(
   last?: ActionEntry,
   opts: InspectOptions = {},
 ): CanvasBoardView {
+  if (state.selected?.startsWith(STEP_PREFIX)) return stepBoard(model, state.selected, now);
   const live = state.selected ? model.queue.items.find((i) => i.id === state.selected) : undefined;
   const item = live ?? state.item;
   if (!item) {

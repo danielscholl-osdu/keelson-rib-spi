@@ -25,7 +25,8 @@ import { type Readiness, readReadiness } from "./act/readiness.ts";
 import { ACT_ACTION, registerVerb } from "./act/verbs.ts";
 import { AGENTS, resolveAgent } from "./agent.ts";
 import { attentionBoard, badge } from "./boards/attention.ts";
-import { type InspectState, inspectBoard, inspectTitle } from "./boards/inspect.ts";
+import { engineeringBoard, STEP_PREFIX } from "./boards/engineering.ts";
+import { type InspectState, inspectBoard, inspectTitle, stepTitle } from "./boards/inspect.ts";
 import { linesBoard } from "./boards/lines.ts";
 import { stackBoard } from "./boards/stack.ts";
 import { checkable, entryAcrossForks, type ForkEntry } from "./collect/filters.ts";
@@ -35,6 +36,7 @@ import {
   ATTENTION_KEY,
   BADGE_KEY,
   BOARD_KEYS,
+  ENGINEERING_KEY,
   INSPECT_KEY,
   LINES_KEY,
   RIB_ID,
@@ -62,6 +64,7 @@ const COMPOSERS: Record<(typeof VIEW_KEYS)[number], Composer> = {
   [ATTENTION_KEY]: (s, now) =>
     attentionBoard(s.model, s.facts, now, { selected: inspect.selected, act: readiness }),
   [STACK_KEY]: (s, now) => stackBoard(s.model, now),
+  [ENGINEERING_KEY]: (s, now) => engineeringBoard(s.model, now, { selected: inspect.selected }),
   [LINES_KEY]: (s, now) => linesBoard(s.model, now),
   [INSPECT_KEY]: (s, now) =>
     inspectBoard(s.model, inspect, now, actionLog.lastFor(inspect.selected), {
@@ -234,6 +237,23 @@ const rib: Rib = {
       if (typeof id !== "string" || !id) {
         return { ok: false, error: "inspect payload must be { id: string }" };
       }
+      if (id.startsWith(STEP_PREFIX)) {
+        const title = stepTitle(s.model, id);
+        if (!title) return { ok: false, error: "that ladder step has moved; the board redraws" };
+        inspect = { selected: id };
+        await snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
+        snapshots?.recompose(ATTENTION_KEY).catch(() => undefined);
+        snapshots?.recompose(ENGINEERING_KEY).catch(() => undefined);
+        return {
+          ok: true,
+          data: {
+            effect: "open-canvas" as const,
+            key: INSPECT_KEY,
+            title,
+            placement: "side" as const,
+          },
+        };
+      }
       const item = s.model.queue.items.find((i) => i.id === id);
       if (!item) return { ok: false, error: `${id} has left the queue; the board redraws` };
       const entries = cachedOthers(item, Date.now());
@@ -247,6 +267,7 @@ const rib: Rib = {
       // The drawer opens on this snapshot, so it must hold the item just clicked.
       await snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
       snapshots?.recompose(ATTENTION_KEY).catch(() => undefined);
+      snapshots?.recompose(ENGINEERING_KEY).catch(() => undefined);
       if (read) readOthers(item);
       return {
         ok: true,

@@ -15,9 +15,10 @@ import type {
   TemplateChange,
   TemplateFacts,
 } from "../facts.ts";
-import type { Failure } from "./attribution.ts";
-import { type PrVerdict, prVerdict } from "./checks.ts";
+import { classifyPr, type Failure, type PrClass } from "./attribution.ts";
+import { type PrVerdict, prReady, prVerdict } from "./checks.ts";
 import type { LineModel } from "./lines.ts";
+import { nextFire, toCrons } from "./schedule.ts";
 import { semverCmp } from "./stack.ts";
 
 export interface TemplateRow {
@@ -32,6 +33,25 @@ export interface TemplateRow {
   failures: Failure[];
   awaitingRun?: boolean;
   delivery: { run?: RunFact; state: "ok" | "failed" | "stale" | "unknown" };
+  syncing?: RunFact;
+  // Approved, green and not a draft: what Roll out would merge.
+  ready: boolean;
+  dependabot: PrFact[];
+}
+
+// An open PR on osdu-spi itself: a change waiting to enter the engineering system.
+export interface TemplatePr {
+  pr: PrFact;
+  cls: PrClass;
+  verdict: PrVerdict;
+}
+
+// Merged PRs since the newest release, or, when none, the ones that release took.
+export interface TemplateMerged {
+  tag: string;
+  after: boolean;
+  n: number;
+  dependabot: number;
 }
 
 // What a template change does to a fork, read from the synced paths it touches.
@@ -77,6 +97,12 @@ export interface TemplateModel {
   changes: (TemplateChange & { forks: number; missing: string[] })[];
   commits: number;
   steps: TemplateStep[];
+  // Forks on the newest release or past it, of the forks whose position was read.
+  onRelease: number;
+  read: number;
+  prs: TemplatePr[];
+  merged?: TemplateMerged;
+  nextSync?: string;
 }
 
 function under(path: string, dir: string): boolean {
@@ -92,8 +118,26 @@ export function consequenceOf(path: string, synced: SyncedPaths): Consequence | 
   return "settings";
 }
 
+// "v1.2.0 +14" as a release and the commits past it; "main" or a sha is not a position.
+function position(label: string | undefined): { version: string; ahead: number } | undefined {
+  const m = label ? /^(v?\d+\.\d+\.\d+)(?: \+(\d+))?$/.exec(label) : null;
+  return m ? { version: m[1] as string, ahead: Number(m[2] ?? 0) } : undefined;
+}
+
+export function positionCmp(a: string | undefined, b: string | undefined): number | undefined {
+  const pa = position(a);
+  const pb = position(b);
+  if (!pa || !pb) return undefined;
+  return semverCmp(pa.version, pb.version) || pa.ahead - pb.ahead;
+}
+
+// The failure that is the PR's own; ENV belongs to the stack and POLICY is expected.
+export function ownFailure(row: TemplateRow): Failure | undefined {
+  return row.failures.find((f) => !f.hidden && f.cls !== "ENV" && f.cls !== "POLICY");
+}
+
 function realFailure(row: TemplateRow): boolean {
-  return row.failures.some((f) => !f.hidden && f.cls !== "ENV" && f.cls !== "POLICY");
+  return !!ownFailure(row);
 }
 
 export function templateSteps(
@@ -112,6 +156,13 @@ export function templateSteps(
     positions.set(compare.marker, { marker: compare.marker, behind: compare.aheadBy, label });
   }
   const ordered = [...positions.values()].sort((a, b) => a.behind - b.behind);
+  // Whether a fork's PR takes it to this position; unknown counts as carrying it.
+  const carries = (row: TemplateRow, pos: { marker: string; behind: number; label: string }) => {
+    const at = row.pr?.headMarker ? positions.get(row.pr.headMarker) : undefined;
+    if (at) return at.behind <= pos.behind;
+    const cmp = positionCmp(row.target, pos.label);
+    return cmp === undefined || cmp >= 0;
+  };
   return ordered.map((pos, i) => {
     const older = ordered[i + 1];
     const newerShas = new Set(compares[pos.marker]?.shas ?? []);
@@ -152,8 +203,9 @@ export function templateSteps(
     for (const row of rows) {
       if (row.behind === undefined) step.unmeasured.push(row.service);
       else if (row.behind <= pos.behind) step.adopted.push(row.service);
+      else if (row.pr && !carries(row, pos)) step.noPr.push(row.service);
       else if (row.pr && realFailure(row)) step.failing.push(row.service);
-      else if (row.pr || row.awaitingRun) step.waiting.push(row.service);
+      else if (row.pr || (row.awaitingRun && pos.behind > 0)) step.waiting.push(row.service);
       else step.noPr.push(row.service);
     }
     return step;
@@ -180,10 +232,40 @@ export function nextTag(templateRepo: RepoFact | undefined, latestTag: string | 
   return `${latestTag?.startsWith("v") ? "v" : ""}${version}`;
 }
 
+function isDependabot(p: { head: string; author?: string }): boolean {
+  return classifyPr(p) === "dependabot";
+}
+
+export function mergedSince(templateRepo: RepoFact | undefined): TemplateMerged | undefined {
+  const past = templateRepo?.pastPrs;
+  const releases = [...(templateRepo?.releases ?? [])].sort(
+    (a, b) => Date.parse(b.at) - Date.parse(a.at),
+  );
+  const latest = releases[0];
+  if (!past || !latest) return undefined;
+  const merged = past.filter((p) => p.mergedAt && classifyPr(p) !== "release");
+  const count = (list: typeof merged, tag: string, after: boolean): TemplateMerged => ({
+    tag,
+    after,
+    n: list.length,
+    dependabot: list.filter(isDependabot).length,
+  });
+  const at = (p: (typeof merged)[number]) => Date.parse(p.mergedAt as string);
+  const after = merged.filter((p) => at(p) > Date.parse(latest.at));
+  if (after.length > 0 || !releases[1]) return count(after, latest.tag, true);
+  const prev = Date.parse(releases[1].at);
+  return count(
+    merged.filter((p) => at(p) > prev && at(p) <= Date.parse(latest.at)),
+    latest.tag,
+    false,
+  );
+}
+
 export function buildTemplate(
   templateRepo: RepoFact | undefined,
   facts: TemplateFacts | undefined,
   lines: readonly LineModel[],
+  opts: { syncCrons?: readonly string[]; now?: Date } = {},
 ): TemplateModel {
   const compares = facts?.compares ?? {};
   const latestTag = facts?.latestTag ?? templateRepo?.release?.tag;
@@ -202,6 +284,9 @@ export function buildTemplate(
       failures: line.templatePr?.failures ?? [],
       awaitingRun: line.template.awaitingRun,
       delivery: line.templateDelivery,
+      ...(line.templateSyncing ? { syncing: line.templateSyncing } : {}),
+      ready: !!line.templatePr && prReady(line.templatePr.pr, line.templatePr.failures),
+      dependabot: line.prs.filter((p) => p.prClass === "dependabot").map((p) => p.pr),
     };
   });
 
@@ -229,6 +314,9 @@ export function buildTemplate(
 
   const next = nextTag(templateRepo, latestTag);
   const headLabel = facts?.mainAhead === 0 && latestTag ? latestTag : (next ?? "main");
+  const read = rows.filter((r) => r.label !== undefined);
+  const fire = opts.now && opts.syncCrons ? nextFire(toCrons(opts.syncCrons), opts.now) : undefined;
+  const merged = mergedSince(templateRepo);
   return {
     head: templateRepo?.head,
     latestTag,
@@ -244,5 +332,15 @@ export function buildTemplate(
     changes,
     commits,
     steps: templateSteps(facts, rows, templateRepo?.head, headLabel),
+    onRelease: read.filter((r) => r.behind === 0 || (positionCmp(r.label, latestTag) ?? -1) >= 0)
+      .length,
+    read: read.length,
+    prs: (templateRepo?.prs ?? []).map((pr) => ({
+      pr,
+      cls: classifyPr(pr),
+      verdict: prVerdict(pr),
+    })),
+    ...(merged ? { merged } : {}),
+    ...(fire !== undefined ? { nextSync: new Date(fire).toISOString() } : {}),
   };
 }

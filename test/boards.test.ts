@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { expectView } from "@keelson/shared";
 import { attentionBoard, badge } from "../src/boards/attention";
+import { engineeringBoard } from "../src/boards/engineering";
 import { linesBoard } from "../src/boards/lines";
 import { stackBoard } from "../src/boards/stack";
 import { emptyFacts } from "../src/facts";
-import { ATTENTION_KEY, LINES_KEY, STACK_KEY } from "../src/keys";
+import { ATTENTION_KEY, ENGINEERING_KEY, LINES_KEY, STACK_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
 import { buildTemplate } from "../src/model/template";
 import { FIXTURE_NOW, fixtureFacts } from "./harness";
@@ -16,6 +17,7 @@ function boards(m = model, f = facts) {
   return {
     [ATTENTION_KEY]: attentionBoard(m, f, FIXTURE_NOW),
     [STACK_KEY]: stackBoard(m, FIXTURE_NOW),
+    [ENGINEERING_KEY]: engineeringBoard(m, FIXTURE_NOW),
     [LINES_KEY]: linesBoard(m, FIXTURE_NOW),
   };
 }
@@ -116,7 +118,7 @@ describe("what the boards say", () => {
     expect(badge(model).count).toBe(p0 + p1);
   });
 
-  test("services lead with the gate and template tiles, then one row per fork, worst first, then fleet lanes", () => {
+  test("services lead with the gate tiles, then one row per fork, worst first, then fleet lanes", () => {
     const b = linesBoard(model, FIXTURE_NOW);
     expect(b.header?.status).toEqual({
       label: "1 HALTED · 1 BLOCKED · 3 UPDATES WAITING",
@@ -129,7 +131,6 @@ describe("what the boards say", () => {
       throw new Error("tiles, table, fleet");
     expect(tiles.items.map((i) => i.label)).toEqual([
       "Upstream · oldest held",
-      "Template · osdu-spi",
       "Release · oldest PR",
     ]);
     expect(tiles.items[0]).toMatchObject({
@@ -138,11 +139,6 @@ describe("what the boards say", () => {
       sub: "upstream reaches main in 1 h 53 min at the median · 8 syncs in 21 d",
     });
     expect(tiles.items[1]).toMatchObject({
-      value: "v1.2.0",
-      delta: { text: "on every fork", direction: "flat", tone: "ok" },
-      sub: "released 10-05 22:43 · 5 open PRs carry v1.2.1 · oldest PR 4d, usually merged in 3 d 8 h · v1.2.1 in release PR #248",
-    });
-    expect(tiles.items[2]).toMatchObject({
       value: "none",
       tone: "ok",
       sub: "5 releases cut in 21 d",
@@ -254,7 +250,7 @@ describe("what the boards say", () => {
     expect(text(row?.release)).toStartWith("◷ v1.2.0 → v1.2.1 · #60 · ");
     const tiles = b.sections[0];
     if (tiles?.kind !== "stats") throw new Error("tiles first");
-    expect(tiles.items[2]?.clock?.at).toBe(release.createdAt);
+    expect(tiles.items[1]?.clock?.at).toBe(release.createdAt);
   });
 
   test("at twenty forks current forks fold and the fleet lanes keep one row per track", () => {
@@ -432,18 +428,6 @@ describe("a template release the forks have not taken yet", () => {
     f.template.data.mainAhead = 0;
     return buildModel(f, FIXTURE_NOW);
   }
-
-  test("the template tile leads with the release and how many forks are on it", () => {
-    const b = linesBoard(released(), FIXTURE_NOW);
-    const tiles = b.sections[0];
-    if (tiles?.kind !== "stats") throw new Error("tiles");
-    expect(tiles.items[1]).toMatchObject({
-      label: "Template · osdu-spi",
-      value: "v1.3.0",
-      delta: { text: "on 0 of 5 forks", tone: "info" },
-    });
-    expect(tiles.items[1]?.sub).toStartWith("released 21:00 · 5 open PRs carry v1.2.0 +14");
-  });
 
   test("open PRs keep their position and the banner says a newer release is out", () => {
     const model = released();

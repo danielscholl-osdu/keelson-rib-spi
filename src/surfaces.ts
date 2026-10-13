@@ -7,14 +7,21 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import type { RibSurfaceDescriptor } from "@keelson/shared";
-import { ATTENTION_KEY, BADGE_KEY, LINES_KEY, STACK_KEY, SURFACE_ID } from "./keys.ts";
+import {
+  ATTENTION_KEY,
+  BADGE_KEY,
+  ENGINEERING_KEY,
+  LINES_KEY,
+  STACK_KEY,
+  SURFACE_ID,
+} from "./keys.ts";
 
 export const REFRESH_ACTION = "refresh";
 export const INSPECT_ACTION = "inspect";
 
 // The banner holds everything that needs a person, so its pill is the tab's
-// verdict. The environment sits above the services because a fault there
-// blocks every line. The rib drives refresh in-process, so no region names a workflow.
+// verdict. The environment and the engineering system sit above the services
+// because each is one shared input every line depends on. The rib drives refresh in-process, so no region names a workflow.
 export const SURFACES: readonly RibSurfaceDescriptor[] = [
   {
     id: SURFACE_ID,
@@ -39,6 +46,17 @@ export const SURFACES: readonly RibSurfaceDescriptor[] = [
               title: "Environment",
               byline: "shared · osdu-spi-stack · where every fork lane deploys",
               glyph: { char: "◎", tone: "info" },
+              live: true,
+            },
+          ],
+        },
+        {
+          columns: [
+            {
+              key: ENGINEERING_KEY,
+              title: "Engineering system",
+              byline: "osdu-spi · the workflows, actions and images every fork runs",
+              glyph: { char: "⚙", tone: "brand" },
               live: true,
             },
           ],

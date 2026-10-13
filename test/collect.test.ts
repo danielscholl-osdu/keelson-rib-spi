@@ -25,6 +25,43 @@ describe("GraphQL query", () => {
     expect(q).toContain("pastPrs: pullRequests(states: [MERGED, CLOSED]");
     expect(q).toContain('labels: ["sync-failed","conflict","cascade-blocked","cascade-failed"]');
     expect(q).toContain('wf_refresh: object(expression: "main:.github/workflows/env-refresh.yml")');
+    expect(q).toContain(
+      'r_template: repository(owner: "Azure", name: "osdu-spi") { ...Base ...Template }',
+    );
+    expect(q).toContain(
+      'syncTemplate: object(expression: "main:.github/workflows/sync-template.yml")',
+    );
+  });
+
+  test("the template's merged PRs keep their author and a fork reads its Sync Template schedule", () => {
+    const facts = parseGithub({
+      r_template: {
+        nameWithOwner: "Azure/osdu-spi",
+        url: "https://github.com/Azure/osdu-spi",
+        pastPrs: {
+          nodes: [
+            {
+              number: 254,
+              title: "build(deps): bump setup-java",
+              url: "u",
+              createdAt: "2026-10-11T00:00:00Z",
+              mergedAt: "2026-10-12T00:00:00Z",
+              headRefName: "dependabot/github_actions/setup-java-5",
+              baseRefName: "main",
+              author: { login: "dependabot" },
+            },
+          ],
+        },
+      },
+      r_fork0: {
+        nameWithOwner: "Azure/osdu-spi-partition",
+        url: "https://github.com/Azure/osdu-spi-partition",
+        syncTemplate: { text: "on:\n  schedule:\n    - cron: '0 8 * * *'\n" },
+      },
+    });
+    expect(facts.repos["Azure/osdu-spi"]?.pastPrs?.[0]?.author).toBe("dependabot");
+    expect(facts.repos["Azure/osdu-spi"]?.syncCrons).toBeUndefined();
+    expect(facts.repos["Azure/osdu-spi-partition"]?.syncCrons).toEqual(["0 8 * * *"]);
   });
 
   test("the stack's releases and workflow schedules, and a fork's past gates, are parsed", () => {

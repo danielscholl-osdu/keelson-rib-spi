@@ -8,12 +8,13 @@ import { join } from "node:path";
 import { expectView } from "@keelson/shared";
 import { runJSON, runText } from "@keelson/shared/exec";
 import { attentionBoard, badge } from "../src/boards/attention.ts";
+import { engineeringBoard } from "../src/boards/engineering.ts";
 import { inspectBoard } from "../src/boards/inspect.ts";
 import { linesBoard } from "../src/boards/lines.ts";
 import { stackBoard } from "../src/boards/stack.ts";
 import { checkable, entryAcrossForks } from "../src/collect/filters.ts";
 import { Gh, Glab } from "../src/forge.ts";
-import { ATTENTION_KEY, INSPECT_KEY, LINES_KEY, STACK_KEY } from "../src/keys.ts";
+import { ATTENTION_KEY, ENGINEERING_KEY, INSPECT_KEY, LINES_KEY, STACK_KEY } from "../src/keys.ts";
 import { attemptText, overdue, usualText } from "../src/model/stack.ts";
 import { Store } from "../src/store.ts";
 import { Sweeper } from "../src/sweep.ts";
@@ -84,6 +85,7 @@ for (const st of m.template.steps) {
 const boards = {
   [ATTENTION_KEY]: attentionBoard(m, sweeper.facts, now),
   [STACK_KEY]: stackBoard(m, now),
+  [ENGINEERING_KEY]: engineeringBoard(m, now),
   [LINES_KEY]: linesBoard(m, now),
 };
 let bad = 0;

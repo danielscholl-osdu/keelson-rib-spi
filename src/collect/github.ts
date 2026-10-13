@@ -16,6 +16,7 @@ import {
   PLANNED,
   plannedRepo,
   STACK_REPO,
+  SYNC_TEMPLATE_WORKFLOW,
   TEMPLATE_REPO,
 } from "../config.ts";
 import type {
@@ -52,7 +53,7 @@ const ISSUES = `issues(states: OPEN, first: 50, orderBy: {field: CREATED_AT, dir
 } }`;
 
 const PAST_PULLS = `pastPrs: pullRequests(states: [MERGED, CLOSED], first: 100, orderBy: {field: UPDATED_AT, direction: DESC}) { nodes {
-  number title url createdAt mergedAt closedAt headRefName baseRefName
+  number title url createdAt mergedAt closedAt headRefName baseRefName author { login }
 } }`;
 
 const HALT_LABELS = ["sync-failed", "conflict", "cascade-blocked", "cascade-failed"];
@@ -76,7 +77,12 @@ fragment Base on Repository {
   ${PULLS}
   ${ISSUES}
 }
+fragment Template on Repository {
+  ${PAST_PULLS}
+  releases(first: 10, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { tagName publishedAt url isDraft } }
+}
 fragment Fork on Repository {
+  syncTemplate: object(expression: "main:.github/workflows/${SYNC_TEMPLATE_WORKFLOW}") { ... on Blob { text } }
   marker: object(expression: "main:${MARKER_PATH}") { ... on Blob { text } }
   upstreamLog: ref(qualifiedName: "refs/heads/fork_upstream") { target { ... on Commit { history(first: 10) { nodes { oid message committedDate } } } } }
   deployments(environments: ["${LANE_ENVIRONMENT}"], first: 60, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { createdAt commitOid ref { name } latestStatus { state createdAt } } }
@@ -96,7 +102,7 @@ function repoField(alias: string, repo: string, spread: string): string {
 
 export function buildQuery(): string {
   const fields = [
-    repoField("r_template", TEMPLATE_REPO, "...Base"),
+    repoField("r_template", TEMPLATE_REPO, "...Base ...Template"),
     repoField("r_stack", STACK_REPO, "...Base ...Stack"),
     ...FORKS.map((f, i) => repoField(`r_fork${i}`, f.repo, "...Base ...Fork")),
     ...PLANNED.map((p, i) => repoField(`p_${i}`, plannedRepo(p), "nameWithOwner")),
@@ -168,6 +174,7 @@ interface RawRepo {
     }[];
   };
   declaration?: { text?: string } | null;
+  syncTemplate?: { text?: string } | null;
   pastPrs?: {
     nodes?: {
       number: number;
@@ -178,6 +185,7 @@ interface RawRepo {
       closedAt?: string | null;
       headRefName: string;
       baseRefName: string;
+      author?: { login?: string } | null;
     }[];
   };
   pastIssues?: {
@@ -314,6 +322,7 @@ function parsePastPrs(raw: RawRepo["pastPrs"]): PastPrFact[] | undefined {
     createdAt: p.createdAt,
     mergedAt: p.mergedAt ?? undefined,
     closedAt: p.closedAt ?? undefined,
+    ...(p.author?.login ? { author: p.author.login } : {}),
   }));
 }
 
@@ -375,6 +384,7 @@ export function parseRepo(raw: RawRepo): RepoFact {
     pastIssues: parsePastIssues(raw.pastIssues),
     releases: parseReleases(raw.releases),
     schedules: parseSchedules(raw),
+    ...(raw.syncTemplate !== undefined ? { syncCrons: parseCrons(raw.syncTemplate?.text) } : {}),
   };
 }
 

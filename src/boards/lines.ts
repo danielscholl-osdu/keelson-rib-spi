@@ -215,56 +215,7 @@ function gateStat(
   };
 }
 
-// The template release, as the Running tile shows the environment's version.
-function templateStat(model: Model, now: Date): Stat {
-  const t = model.template;
-  const label = "Template · osdu-spi";
-  const tag = t.latestTag;
-  if (!tag) return { label, value: null, sub: "no osdu-spi release read" };
-  const read = t.rows.filter((r) => r.label !== undefined);
-  const on = read.filter((r) => r.label === tag || r.label?.startsWith(`${tag} +`)).length;
-  const all = t.rows.length;
-  const open = t.rows.filter((r) => r.pr);
-  const targets = [...new Set(open.map((r) => r.target ?? r.label))];
-  const carry =
-    open.length === 0
-      ? undefined
-      : targets.length === 1 && targets[0]
-        ? `${plural(open.length, "open PR")} carry ${targets[0]}`
-        : plural(open.length, "open PR");
-  const { oldest, medianMs } = model.gates.template;
-  const median = model.gates.measured ? span(medianMs) : undefined;
-  const wait = oldest
-    ? `oldest PR ${since(oldest.at, now)}${median ? `, usually merged in ${median}` : ""}`
-    : undefined;
-  const next = t.releasePr && t.next ? `${t.next} in release PR #${t.releasePr.number}` : undefined;
-  const sub = [
-    t.release?.tag === tag ? `released ${stamp(t.release.at, now)}` : undefined,
-    carry,
-    wait,
-    next,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  return {
-    label,
-    value: tag,
-    ...(oldest ? { tone: oldest.tone } : {}),
-    delta:
-      read.length < all
-        ? {
-            text: `on ${on} of ${all} forks, ${all - read.length} unread`,
-            direction: "flat",
-            tone: "neutral",
-          }
-        : on === all
-          ? { text: "on every fork", direction: "flat", tone: "ok" }
-          : { text: `on ${on} of ${all} forks`, direction: "flat", tone: "info" },
-    ...(sub ? { sub } : {}),
-  };
-}
-
-function tiles(model: Model, now: Date): Section {
+function tiles(model: Model): Section {
   const { gates } = model;
   return {
     kind: "stats",
@@ -274,7 +225,6 @@ function tiles(model: Model, now: Date): Section {
           ? `upstream reaches main in ${m} at the median · ${plural(gates.upstream.n, "sync")} in ${HISTORY_DAYS} d`
           : `no sync reached main in ${HISTORY_DAYS} d`,
       ),
-      templateStat(model, now),
       gateStat(
         "Release · oldest PR",
         gates.release,
@@ -350,7 +300,7 @@ export function linesBoard(model: Model, now: Date): CanvasBoardView {
   const folded = fold ? ordered.filter(settled) : [];
   const shown = fold ? ordered.filter((l) => !settled(l)) : ordered;
   const sections: Section[] = [
-    tiles(model, now),
+    tiles(model),
     {
       kind: "table",
       ...(caption ? { caption } : {}),

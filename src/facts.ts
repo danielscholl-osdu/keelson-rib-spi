@@ -65,6 +65,7 @@ export interface PastPrFact {
   createdAt: string;
   mergedAt?: string;
   closedAt?: string;
+  author?: string;
 }
 
 export interface PastIssueFact {
@@ -113,6 +114,8 @@ export interface RepoFact {
   releases?: ReleaseFact[];
   // Cron expressions per lifecycle workflow, read from the workflow files on main.
   schedules?: Partial<Record<LifecycleKind, string[]>>;
+  // Sync Template's cron expressions, read from the fork's workflow file on main.
+  syncCrons?: string[];
 }
 
 export interface GithubFacts {
