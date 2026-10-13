@@ -94,13 +94,12 @@ function stackItems(
     }
     const live = stack.inflight;
     const usual = usualText(stack.usual);
+    const state = stack.maintenance.state === "set" ? "maintenance mode" : "not deployable";
     const text = live
-      ? `not deployable; ${runName(live.run)} in ${runWhere(live) ?? "progress"} now${
+      ? `${state}; ${runName(live.run)} in ${runWhere(live) ?? "progress"} now${
           overdue(stack, now) && usual ? `, past ${usual}` : ""
         }`
-      : `not deployable; last attempt ${attemptText(last)}${
-          stack.maintenance.state === "set" ? "; maintenance held" : ""
-        }`;
+      : `${state}; last attempt ${attemptText(last)}`;
     items.push({
       id: `stack:${first.run.id}`,
       rung: 0,

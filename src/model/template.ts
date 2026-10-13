@@ -33,30 +33,19 @@ export interface TemplateModel {
   waiting: number;
   behindNoPr: number;
   unmeasured: number;
-  changes: (TemplateChange & { forks: number })[];
+  changes: (TemplateChange & { forks: number; missing: string[] })[];
   commits: number;
 }
-
-// Sync Template runs daily, so a delivery older than one and a half days is stale.
-const STALE_MS = 36 * 3_600_000;
 
 export function buildTemplate(
   templateRepo: RepoFact | undefined,
   facts: TemplateFacts | undefined,
   lines: readonly LineModel[],
-  now: Date,
 ): TemplateModel {
   const compares = facts?.compares ?? {};
   const rows: TemplateRow[] = lines.map((line) => {
     const marker = line.template.marker;
     const compare = marker ? compares[marker] : undefined;
-    const run = line.templateRun;
-    let state: TemplateRow["delivery"]["state"] = "unknown";
-    if (run) {
-      if (run.conclusion !== "success") state = "failed";
-      else if (now.getTime() - Date.parse(run.createdAt) > STALE_MS) state = "stale";
-      else state = "ok";
-    }
     return {
       service: line.fork.id,
       repo: line.fork.repo,
@@ -66,13 +55,13 @@ export function buildTemplate(
       pr: line.templatePr?.pr,
       verdict: line.templatePr ? prVerdict(line.templatePr.pr) : undefined,
       failures: line.templatePr?.failures ?? [],
-      delivery: { run, state },
+      delivery: line.templateDelivery,
     };
   });
 
   // A change is unadopted by every fork whose marker compare still lists it.
   const allChanges = new Map<string, TemplateChange>();
-  const missing = new Map<string, number>();
+  const missing = new Map<string, string[]>();
   let commits = 0;
   for (const row of rows) {
     const compare = row.marker ? compares[row.marker] : undefined;
@@ -81,11 +70,15 @@ export function buildTemplate(
     const shas = new Set(compare.shas);
     for (const change of compare.changes) {
       allChanges.set(change.sha, change);
-      if (shas.has(change.sha)) missing.set(change.sha, (missing.get(change.sha) ?? 0) + 1);
+      if (shas.has(change.sha))
+        missing.set(change.sha, [...(missing.get(change.sha) ?? []), row.service]);
     }
   }
   const changes = [...allChanges.values()]
-    .map((c) => ({ ...c, forks: missing.get(c.sha) ?? 0 }))
+    .map((c) => {
+      const lacking = missing.get(c.sha) ?? [];
+      return { ...c, forks: lacking.length, missing: lacking };
+    })
     .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
 
   const prs = templateRepo?.prs ?? [];

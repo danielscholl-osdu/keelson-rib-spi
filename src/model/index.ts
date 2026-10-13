@@ -36,12 +36,14 @@ export function buildModel(facts: Facts, now: Date): Model {
       runs: facts.runs.data?.[fork.repo],
       upstream: facts.upstream.data?.[fork.id],
       compares: facts.template.data?.compares ?? {},
+      targets: facts.template.data?.targets ?? {},
+      templateHead: repos[TEMPLATE_REPO]?.head,
       details,
       stack,
       now,
     }),
   );
-  const template = buildTemplate(repos[TEMPLATE_REPO], facts.template.data, lines, now);
+  const template = buildTemplate(repos[TEMPLATE_REPO], facts.template.data, lines);
   const queue = buildQueue({
     stack,
     lines,

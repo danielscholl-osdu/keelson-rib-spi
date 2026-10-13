@@ -33,6 +33,7 @@ import type { Gh } from "../forge.ts";
 const PULLS = `pullRequests(states: OPEN, first: 40, orderBy: {field: CREATED_AT, direction: DESC}) { nodes {
   number title url createdAt updatedAt isDraft headRefName baseRefName headRefOid mergeStateStatus reviewDecision
   author { login }
+  headRef { target { ... on Commit { file(path: "${MARKER_PATH}") { object { ... on Blob { text } } } } } }
   labels(first: 15) { nodes { name } }
   commits(last: 1) { nodes { commit { statusCheckRollup { contexts(first: 80) { nodes {
     __typename
@@ -101,6 +102,7 @@ interface RawPr {
   mergeStateStatus?: string;
   reviewDecision?: string | null;
   author?: { login?: string } | null;
+  headRef?: { target?: { file?: { object?: { text?: string } | null } | null } } | null;
   labels?: { nodes?: { name: string }[] };
   commits?: {
     nodes?: { commit?: { statusCheckRollup?: { contexts?: { nodes?: RawCheck[] } } | null } }[];
@@ -173,6 +175,7 @@ function parsePr(repo: string, p: RawPr): PrFact {
     head: p.headRefName,
     base: p.baseRefName,
     headSha: p.headRefOid,
+    headMarker: p.headRef?.target?.file?.object?.text?.trim() || undefined,
     mergeState: p.mergeStateStatus ?? undefined,
     reviewDecision: p.reviewDecision ?? undefined,
     author: p.author?.login ?? undefined,

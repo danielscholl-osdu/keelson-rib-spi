@@ -143,5 +143,15 @@ export async function readTemplate(
     }
     facts.compares[marker] = entry;
   }
+  const moved = new Set(
+    FORKS.flatMap((f) =>
+      (repos[f.repo]?.prs ?? [])
+        .map((p) => p.headMarker)
+        .filter((m): m is string => !!m && m !== repos[f.repo]?.marker),
+    ),
+  );
+  const targets: Record<string, string> = {};
+  for (const sha of moved) targets[sha] = await label(gh, sha, latestTag, state.labels);
+  if (moved.size > 0) facts.targets = targets;
   return facts;
 }

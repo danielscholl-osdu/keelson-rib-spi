@@ -7,7 +7,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import type { CanvasBoardView, CanvasTone } from "@keelson/shared";
-import { FORKS, type LifecycleKind } from "../config.ts";
+import type { LifecycleKind } from "../config.ts";
 import type { LifecycleRun } from "../facts.ts";
 import type { Model } from "../model/index.ts";
 import {
@@ -71,7 +71,10 @@ function incident(model: Model): boolean {
 function statusOf(model: Model, hurt: boolean): { label: string; tone: CanvasTone } {
   const { stack } = model;
   if (stack.deployable.state === "yes") return { label: "DEPLOYABLE", tone: "ok" };
-  if (hurt) return { label: "NOT DEPLOYABLE", tone: "error" };
+  if (hurt) {
+    const held = stack.maintenance.state === "set";
+    return { label: held ? "MAINTENANCE MODE" : "NOT DEPLOYABLE", tone: "error" };
+  }
   if (stack.inflight) {
     return { label: `${stack.inflight.run.kind.toUpperCase()} RUNNING`, tone: "info" };
   }
@@ -109,22 +112,23 @@ function runningStat(model: Model, now: Date): Stat {
   };
 }
 
-function blockedStat(model: Model): Stat {
+function blockedStat(model: Model, now: Date): Stat {
   const { stack } = model;
-  const since =
-    stack.maintenance.state === "set"
-      ? stack.maintenance.since
-      : stoppedAttempts(stack)[0]?.run.createdAt;
-  const waiting = model.lines.filter((l) =>
-    l.prs.some((p) => p.failures.some((f) => f.cls === "ENV")),
+  const held = stack.maintenance.state === "set" ? stack.maintenance : undefined;
+  const since = held ? held.since : stoppedAttempts(stack)[0]?.run.createdAt;
+  const prs = model.lines.flatMap((l) =>
+    l.prs.filter((p) => p.failures.some((f) => f.cls === "ENV")),
   ).length;
   return {
-    label: "Not deployable since",
+    label: held ? "In maintenance since" : "Not deployable since",
     ...(since ? { clock: { at: since, mode: "since" as const } } : { value: null }),
     tone: "error",
     sub: [
-      `${waiting} of ${FORKS.length} fork lanes waiting`,
-      stack.maintenance.state === "set" ? "maintenance held" : undefined,
+      "no fork can deploy",
+      prs > 0 ? `${prs === 1 ? "1 PR waits" : `${prs} PRs wait`} on it` : undefined,
+      held?.run
+        ? `set by ${runName(held.run)} ${stamp(held.run.createdAt, now) ?? ""}`.trim()
+        : undefined,
     ]
       .filter(Boolean)
       .join(" · "),
@@ -369,9 +373,11 @@ export function stackBoard(model: Model, now: Date): CanvasBoardView {
   const hurt = incident(model);
   const live = inflightStat(model, now);
   const tiles: Stat[] = hurt
-    ? [blockedStat(model), runningStat(model, now), live ?? lastAttemptStat(model, now)].filter(
-        (t): t is Stat => t !== undefined,
-      )
+    ? [
+        blockedStat(model, now),
+        runningStat(model, now),
+        live ?? lastAttemptStat(model, now),
+      ].filter((t): t is Stat => t !== undefined)
     : [...healthyStats(model, now), ...(live ? [live] : [])];
   const sections: Section[] = [{ kind: "stats", items: tiles }];
   const focus = stack.inflight ?? (hurt ? stack.attempts[stack.attempts.length - 1] : undefined);

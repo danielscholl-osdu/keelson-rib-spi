@@ -14,8 +14,7 @@ sign-ins; it makes no GitHub or GitLab change and does not touch the cluster.
 |---|---|---|
 | Needs attention (banner) | What needs a person, ranked by what it blocks? | the incidents and gates the sweep finds |
 | Shared stack | Can forks deploy? If not, since when and what has been tried? Is the stack on its declared version? | `shared.yaml`, releases, and every env-refresh, env-upgrade, smoke and sweeper run with its jobs and steps |
-| Service lines | Where is each line, and is it moving? | PRs, checks, issues, `Upstream-Sha` trailers, GitLab master, the `spi-stack` lane ledger |
-| Template | Is every fork on the current osdu-spi template? | `.github/.template-sync-commit`, template compares, template-sync PRs, Sync Template runs |
+| Service lines | Where is each fork with upstream, the osdu-spi template and its release, and which template changes has it not taken? | PRs, checks, issues, `Upstream-Sha` trailers, GitLab master, `.github/.template-sync-commit` on main and at each template-sync PR head, template compares, Sync Template runs |
 | Doctor (footer) | Can the rib see? | sign-in probes, the GitHub budget, each read's age and last error |
 
 The banner's pill is the tab's verdict (`BLOCKED`, `ATTENTION`, `MOVING`,
@@ -24,11 +23,18 @@ is a gate or a decision, P2 is ready work. A red check is classified by its
 failed step before it counts: a lane that failed in `Confirm environment
 deployable` is the stack's fault and folds under the stack incident.
 
-When forks cannot deploy, the stack panel says since when, the stage the latest
-attempt is in or stopped at with how long each stage took, a timeline since the
-last green run, and every attempt in order, cancelled ones included. A step that
-runs past every green run of its kind turns amber. Times are local, the zone
-Keelson draws its timelines and clocks in.
+When forks cannot deploy, the stack panel says since when (`MAINTENANCE MODE`
+when the maintenance hold is the reason), the stage the latest attempt is in or
+stopped at with how long each stage took, a timeline since the last green run,
+and every attempt in order, cancelled ones included. A step that runs past every
+green run of its kind turns amber. Times are local, the zone Keelson draws its
+timelines and clocks in.
+
+Service lines is one row per fork. Its state puts upstream problems first, then
+template problems, then anything waiting, so `current` means caught up with
+upstream and on the latest template. A template-sync PR shows the version the
+fork is on and the one the PR moves it to, so a jump across several releases is
+visible before anyone merges it.
 
 ## Services
 
@@ -40,7 +46,7 @@ Keelson draws its timelines and clocks in.
 | schema | Azure/osdu-spi-schema | osdu/platform/system/schema-service |
 | file | Azure/osdu-spi-file | osdu/platform/system/file |
 
-storage, indexer and search show as empty seats until their forks exist. The
+storage, indexer and search are listed as planned until their forks exist. The
 map lives in `src/config.ts`.
 
 ## Tools and agent

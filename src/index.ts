@@ -22,7 +22,6 @@ import { attentionBoard, badge } from "./boards/attention.ts";
 import { doctorBoard } from "./boards/doctor.ts";
 import { linesBoard } from "./boards/lines.ts";
 import { stackBoard } from "./boards/stack.ts";
-import { templateBoard } from "./boards/template.ts";
 import { INFLIGHT_POLL_MS, SWEEP_MS } from "./config.ts";
 import { Gh } from "./forge.ts";
 import {
@@ -33,7 +32,6 @@ import {
   LINES_KEY,
   RIB_ID,
   STACK_KEY,
-  TEMPLATE_KEY,
 } from "./keys.ts";
 import { Store } from "./store.ts";
 import { REFRESH_ACTION, SURFACES } from "./surfaces.ts";
@@ -46,7 +44,6 @@ const COMPOSERS: Record<(typeof BOARD_KEYS)[number], Composer> = {
   [ATTENTION_KEY]: (s, now) => attentionBoard(s.model, s.facts, now),
   [STACK_KEY]: (s, now) => stackBoard(s.model, now),
   [LINES_KEY]: (s, now) => linesBoard(s.model, now),
-  [TEMPLATE_KEY]: (s, now) => templateBoard(s.model, now),
   [DOCTOR_KEY]: (s, now) => doctorBoard(s.facts, now),
 };
 

@@ -7,15 +7,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import type { RibSurfaceDescriptor } from "@keelson/shared";
-import {
-  ATTENTION_KEY,
-  BADGE_KEY,
-  DOCTOR_KEY,
-  LINES_KEY,
-  STACK_KEY,
-  SURFACE_ID,
-  TEMPLATE_KEY,
-} from "./keys.ts";
+import { ATTENTION_KEY, BADGE_KEY, DOCTOR_KEY, LINES_KEY, STACK_KEY, SURFACE_ID } from "./keys.ts";
 
 export const REFRESH_ACTION = "refresh";
 
@@ -56,20 +48,9 @@ export const SURFACES: readonly RibSurfaceDescriptor[] = [
             {
               key: LINES_KEY,
               title: "Service lines",
-              byline: "upstream · sync · cascade · main · release · stack lane",
+              byline: "upstream · template · release, one row per fork",
               glyph: { char: "⫶", tone: "brand" },
               live: true,
-            },
-          ],
-        },
-        {
-          columns: [
-            {
-              key: TEMPLATE_KEY,
-              title: "Template",
-              byline: "is every fork on the current osdu-spi template",
-              glyph: { char: "⧉", tone: "accent" },
-              collapsible: true,
             },
           ],
         },
