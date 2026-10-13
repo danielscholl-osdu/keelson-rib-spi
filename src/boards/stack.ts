@@ -24,6 +24,7 @@ import {
   stoppedAttempts,
   usualText,
 } from "../model/stack.ts";
+import { INSPECT_ACTION } from "../surfaces.ts";
 import { againstUsual, clip, span, stamp, took, zoned } from "../util.ts";
 
 type Section = CanvasBoardView["sections"][number];
@@ -324,9 +325,11 @@ function timeline(model: Model, now: Date): Section | undefined {
   };
 }
 
+// Each attempt opens the environment incident it belongs to, where its run links live.
 function attempts(model: Model, now: Date): Section {
   const { stack } = model;
   const green = stack.lastGreen;
+  const incidentId = model.queue.items.find((i) => i.kind === "stack")?.id;
   return {
     kind: "rows",
     title: green
@@ -336,7 +339,9 @@ function attempts(model: Model, now: Date): Section {
       (v): Row => ({
         glyph: runTone(v.run),
         text: attemptText(v, stack.maintenance.run?.id),
-        href: v.run.url,
+        ...(incidentId
+          ? { action: { type: INSPECT_ACTION, payload: { id: incidentId } } }
+          : { href: v.run.url }),
         trailing: [
           stamp(v.run.createdAt, now),
           v.run.status === "completed" ? took(v.run.createdAt, v.run.updatedAt) : "running",

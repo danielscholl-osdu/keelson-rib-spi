@@ -9,7 +9,8 @@
 import type { CanvasBoardView, CanvasTone, RibSurfaceBadge } from "@keelson/shared";
 import type { Facts } from "../facts.ts";
 import type { Model } from "../model/index.ts";
-import type { QueueItem, Rung, Verdict } from "../model/queue.ts";
+import type { Rung, Verdict } from "../model/queue.ts";
+import { INSPECT_ACTION } from "../surfaces.ts";
 import { age, clip, plural, zoned } from "../util.ts";
 import { doctorRow } from "./doctor.ts";
 
@@ -23,22 +24,6 @@ const VERDICT_TONE: Record<Verdict, CanvasTone> = {
   CONVERGED: "ok",
 };
 
-// The row's disclosure holds at most 4000 characters, so a long effect list is cut
-// at a whole line and says how many were left out.
-function effectsDetail(item: QueueItem): string | undefined {
-  if (item.effects.length === 0) return undefined;
-  const lines = item.effects.map((e) => `• ${e.text}${e.url ? `\n  ${e.url}` : ""}`);
-  const kept: string[] = [];
-  let size = 0;
-  for (const line of lines) {
-    if (size + line.length + 1 > 3800) break;
-    kept.push(line);
-    size += line.length + 1;
-  }
-  const left = lines.length - kept.length;
-  return left > 0 ? `${kept.join("\n")}\n…and ${left} more` : kept.join("\n");
-}
-
 export function verdictLabel(model: Model): string {
   const { verdict, incidents } = model.queue;
   if ((verdict === "BLOCKED" || verdict === "ATTENTION") && incidents > 0) {
@@ -47,7 +32,12 @@ export function verdictLabel(model: Model): string {
   return verdict;
 }
 
-export function attentionBoard(model: Model, facts: Facts, now: Date): CanvasBoardView {
+export function attentionBoard(
+  model: Model,
+  facts: Facts,
+  now: Date,
+  selected?: string,
+): CanvasBoardView {
   const doctor = doctorRow(facts, now);
   if (!model.measured) {
     const error = facts.github.error;
@@ -77,14 +67,13 @@ export function attentionBoard(model: Model, facts: Facts, now: Date): CanvasBoa
             },
           ]
         : items.map((item) => {
-            const detail = effectsDetail(item);
             const trailing = [item.note, age(item.since, now)].filter(Boolean).join(" · ");
             return {
               chip: { label: `P${item.rung}`, tone: RUNG_TONE[item.rung] },
               text: clip(`${item.scope} · ${item.text}`, 220),
-              ...(item.url ? { href: item.url } : {}),
+              action: { type: INSPECT_ACTION, payload: { id: item.id } },
+              ...(item.id === selected ? { selected: true } : {}),
               ...(trailing ? { trailing } : {}),
-              ...(detail ? { detail } : {}),
             };
           }),
   };

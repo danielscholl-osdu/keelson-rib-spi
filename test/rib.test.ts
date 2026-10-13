@@ -9,7 +9,7 @@ import {
   ribViewDescriptorSchema,
 } from "@keelson/shared";
 import rib from "../src/index";
-import { ATTENTION_KEY, BADGE_KEY, BOARD_KEYS } from "../src/keys";
+import { ATTENTION_KEY, BADGE_KEY, BOARD_KEYS, INSPECT_KEY } from "../src/keys";
 import { failingExec, fakeContext, fixtureFacts } from "./harness";
 
 afterEach(async () => {
@@ -63,9 +63,9 @@ describe("binding", () => {
   test("registers every board and the badge, and each resting frame passes its validator", async () => {
     const { ctx, snapshots } = fakeContext();
     const tools = rib.registerTools?.(ctx) ?? [];
-    expect(snapshots.keys().sort()).toEqual([...BOARD_KEYS, BADGE_KEY].sort());
+    expect(snapshots.keys().sort()).toEqual([...BOARD_KEYS, INSPECT_KEY, BADGE_KEY].sort());
     const frames = await snapshots.composeAll();
-    expect(frames.size).toBe(BOARD_KEYS.length + 1);
+    expect(frames.size).toBe(BOARD_KEYS.length + 2);
     expect(tools.map((t) => t.name).sort()).toEqual([
       "spi_incidents",
       "spi_line",
@@ -115,6 +115,55 @@ describe("binding", () => {
     expect(refresh?.ok).toBe(true);
     const nope = await rib.onAction?.({ type: "merge-everything" }, fakeContext().ctx);
     expect(nope).toEqual({ ok: false, error: "spi does not handle 'merge-everything'" });
+  });
+});
+
+describe("inspect", () => {
+  function stored() {
+    const dir = mkdtempSync(join(tmpdir(), "rib-spi-"));
+    writeFileSync(join(dir, "facts.json"), JSON.stringify(fixtureFacts()));
+    return fakeContext({ getDataDir: () => dir });
+  }
+
+  test("a queue item opens the side inspector holding that item", async () => {
+    const { ctx, snapshots } = stored();
+    rib.registerTools?.(ctx);
+    const res = await rib.onAction?.({ type: "inspect", payload: { id: "gate1:legal" } }, ctx);
+    expect(res).toEqual({
+      ok: true,
+      data: {
+        effect: "open-canvas",
+        key: INSPECT_KEY,
+        title: "legal · sync PR",
+        placement: "side",
+      },
+    });
+    const frame = snapshots.latest(INSPECT_KEY)?.data as { title?: string };
+    expect(frame.title).toBe("legal · sync PR");
+  });
+
+  test("a halt reads other forks, and an unreachable forge reads as unknown, not clear", async () => {
+    const { ctx, snapshots } = stored();
+    rib.registerTools?.(ctx);
+    await rib.onAction?.({ type: "inspect", payload: { id: "halt:entitlements" } }, ctx);
+    const frame = snapshots.latest(INSPECT_KEY)?.data as {
+      sections: { kind: string; title?: string; cells?: { badge?: { text: string } }[] }[];
+    };
+    const grid = frame.sections.find((s) => s.kind === "grid");
+    expect(grid?.title).toBe("Same entry in other forks");
+    expect(grid?.cells).toHaveLength(4);
+    expect(grid?.cells?.every((c) => c.badge?.text === "?")).toBe(true);
+  });
+
+  test("a missing or stale id fails without opening anything", async () => {
+    const { ctx } = stored();
+    rib.registerTools?.(ctx);
+    expect(await rib.onAction?.({ type: "inspect", payload: {} }, ctx)).toEqual({
+      ok: false,
+      error: "inspect payload must be { id: string }",
+    });
+    const gone = await rib.onAction?.({ type: "inspect", payload: { id: "halt:nope" } }, ctx);
+    expect(gone?.ok).toBe(false);
   });
 });
 

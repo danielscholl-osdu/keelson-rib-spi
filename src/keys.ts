@@ -13,5 +13,7 @@ export const ATTENTION_KEY = "rib:spi:attention";
 export const BADGE_KEY = "rib:spi:badge";
 export const STACK_KEY = "rib:spi:stack";
 export const LINES_KEY = "rib:spi:lines";
+// The side inspector has no region; an inspect action opens it in the canvas drawer.
+export const INSPECT_KEY = "rib:spi:inspect";
 
 export const BOARD_KEYS = [ATTENTION_KEY, STACK_KEY, LINES_KEY] as const;

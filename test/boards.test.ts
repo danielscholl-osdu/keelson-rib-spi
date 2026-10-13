@@ -62,7 +62,22 @@ describe("what the boards say", () => {
     expect(rows.items[0]?.text).toStartWith(
       "Environment · maintenance mode; env-upgrade v0.28.2 in verify",
     );
-    expect(rows.items[0]?.detail).toContain("partition template-sync PR #174");
+    expect(rows.items[0]?.action).toEqual({
+      type: "inspect",
+      payload: { id: model.queue.items[0]?.id },
+    });
+    expect(rows.items[0]?.href).toBeUndefined();
+    expect(rows.items[0]?.detail).toBeUndefined();
+  });
+
+  test("the open item's row is marked selected and no other is", () => {
+    const id = model.queue.items[1]?.id;
+    const b = attentionBoard(model, facts, FIXTURE_NOW, id);
+    const rows = b.sections[0];
+    if (rows?.kind !== "rows") throw new Error("queue first");
+    expect(rows.items.filter((r) => r.selected)).toHaveLength(1);
+    expect(rows.items[1]?.selected).toBe(true);
+    expect(() => expectView(ATTENTION_KEY, "board")(b)).not.toThrow();
   });
 
   test("the doctor is one quiet row under the queue while every source reads", () => {

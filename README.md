@@ -22,6 +22,16 @@ is a gate or a decision, P2 is ready work. A red check is classified by its
 failed step before it counts: a lane that failed in `Confirm environment
 deployable` is the environment's fault and folds under its incident.
 
+A banner row opens its inspector in a side drawer beside the tab, and the next
+row swaps it in place. The inspector shows the item's class, its cause line by
+line with links, the effects folded under it, and a link to the item on GitHub.
+For a sync halt on an unclassified upstream entry, it also reads every other
+fork's `.github/upstream-filter.yml` and its upstream tree, and marks each fork
+`absent` (upstream has no such entry), `listed`, `unlisted` (its next sync will
+halt too) or `?` when a read failed. While the environment is in an incident,
+each attempt row opens the same environment inspector. An item a sweep no
+longer reads shows as cleared rather than vanishing.
+
 The banner's last row is the doctor: `Doctor · all clear` while every source
 reads, with the sign-in probes, the GitHub budget and each read's age behind its
 disclosure. When a sign-in, the budget or a read fails, that row moves above the

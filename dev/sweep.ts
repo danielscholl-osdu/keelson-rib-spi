@@ -8,9 +8,12 @@ import { join } from "node:path";
 import { expectView } from "@keelson/shared";
 import { runJSON, runText } from "@keelson/shared/exec";
 import { attentionBoard, badge } from "../src/boards/attention.ts";
+import { inspectBoard } from "../src/boards/inspect.ts";
 import { linesBoard } from "../src/boards/lines.ts";
 import { stackBoard } from "../src/boards/stack.ts";
-import { ATTENTION_KEY, LINES_KEY, STACK_KEY } from "../src/keys.ts";
+import { checkable, entryAcrossForks } from "../src/collect/filters.ts";
+import { Gh, Glab } from "../src/forge.ts";
+import { ATTENTION_KEY, INSPECT_KEY, LINES_KEY, STACK_KEY } from "../src/keys.ts";
 import { attemptText, overdue, usualText } from "../src/model/stack.ts";
 import { Store } from "../src/store.ts";
 import { Sweeper } from "../src/sweep.ts";
@@ -90,6 +93,32 @@ for (const [key, board] of Object.entries(boards)) {
   } catch (err) {
     bad++;
     console.error(`\nINVALID ${key}: ${err instanceof Error ? err.message.slice(0, 2000) : err}`);
+  }
+}
+
+// Every queue item opens an inspector; a halt also reads the other forks live.
+const exec = { runJSON, runText };
+console.log("\ninspectors");
+for (const item of m.queue.items) {
+  const others = checkable(item.halt)
+    ? { id: item.id, entries: await entryAcrossForks(new Gh(exec), new Glab(exec), item.halt) }
+    : undefined;
+  const board = inspectBoard(m, { selected: item.id, item, ...(others ? { others } : {}) }, now);
+  try {
+    expectView(INSPECT_KEY, "board")(board);
+    console.log(
+      `  ok  ${item.id} · ${board.header?.status?.label} · ${item.cause.length} cause, ${item.effects.length} effects`,
+    );
+  } catch (err) {
+    bad++;
+    console.error(
+      `  INVALID ${item.id}: ${err instanceof Error ? err.message.slice(0, 1000) : err}`,
+    );
+  }
+  for (const e of others?.entries ?? []) {
+    console.log(
+      `        ${e.fork.padEnd(13)} ${e.entry} · ${e.state}${e.verdict ? ` · ${e.verdict}` : ""}`,
+    );
   }
 }
 console.log(bad === 0 ? "\nall boards valid" : `\n${bad} invalid boards`);

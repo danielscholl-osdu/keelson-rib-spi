@@ -10,6 +10,7 @@ import type { RibSurfaceDescriptor } from "@keelson/shared";
 import { ATTENTION_KEY, BADGE_KEY, LINES_KEY, STACK_KEY, SURFACE_ID } from "./keys.ts";
 
 export const REFRESH_ACTION = "refresh";
+export const INSPECT_ACTION = "inspect";
 
 // The banner holds everything that needs a person, so its pill is the tab's
 // verdict. The environment sits above the services because a fault there
