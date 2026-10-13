@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildQuery,
+  parseCrons,
   parseDeclaration,
   parseGithub,
   parseHalt,
@@ -19,6 +20,63 @@ describe("GraphQL query", () => {
     expect(q).toContain('environments: ["spi-stack"]');
     expect(q).toContain("main:.github/.template-sync-commit");
     expect(q).toContain("main:ops/environments/shared.yaml");
+    expect(q).toContain("pastPrs: pullRequests(states: [MERGED, CLOSED]");
+    expect(q).toContain('labels: ["sync-failed","conflict","cascade-blocked","cascade-failed"]');
+    expect(q).toContain('wf_refresh: object(expression: "main:.github/workflows/env-refresh.yml")');
+  });
+
+  test("the stack's releases and workflow schedules, and a fork's past gates, are parsed", () => {
+    const facts = parseGithub({
+      r_stack: {
+        nameWithOwner: "Azure/osdu-spi-stack",
+        url: "https://github.com/Azure/osdu-spi-stack",
+        releases: {
+          nodes: [
+            { tagName: "v0.28.3", publishedAt: "2026-10-13T00:18:28Z", url: "u3" },
+            { tagName: "v0.29.0", publishedAt: null, url: "u4", isDraft: true },
+          ],
+        },
+        wf_refresh: { text: 'on:\n  schedule:\n    - cron: "0 4 * * 1-5"\n' },
+        wf_upgrade: { text: "on:\n  push:\n" },
+        wf_smoke: null,
+      },
+      r_fork0: {
+        nameWithOwner: "Azure/osdu-spi-legal",
+        url: "https://github.com/Azure/osdu-spi-legal",
+        pastPrs: {
+          nodes: [
+            {
+              number: 21,
+              title: "Sync with upstream",
+              url: "u21",
+              createdAt: "2026-09-30T00:08:00Z",
+              mergedAt: "2026-09-30T01:33:00Z",
+              closedAt: "2026-09-30T01:33:00Z",
+              headRefName: "sync/upstream-20260930",
+              baseRefName: "fork_upstream",
+            },
+          ],
+        },
+        pastIssues: {
+          nodes: [
+            {
+              number: 9,
+              url: "u9",
+              createdAt: "2026-09-30T01:34:00Z",
+              closedAt: "2026-09-30T01:38:00Z",
+              labels: { nodes: [{ name: "conflict" }] },
+            },
+          ],
+        },
+      },
+    });
+    const stack = facts.repos["Azure/osdu-spi-stack"];
+    expect(stack?.releases).toEqual([{ tag: "v0.28.3", at: "2026-10-13T00:18:28Z", url: "u3" }]);
+    expect(stack?.schedules).toEqual({ refresh: ["0 4 * * 1-5"], upgrade: [], smoke: [] });
+    const legal = facts.repos["Azure/osdu-spi-legal"];
+    expect(legal?.pastPrs?.[0]).toMatchObject({ number: 21, head: "sync/upstream-20260930" });
+    expect(legal?.pastIssues?.[0]).toMatchObject({ number: 9, labels: ["conflict"] });
+    expect(legal?.releases).toBeUndefined();
   });
 
   test("a planned repository that does not exist reads as missing, not as an error", () => {
@@ -34,6 +92,15 @@ describe("GraphQL query", () => {
 });
 
 describe("parsers", () => {
+  test("every cron line in a workflow file is a schedule", () => {
+    expect(
+      parseCrons(
+        "on:\n  schedule:\n    # comment\n    - cron: \"0 4 * * 1-5\"\n    - cron: '30 8 * * *'\n",
+      ),
+    ).toEqual(["0 4 * * 1-5", "30 8 * * *"]);
+    expect(parseCrons(undefined)).toEqual([]);
+  });
+
   test("the halt line follows the ### Halt heading", () => {
     const body =
       "The upstream filter halted rather than guess.\n\n### Halt\nUNKNOWN_TOP_LEVEL: unclassified top-level entries: schemathesis-tests\n\nA halt usually means...";

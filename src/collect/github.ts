@@ -10,6 +10,8 @@ import {
   DECLARATION_PATH,
   FORKS,
   LANE_ENVIRONMENT,
+  LIFECYCLE_WORKFLOWS,
+  type LifecycleKind,
   MARKER_PATH,
   PLANNED,
   plannedRepo,
@@ -22,13 +24,17 @@ import type {
   DeploymentFact,
   GithubFacts,
   IssueFact,
+  PastIssueFact,
+  PastPrFact,
   PrFact,
+  ReleaseFact,
   RepoFact,
 } from "../facts.ts";
 import type { Gh } from "../forge.ts";
 
 // One aliased GraphQL query reads open PRs with their checks, open issues,
-// release, markers and the lane ledger for every repository at once.
+// release, markers, the lane ledger and 21 days of gate history for every
+// repository at once.
 
 const PULLS = `pullRequests(states: OPEN, first: 40, orderBy: {field: CREATED_AT, direction: DESC}) { nodes {
   number title url createdAt updatedAt isDraft headRefName baseRefName headRefOid mergeStateStatus reviewDecision
@@ -45,6 +51,23 @@ const ISSUES = `issues(states: OPEN, first: 50, orderBy: {field: CREATED_AT, dir
   number title url createdAt updatedAt labels(first: 15) { nodes { name } } comments { totalCount } body
 } }`;
 
+const PAST_PULLS = `pastPrs: pullRequests(states: [MERGED, CLOSED], first: 100, orderBy: {field: UPDATED_AT, direction: DESC}) { nodes {
+  number title url createdAt mergedAt closedAt headRefName baseRefName
+} }`;
+
+const HALT_LABELS = ["sync-failed", "conflict", "cascade-blocked", "cascade-failed"];
+
+const PAST_ISSUES = `pastIssues: issues(states: CLOSED, first: 30, labels: ${JSON.stringify(HALT_LABELS)}, orderBy: {field: UPDATED_AT, direction: DESC}) { nodes {
+  number url createdAt closedAt labels(first: 15) { nodes { name } }
+} }`;
+
+const LIFECYCLE_KINDS = Object.keys(LIFECYCLE_WORKFLOWS) as LifecycleKind[];
+
+const WORKFLOW_FILES = LIFECYCLE_KINDS.map(
+  (k) =>
+    `wf_${k}: object(expression: "main:.github/workflows/${LIFECYCLE_WORKFLOWS[k]}") { ... on Blob { text } }`,
+).join("\n  ");
+
 const FRAGMENTS = `
 fragment Base on Repository {
   nameWithOwner url autoMergeAllowed
@@ -57,9 +80,13 @@ fragment Fork on Repository {
   marker: object(expression: "main:${MARKER_PATH}") { ... on Blob { text } }
   upstreamLog: ref(qualifiedName: "refs/heads/fork_upstream") { target { ... on Commit { history(first: 10) { nodes { oid message committedDate } } } } }
   deployments(environments: ["${LANE_ENVIRONMENT}"], first: 60, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { createdAt commitOid ref { name } latestStatus { state createdAt } } }
+  ${PAST_PULLS}
+  ${PAST_ISSUES}
 }
 fragment Stack on Repository {
   declaration: object(expression: "main:${DECLARATION_PATH}") { ... on Blob { text } }
+  releases(first: 40, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { tagName publishedAt url isDraft } }
+  ${WORKFLOW_FILES}
 }`;
 
 function repoField(alias: string, repo: string, spread: string): string {
@@ -141,6 +168,31 @@ interface RawRepo {
     }[];
   };
   declaration?: { text?: string } | null;
+  pastPrs?: {
+    nodes?: {
+      number: number;
+      title: string;
+      url: string;
+      createdAt: string;
+      mergedAt?: string | null;
+      closedAt?: string | null;
+      headRefName: string;
+      baseRefName: string;
+    }[];
+  };
+  pastIssues?: {
+    nodes?: {
+      number: number;
+      url: string;
+      createdAt: string;
+      closedAt?: string | null;
+      labels?: { nodes?: { name: string }[] };
+    }[];
+  };
+  releases?: {
+    nodes?: { tagName: string; publishedAt?: string | null; url: string; isDraft?: boolean }[];
+  };
+  [workflow: `wf_${string}`]: { text?: string } | null | undefined;
 }
 
 function parseChecks(nodes: RawCheck[] | undefined): CheckFact[] {
@@ -244,6 +296,57 @@ function parseDeployments(raw: RawRepo["deployments"]): DeploymentFact[] {
   }));
 }
 
+export function parseCrons(text: string | undefined): string[] {
+  if (!text) return [];
+  return [...text.matchAll(/^\s*-?\s*cron:\s*["']([^"']+)["']/gm)].map((m) =>
+    (m[1] as string).trim(),
+  );
+}
+
+function parsePastPrs(raw: RawRepo["pastPrs"]): PastPrFact[] | undefined {
+  if (!raw) return undefined;
+  return (raw.nodes ?? []).map((p) => ({
+    number: p.number,
+    title: p.title,
+    url: p.url,
+    head: p.headRefName,
+    base: p.baseRefName,
+    createdAt: p.createdAt,
+    mergedAt: p.mergedAt ?? undefined,
+    closedAt: p.closedAt ?? undefined,
+  }));
+}
+
+function parsePastIssues(raw: RawRepo["pastIssues"]): PastIssueFact[] | undefined {
+  if (!raw) return undefined;
+  return (raw.nodes ?? []).map((i) => ({
+    number: i.number,
+    url: i.url,
+    createdAt: i.createdAt,
+    closedAt: i.closedAt ?? undefined,
+    labels: (i.labels?.nodes ?? []).map((l) => l.name),
+  }));
+}
+
+function parseReleases(raw: RawRepo["releases"]): ReleaseFact[] | undefined {
+  if (!raw) return undefined;
+  return (raw.nodes ?? []).flatMap((r) =>
+    r.isDraft || !r.publishedAt ? [] : [{ tag: r.tagName, at: r.publishedAt, url: r.url }],
+  );
+}
+
+function parseSchedules(raw: RawRepo): RepoFact["schedules"] {
+  const out: NonNullable<RepoFact["schedules"]> = {};
+  let any = false;
+  for (const kind of LIFECYCLE_KINDS) {
+    const file = raw[`wf_${kind}`];
+    if (file === undefined) continue;
+    any = true;
+    out[kind] = parseCrons(file?.text);
+  }
+  return any ? out : undefined;
+}
+
 export function parseRepo(raw: RawRepo): RepoFact {
   const repo = raw.nameWithOwner;
   const target = raw.defaultBranchRef?.target;
@@ -268,6 +371,10 @@ export function parseRepo(raw: RawRepo): RepoFact {
     prs: (raw.pullRequests?.nodes ?? []).map((p) => parsePr(repo, p)),
     issues: (raw.issues?.nodes ?? []).map((i) => parseIssue(repo, i)),
     deployments: parseDeployments(raw.deployments),
+    pastPrs: parsePastPrs(raw.pastPrs),
+    pastIssues: parsePastIssues(raw.pastIssues),
+    releases: parseReleases(raw.releases),
+    schedules: parseSchedules(raw),
   };
 }
 

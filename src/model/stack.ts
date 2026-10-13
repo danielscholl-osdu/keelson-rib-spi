@@ -7,9 +7,27 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import { HISTORY_DAYS, type LifecycleKind } from "../config.ts";
-import type { Declaration, JobDetail, LifecycleRun, PrFact, RepoFact, StepFact } from "../facts.ts";
+import type {
+  Declaration,
+  JobDetail,
+  LifecycleRun,
+  PrFact,
+  ReleaseFact,
+  RepoFact,
+  StepFact,
+} from "../facts.ts";
 import { clip, took } from "../util.ts";
+import {
+  type BehindDay,
+  behindDays,
+  type Day,
+  median,
+  type RunDay,
+  runDays,
+  windowDays,
+} from "./history.ts";
 import { summarizeReason } from "./reason.ts";
+import { type Cron, toCrons } from "./schedule.ts";
 
 export type StageState = "ok" | "failed" | "running" | "waits" | "skipped" | "cancelled";
 
@@ -67,6 +85,18 @@ export interface StackModel {
   lifecycle: Record<LifecycleKind, LifecycleStat>;
   bumpPr?: PrFact;
   releasePr?: PrFact;
+  // Undefined while the workflow files are unread.
+  schedules?: Record<LifecycleKind, Cron[]>;
+  history: {
+    days: Day[];
+    runs: Record<LifecycleKind, RunDay[]>;
+    // Undefined while the releases are unread.
+    behind?: BehindDay[];
+  };
+  // The green upgrade that put the running version in place, and how long after its release.
+  landed?: { at: string; release?: ReleaseFact; lagMs?: number };
+  usualLagMs?: number;
+  durations: Record<"smoke" | "refresh", { lastMs?: number; usualMs?: number }>;
 }
 
 const SET_STEP = /set maintenance/i;
@@ -315,6 +345,43 @@ export function semverCmp(a: string, b: string): number {
   return 0;
 }
 
+function spanMs(run: LifecycleRun): number | undefined {
+  const ms = Date.parse(run.updatedAt) - Date.parse(run.createdAt);
+  return Number.isFinite(ms) && ms >= 0 ? ms : undefined;
+}
+
+function durations(runs: readonly LifecycleRun[]): { lastMs?: number; usualMs?: number } {
+  const done = runs
+    .filter((r) => r.status === "completed" && r.conclusion !== "skipped")
+    .sort((a, b) => byCreated(b, a));
+  const last = done[0];
+  const green = done.filter((r) => r.conclusion === "success").flatMap((r) => spanMs(r) ?? []);
+  return { lastMs: last ? spanMs(last) : undefined, usualMs: median(green) };
+}
+
+// Each version's first green upgrade, against the release that published it.
+function landings(
+  upgrades: readonly LifecycleRun[],
+  releases: readonly ReleaseFact[],
+): { target: string; at: string; release?: ReleaseFact; lagMs?: number }[] {
+  const seen = new Set<string>();
+  const out: { target: string; at: string; release?: ReleaseFact; lagMs?: number }[] = [];
+  for (const run of [...upgrades].sort(byCreated)) {
+    if (run.status !== "completed" || run.conclusion !== "success" || !run.target) continue;
+    if (seen.has(run.target)) continue;
+    seen.add(run.target);
+    const release = releases.find((r) => r.tag === run.target);
+    const lag = release ? Date.parse(run.updatedAt) - Date.parse(release.at) : undefined;
+    out.push({
+      target: run.target,
+      at: run.updatedAt,
+      release,
+      lagMs: lag !== undefined && lag >= 0 ? lag : undefined,
+    });
+  }
+  return out;
+}
+
 export function buildStack(
   stackRepo: RepoFact | undefined,
   lifecycle: Partial<Record<LifecycleKind, LifecycleRun[]>> | undefined,
@@ -355,12 +422,28 @@ export function buildStack(
   }
 
   const prs = stackRepo?.prs ?? [];
+  const running = inferRunning(both);
+  const schedules = stackRepo?.schedules
+    ? {
+        refresh: toCrons(stackRepo.schedules.refresh),
+        upgrade: toCrons(stackRepo.schedules.upgrade),
+        smoke: toCrons(stackRepo.schedules.smoke),
+        sweeper: toCrons(stackRepo.schedules.sweeper),
+      }
+    : undefined;
+  const days = windowDays(now);
+  const runsOf = (kind: LifecycleKind) =>
+    runDays(lifecycle?.[kind] ?? [], schedules?.[kind] ?? [], days, now);
+  const releases = stackRepo?.releases;
+  const landed = releases ? landings(upgrade, releases) : [];
+  const cutoff = now.getTime() - HISTORY_DAYS * 86_400_000;
+  const current = running ? landed.filter((l) => l.target === running.version).at(-1) : undefined;
   return {
     declaration: stackRepo?.declaration,
     declared: stackRepo?.declaration?.stackVersion,
     latest: stackRepo?.release?.tag,
     latestAt: stackRepo?.release?.at,
-    running: inferRunning(both),
+    running,
     maintenance,
     deployable,
     inflight,
@@ -378,6 +461,27 @@ export function buildStack(
     releasePr: prs.find(
       (p) => p.head.startsWith("release-please--") || p.labels.includes("autorelease: pending"),
     ),
+    schedules,
+    history: {
+      days,
+      runs: {
+        refresh: runsOf("refresh"),
+        upgrade: runsOf("upgrade"),
+        smoke: runsOf("smoke"),
+        sweeper: runsOf("sweeper"),
+      },
+      behind: releases ? behindDays(releases, both, days) : undefined,
+    },
+    landed: current
+      ? { at: current.at, release: current.release, lagMs: current.lagMs }
+      : undefined,
+    usualLagMs: median(
+      landed.flatMap((l) => (l.lagMs !== undefined && Date.parse(l.at) >= cutoff ? [l.lagMs] : [])),
+    ),
+    durations: {
+      smoke: durations(lifecycle?.smoke ?? []),
+      refresh: durations(refresh),
+    },
   };
 }
 

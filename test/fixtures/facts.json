@@ -325,7 +325,210 @@
               "comments": 3
             }
           ],
-          "deployments": []
+          "deployments": [],
+          "releases": [
+            {
+              "tag": "v0.28.2",
+              "at": "2026-10-12T21:25:46Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.28.2"
+            },
+            {
+              "tag": "v0.28.1",
+              "at": "2026-10-11T22:39:55Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.28.1"
+            },
+            {
+              "tag": "v0.28.0",
+              "at": "2026-10-06T02:23:37Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.28.0"
+            },
+            {
+              "tag": "v0.27.1",
+              "at": "2026-10-05T19:06:30Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.27.1"
+            },
+            {
+              "tag": "v0.27.0",
+              "at": "2026-10-02T23:56:39Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.27.0"
+            },
+            {
+              "tag": "v0.26.0",
+              "at": "2026-10-02T03:10:34Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.26.0"
+            },
+            {
+              "tag": "v0.25.0",
+              "at": "2026-10-01T23:34:55Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.25.0"
+            },
+            {
+              "tag": "v0.24.1",
+              "at": "2026-10-01T17:37:54Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.24.1"
+            },
+            {
+              "tag": "v0.24.0",
+              "at": "2026-10-01T16:56:16Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.24.0"
+            },
+            {
+              "tag": "v0.23.1",
+              "at": "2026-10-01T15:24:18Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.23.1"
+            },
+            {
+              "tag": "v0.23.0",
+              "at": "2026-09-29T01:11:08Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.23.0"
+            },
+            {
+              "tag": "v0.22.0",
+              "at": "2026-09-28T13:50:14Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.22.0"
+            },
+            {
+              "tag": "v0.21.0",
+              "at": "2026-09-28T00:47:42Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.21.0"
+            },
+            {
+              "tag": "v0.20.0",
+              "at": "2026-09-25T20:57:07Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.20.0"
+            },
+            {
+              "tag": "v0.19.3",
+              "at": "2026-09-25T13:25:39Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.19.3"
+            },
+            {
+              "tag": "v0.19.2",
+              "at": "2026-09-24T19:53:01Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.19.2"
+            },
+            {
+              "tag": "v0.19.1",
+              "at": "2026-09-24T01:27:39Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.19.1"
+            },
+            {
+              "tag": "v0.19.0",
+              "at": "2026-09-23T15:47:36Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.19.0"
+            },
+            {
+              "tag": "v0.18.0",
+              "at": "2026-09-22T21:13:34Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.18.0"
+            },
+            {
+              "tag": "v0.17.2",
+              "at": "2026-09-16T22:36:15Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.17.2"
+            },
+            {
+              "tag": "v0.17.1",
+              "at": "2026-09-16T16:38:55Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.17.1"
+            },
+            {
+              "tag": "v0.17.0",
+              "at": "2026-09-16T13:24:07Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.17.0"
+            },
+            {
+              "tag": "v0.16.0",
+              "at": "2026-09-12T00:34:39Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.16.0"
+            },
+            {
+              "tag": "v0.15.1",
+              "at": "2026-09-11T23:04:01Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.15.1"
+            },
+            {
+              "tag": "v0.15.0",
+              "at": "2026-09-11T20:04:43Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.15.0"
+            },
+            {
+              "tag": "v0.14.1",
+              "at": "2026-09-11T16:37:50Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.14.1"
+            },
+            {
+              "tag": "v0.14.0",
+              "at": "2026-09-10T13:24:49Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.14.0"
+            },
+            {
+              "tag": "v0.13.1",
+              "at": "2026-09-09T19:25:16Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.13.1"
+            },
+            {
+              "tag": "v0.13.0",
+              "at": "2026-09-09T16:17:39Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.13.0"
+            },
+            {
+              "tag": "v0.12.0",
+              "at": "2026-09-09T01:33:00Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.12.0"
+            },
+            {
+              "tag": "v0.11.0",
+              "at": "2026-09-08T14:13:58Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.11.0"
+            },
+            {
+              "tag": "v0.10.0",
+              "at": "2026-09-04T16:25:42Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.10.0"
+            },
+            {
+              "tag": "v0.9.1",
+              "at": "2026-09-04T13:53:17Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.9.1"
+            },
+            {
+              "tag": "v0.9.0",
+              "at": "2026-09-03T00:35:35Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.9.0"
+            },
+            {
+              "tag": "v0.8.2",
+              "at": "2026-09-02T20:49:52Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.8.2"
+            },
+            {
+              "tag": "v0.8.1",
+              "at": "2026-09-02T15:18:15Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.8.1"
+            },
+            {
+              "tag": "v0.8.0",
+              "at": "2026-09-01T19:12:06Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.8.0"
+            },
+            {
+              "tag": "v0.7.0",
+              "at": "2026-08-31T21:58:19Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.7.0"
+            },
+            {
+              "tag": "v0.6.0",
+              "at": "2026-08-27T23:15:47Z",
+              "url": "https://github.com/Azure/osdu-spi-stack/releases/tag/v0.6.0"
+            }
+          ],
+          "schedules": {
+            "refresh": ["0 4 * * 1-5"],
+            "upgrade": [],
+            "smoke": ["0 8 * * *"],
+            "sweeper": ["0 4 * * *"]
+          }
         },
         "Azure/osdu-spi-partition": {
           "repo": "Azure/osdu-spi-partition",
@@ -994,6 +1197,635 @@
               "sha": "2ab7de54244a22ff4706aea86311591d05e04e5b",
               "state": "FAILURE",
               "statusAt": "2026-09-16T14:00:10Z"
+            }
+          ],
+          "pastPrs": [
+            {
+              "number": 155,
+              "title": "chore: release 1.3.1",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/155",
+              "head": "release-please--branches--main",
+              "base": "main",
+              "createdAt": "2026-09-25T21:07:39Z",
+              "mergedAt": "2026-10-06T16:54:55Z",
+              "closedAt": "2026-10-06T16:54:55Z"
+            },
+            {
+              "number": 159,
+              "title": "chore(deps): bump com.fasterxml.jackson:jackson-bom from 2.21.2 to 2.21.7 in /provider/partition-azure",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/159",
+              "head": "dependabot/maven/provider/partition-azure/main/com.fasterxml.jackson-jackson-bom-2.21.7",
+              "base": "main",
+              "createdAt": "2026-09-28T09:21:34Z",
+              "mergedAt": "2026-10-06T12:21:30Z",
+              "closedAt": "2026-10-06T12:21:30Z"
+            },
+            {
+              "number": 173,
+              "title": "chore(template-sync): sync template updates 2026-10-06",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/173",
+              "head": "template-sync/20261006-080631",
+              "base": "main",
+              "createdAt": "2026-10-06T08:06:34Z",
+              "mergedAt": "2026-10-06T12:05:19Z",
+              "closedAt": "2026-10-06T12:05:19Z"
+            },
+            {
+              "number": 172,
+              "title": "chore(deps): bump com.fasterxml.jackson.core:jackson-databind from 2.21.5 to 2.21.7",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/172",
+              "head": "dependabot/maven/com.fasterxml.jackson.core-jackson-databind-2.21.7",
+              "base": "main",
+              "createdAt": "2026-10-04T20:13:11Z",
+              "closedAt": "2026-10-04T20:13:27Z"
+            },
+            {
+              "number": 171,
+              "title": "chore(template-sync): sync template updates (updated 2026-10-01)",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/171",
+              "head": "template-sync/20260930-080639",
+              "base": "main",
+              "createdAt": "2026-09-30T08:06:43Z",
+              "mergedAt": "2026-10-01T20:58:34Z",
+              "closedAt": "2026-10-01T20:58:34Z"
+            },
+            {
+              "number": 170,
+              "title": "docs: keep the configuration table inside the README width",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/170",
+              "head": "docs/readme-table-width",
+              "base": "main",
+              "createdAt": "2026-09-30T02:17:51Z",
+              "mergedAt": "2026-09-30T02:38:02Z",
+              "closedAt": "2026-09-30T02:38:02Z"
+            },
+            {
+              "number": 169,
+              "title": "\u2b06\ufe0f Upstream Integration to Main 10fa6958",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/169",
+              "head": "release/upstream-20260930-013952",
+              "base": "main",
+              "createdAt": "2026-09-30T01:39:56Z",
+              "mergedAt": "2026-09-30T01:57:37Z",
+              "closedAt": "2026-09-30T01:57:37Z"
+            },
+            {
+              "number": 165,
+              "title": "\u2b06\ufe0f Sync with upstream e3fa53b2",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/165",
+              "head": "sync/upstream-20260930-003612",
+              "base": "fork_upstream",
+              "createdAt": "2026-09-30T00:36:16Z",
+              "mergedAt": "2026-09-30T01:32:32Z",
+              "closedAt": "2026-09-30T01:32:32Z"
+            },
+            {
+              "number": 164,
+              "title": "docs: make the root README fork-owned and move the Azure documentation there",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/164",
+              "head": "docs/fork-owned-readme",
+              "base": "main",
+              "createdAt": "2026-09-29T22:37:43Z",
+              "mergedAt": "2026-09-29T23:30:26Z",
+              "closedAt": "2026-09-29T23:30:26Z"
+            },
+            {
+              "number": 163,
+              "title": "docs(azure): rewrite provider README in the standard SPI service format",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/163",
+              "head": "docs/standard-provider-readme",
+              "base": "main",
+              "createdAt": "2026-09-29T22:11:48Z",
+              "mergedAt": "2026-09-29T22:25:15Z",
+              "closedAt": "2026-09-29T22:25:15Z"
+            },
+            {
+              "number": 162,
+              "title": "docs(azure): mark provider READMEs as Microsoft-maintained and fix stale setup",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/162",
+              "head": "chore/fork-azure-readmes",
+              "base": "main",
+              "createdAt": "2026-09-29T12:57:22Z",
+              "mergedAt": "2026-09-29T19:50:12Z",
+              "closedAt": "2026-09-29T19:50:13Z"
+            },
+            {
+              "number": 158,
+              "title": "\u2b06\ufe0f Upstream Integration to Main 591cd3c8",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/158",
+              "head": "release/upstream-20260925-215435",
+              "base": "main",
+              "createdAt": "2026-09-25T21:54:38Z",
+              "mergedAt": "2026-09-29T14:14:59Z",
+              "closedAt": "2026-09-29T14:15:00Z"
+            },
+            {
+              "number": 161,
+              "title": "chore(deps): bump com.fasterxml.jackson.core:jackson-databind from 2.21.5 to 2.21.6",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/161",
+              "head": "dependabot/maven/com.fasterxml.jackson.core-jackson-databind-2.21.6",
+              "base": "main",
+              "createdAt": "2026-09-28T21:39:47Z",
+              "closedAt": "2026-09-28T21:40:03Z"
+            },
+            {
+              "number": 160,
+              "title": "chore(deps): bump com.fasterxml.jackson.core:jackson-databind from 2.21.5 to 2.21.7 in /provider/partition-azure",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/160",
+              "head": "dependabot/maven/provider/partition-azure/main/com.fasterxml.jackson.core-jackson-databind-2.21.7",
+              "base": "main",
+              "createdAt": "2026-09-28T09:21:42Z",
+              "closedAt": "2026-09-28T09:21:57Z"
+            },
+            {
+              "number": 154,
+              "title": "chore(deps): bump com.fasterxml.jackson:jackson-bom from 2.21.2 to 2.21.6 in /provider/partition-azure",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/154",
+              "head": "dependabot/maven/provider/partition-azure/main/com.fasterxml.jackson-jackson-bom-2.21.6",
+              "base": "main",
+              "createdAt": "2026-09-21T09:23:10Z",
+              "closedAt": "2026-09-28T09:21:37Z"
+            },
+            {
+              "number": 157,
+              "title": "chore: add license header to rotate-app-key.sh",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/157",
+              "head": "chore/rotate-app-key-header",
+              "base": "main",
+              "createdAt": "2026-09-25T21:41:11Z",
+              "mergedAt": "2026-09-25T22:05:05Z",
+              "closedAt": "2026-09-25T22:05:06Z"
+            },
+            {
+              "number": 150,
+              "title": "\u2b06\ufe0f Sync with upstream e3fa53b2 (Updated)",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/150",
+              "head": "sync/upstream-20260917-003208",
+              "base": "fork_upstream",
+              "createdAt": "2026-09-17T00:32:11Z",
+              "mergedAt": "2026-09-25T21:52:53Z",
+              "closedAt": "2026-09-25T21:52:54Z"
+            },
+            {
+              "number": 156,
+              "title": "chore(template-sync): sync template updates 2026-09-25",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/156",
+              "head": "template-sync/20260925-213854",
+              "base": "main",
+              "createdAt": "2026-09-25T21:38:58Z",
+              "mergedAt": "2026-09-25T21:51:03Z",
+              "closedAt": "2026-09-25T21:51:03Z"
+            },
+            {
+              "number": 152,
+              "title": "chore(template-sync): sync template updates (updated 2026-09-25)",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/152",
+              "head": "template-sync/20260918-080553",
+              "base": "main",
+              "createdAt": "2026-09-18T08:05:57Z",
+              "mergedAt": "2026-09-25T21:06:53Z",
+              "closedAt": "2026-09-25T21:06:53Z"
+            },
+            {
+              "number": 153,
+              "title": "chore(deps): bump com.fasterxml.jackson.core:jackson-databind from 2.21.5 to 2.21.6 in /provider/partition-azure",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/153",
+              "head": "dependabot/maven/provider/partition-azure/main/com.fasterxml.jackson.core-jackson-databind-2.21.6",
+              "base": "main",
+              "createdAt": "2026-09-21T09:22:59Z",
+              "closedAt": "2026-09-21T09:23:23Z"
+            },
+            {
+              "number": 126,
+              "title": "chore: release 1.3.0",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/126",
+              "head": "release-please--branches--main",
+              "base": "main",
+              "createdAt": "2026-08-28T18:54:11Z",
+              "mergedAt": "2026-09-16T18:03:48Z",
+              "closedAt": "2026-09-16T18:03:48Z"
+            },
+            {
+              "number": 112,
+              "title": "chore(deps): bump io.netty:netty-bom from 4.2.16.Final to 4.2.18.Final",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/112",
+              "head": "dependabot/maven/main/io.netty-netty-bom-4.2.17.Final",
+              "base": "main",
+              "createdAt": "2026-08-27T15:21:57Z",
+              "closedAt": "2026-09-16T17:58:31Z"
+            },
+            {
+              "number": 109,
+              "title": "chore(deps): bump swagger-core.version from 2.2.45 to 2.2.55 in /partition-core",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/109",
+              "head": "dependabot/maven/partition-core/main/swagger-core.version-2.2.54",
+              "base": "main",
+              "createdAt": "2026-08-27T15:21:22Z",
+              "closedAt": "2026-09-16T17:58:30Z"
+            },
+            {
+              "number": 115,
+              "title": "chore(deps): bump org.apache.httpcomponents.client5:httpclient5 from 5.2.3 to 5.6.3 in /testing/partition-test-core",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/115",
+              "head": "dependabot/maven/testing/partition-test-core/org.apache.httpcomponents.client5-httpclient5-5.6.3",
+              "base": "main",
+              "createdAt": "2026-08-27T20:35:20Z",
+              "closedAt": "2026-09-16T17:58:48Z"
+            },
+            {
+              "number": 118,
+              "title": "chore(deps-dev): bump org.jetbrains.kotlin:kotlin-stdlib from 1.3.72 to 1.6.0 in /partition-core",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/118",
+              "head": "dependabot/maven/partition-core/org.jetbrains.kotlin-kotlin-stdlib-1.6.0",
+              "base": "main",
+              "createdAt": "2026-08-27T20:39:30Z",
+              "closedAt": "2026-09-16T17:58:45Z"
+            },
+            {
+              "number": 123,
+              "title": "chore(deps): bump the spring group across 5 directories with 2 updates",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/123",
+              "head": "dependabot/maven/partition-core/main/spring-308f40acd4",
+              "base": "main",
+              "createdAt": "2026-08-28T18:34:23Z",
+              "closedAt": "2026-09-16T17:58:42Z"
+            },
+            {
+              "number": 124,
+              "title": "chore(deps): bump tomcat.version from 10.1.57 to 10.1.59",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/124",
+              "head": "dependabot/maven/main/tomcat.version-10.1.59",
+              "base": "main",
+              "createdAt": "2026-08-28T18:35:24Z",
+              "closedAt": "2026-09-16T17:58:39Z"
+            },
+            {
+              "number": 131,
+              "title": "chore(deps): bump io.netty:netty-bom from 4.2.16.Final to 4.2.17.Final in /partition-core",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/131",
+              "head": "dependabot/maven/partition-core/main/io.netty-netty-bom-4.2.17.Final",
+              "base": "main",
+              "createdAt": "2026-08-31T09:16:56Z",
+              "closedAt": "2026-09-16T17:58:36Z"
+            },
+            {
+              "number": 132,
+              "title": "chore(deps): bump swagger-core.version from 2.2.45 to 2.2.54",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/132",
+              "head": "dependabot/maven/main/swagger-core.version-2.2.54",
+              "base": "main",
+              "createdAt": "2026-08-31T09:17:06Z",
+              "closedAt": "2026-09-16T17:58:33Z"
+            },
+            {
+              "number": 134,
+              "title": "chore(deps): bump io.netty:netty-bom from 4.2.16.Final to 4.2.17.Final in /provider/partition-azure",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/134",
+              "head": "dependabot/maven/provider/partition-azure/main/io.netty-netty-bom-4.2.17.Final",
+              "base": "main",
+              "createdAt": "2026-08-31T09:17:45Z",
+              "closedAt": "2026-09-16T17:58:30Z"
+            },
+            {
+              "number": 137,
+              "title": "chore(deps): bump org.apache.tomcat.embed:tomcat-embed-core from 10.1.57 to 10.1.59",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/137",
+              "head": "dependabot/maven/org.apache.tomcat.embed-tomcat-embed-core-10.1.59",
+              "base": "main",
+              "createdAt": "2026-09-03T08:37:38Z",
+              "closedAt": "2026-09-16T17:58:27Z"
+            },
+            {
+              "number": 149,
+              "title": "\u2b06\ufe0f Upstream Integration to Main 2990e865",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/149",
+              "head": "release/upstream-20260916-174452",
+              "base": "main",
+              "createdAt": "2026-09-16T17:44:55Z",
+              "mergedAt": "2026-09-16T17:55:59Z",
+              "closedAt": "2026-09-16T17:55:59Z"
+            },
+            {
+              "number": 139,
+              "title": "\u2b06\ufe0f Sync with upstream d194fa7e (Updated)",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/139",
+              "head": "sync/upstream-20260912-003104",
+              "base": "fork_upstream",
+              "createdAt": "2026-09-12T00:31:07Z",
+              "mergedAt": "2026-09-16T17:42:02Z",
+              "closedAt": "2026-09-16T17:42:02Z"
+            },
+            {
+              "number": 147,
+              "title": "chore: add service descriptor",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/147",
+              "head": "chore/add-service-descriptor",
+              "base": "main",
+              "createdAt": "2026-09-16T13:52:18Z",
+              "mergedAt": "2026-09-16T17:22:45Z",
+              "closedAt": "2026-09-16T17:22:45Z"
+            },
+            {
+              "number": 148,
+              "title": "chore(template-sync): sync template updates 2026-09-16",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/148",
+              "head": "template-sync/20260916-153751",
+              "base": "main",
+              "createdAt": "2026-09-16T15:37:56Z",
+              "mergedAt": "2026-09-16T15:47:29Z",
+              "closedAt": "2026-09-16T15:47:29Z"
+            },
+            {
+              "number": 146,
+              "title": "chore(deps): bump org.springdoc:springdoc-openapi-starter-webmvc-ui from 2.8.16 to 2.8.17 in /provider/partition-azure",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/146",
+              "head": "dependabot/maven/provider/partition-azure/main/org.springdoc-springdoc-openapi-starter-webmvc-ui-2.8.17",
+              "base": "main",
+              "createdAt": "2026-09-16T12:25:26Z",
+              "closedAt": "2026-09-16T12:25:44Z"
+            },
+            {
+              "number": 143,
+              "title": "chore(deps): bump io.netty:netty-bom from 4.2.16.Final to 4.2.18.Final in /provider/partition-azure",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/143",
+              "head": "dependabot/maven/provider/partition-azure/main/io.netty-netty-bom-4.2.18.Final",
+              "base": "main",
+              "createdAt": "2026-09-16T12:24:55Z",
+              "closedAt": "2026-09-16T12:25:15Z"
+            },
+            {
+              "number": 145,
+              "title": "chore(deps): bump tomcat.version from 10.1.57 to 10.1.60 in /provider/partition-azure",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/145",
+              "head": "dependabot/maven/provider/partition-azure/main/tomcat.version-10.1.60",
+              "base": "main",
+              "createdAt": "2026-09-16T12:25:07Z",
+              "closedAt": "2026-09-16T12:25:39Z"
+            },
+            {
+              "number": 144,
+              "title": "chore(deps): bump swagger-core.version from 2.2.45 to 2.2.55 in /provider/partition-azure",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/144",
+              "head": "dependabot/maven/provider/partition-azure/main/swagger-core.version-2.2.55",
+              "base": "main",
+              "createdAt": "2026-09-16T12:24:59Z",
+              "closedAt": "2026-09-16T12:25:20Z"
+            },
+            {
+              "number": 133,
+              "title": "chore(deps): bump swagger-core.version from 2.2.45 to 2.2.54 in /provider/partition-azure",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/133",
+              "head": "dependabot/maven/provider/partition-azure/main/swagger-core.version-2.2.54",
+              "base": "main",
+              "createdAt": "2026-08-31T09:17:34Z",
+              "closedAt": "2026-09-16T12:25:02Z"
+            },
+            {
+              "number": 138,
+              "title": "chore(template-sync): sync template updates (updated 2026-09-16)",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/138",
+              "head": "template-sync/20260911-080551",
+              "base": "main",
+              "createdAt": "2026-09-11T08:05:54Z",
+              "mergedAt": "2026-09-16T12:24:05Z",
+              "closedAt": "2026-09-16T12:24:05Z"
+            },
+            {
+              "number": 108,
+              "title": "chore(deps): bump the jackson group across 2 directories with 1 update",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/108",
+              "head": "dependabot/maven/main/jackson-25bb264c20",
+              "base": "main",
+              "createdAt": "2026-08-27T15:21:14Z",
+              "closedAt": "2026-09-16T12:24:11Z"
+            },
+            {
+              "number": 136,
+              "title": "chore(template-sync): sync template updates 2026-09-02",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/136",
+              "head": "template-sync/20260902-080639",
+              "base": "main",
+              "createdAt": "2026-09-02T08:06:43Z",
+              "mergedAt": "2026-09-02T13:58:10Z",
+              "closedAt": "2026-09-02T13:58:10Z"
+            },
+            {
+              "number": 135,
+              "title": "chore(template-sync): sync template updates (updated 2026-09-01)",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/135",
+              "head": "template-sync/20260901-080628",
+              "base": "main",
+              "createdAt": "2026-09-01T08:06:32Z",
+              "mergedAt": "2026-09-01T20:59:13Z",
+              "closedAt": "2026-09-01T20:59:13Z"
+            },
+            {
+              "number": 130,
+              "title": "chore(template-sync): sync template updates (updated 2026-08-31)",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/130",
+              "head": "template-sync/20260831-080655",
+              "base": "main",
+              "createdAt": "2026-08-31T08:06:58Z",
+              "mergedAt": "2026-08-31T16:22:57Z",
+              "closedAt": "2026-08-31T16:22:57Z"
+            },
+            {
+              "number": 129,
+              "title": "chore(template-sync): sync template updates 2026-08-30",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/129",
+              "head": "template-sync/20260830-080444",
+              "base": "main",
+              "createdAt": "2026-08-30T08:04:48Z",
+              "mergedAt": "2026-08-30T13:08:20Z",
+              "closedAt": "2026-08-30T13:08:21Z"
+            },
+            {
+              "number": 128,
+              "title": "chore(template-sync): sync template updates (updated 2026-08-29)",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/128",
+              "head": "template-sync/20260829-080442",
+              "base": "main",
+              "createdAt": "2026-08-29T08:04:45Z",
+              "mergedAt": "2026-08-29T21:06:17Z",
+              "closedAt": "2026-08-29T21:06:17Z"
+            },
+            {
+              "number": 127,
+              "title": "Pin GitHub Actions to full-length commit SHAs",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/127",
+              "head": "danfiedler/pin-actions",
+              "base": "main",
+              "createdAt": "2026-08-29T02:53:58Z",
+              "closedAt": "2026-08-29T20:35:05Z"
+            },
+            {
+              "number": 125,
+              "title": "\u2b06\ufe0f Upstream Integration to Main 7dcf9e52",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/125",
+              "head": "release/upstream-20260828-184650",
+              "base": "main",
+              "createdAt": "2026-08-28T18:46:53Z",
+              "mergedAt": "2026-08-28T18:53:36Z",
+              "closedAt": "2026-08-28T18:53:36Z"
+            },
+            {
+              "number": 119,
+              "title": "\u2b06\ufe0f Sync with upstream c4841a26",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/119",
+              "head": "sync/upstream-20260828-025857",
+              "base": "fork_upstream",
+              "createdAt": "2026-08-28T02:59:04Z",
+              "mergedAt": "2026-08-28T18:45:08Z",
+              "closedAt": "2026-08-28T18:45:08Z"
+            },
+            {
+              "number": 116,
+              "title": "chore(deps): bump org.springframework:spring-web from 6.2.12 to 6.2.19 in /testing/partition-test-core",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/116",
+              "head": "dependabot/maven/testing/partition-test-core/org.springframework-spring-web-6.2.19",
+              "base": "main",
+              "createdAt": "2026-08-27T20:35:25Z",
+              "closedAt": "2026-08-28T18:44:14Z"
+            },
+            {
+              "number": 113,
+              "title": "chore(deps): bump io.netty:netty-bom from 4.2.16.Final to 4.2.17.Final in /provider/partition-azure",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/113",
+              "head": "dependabot/maven/provider/partition-azure/main/io.netty-netty-bom-4.2.17.Final",
+              "base": "main",
+              "createdAt": "2026-08-27T15:22:51Z",
+              "closedAt": "2026-08-28T18:44:11Z"
+            },
+            {
+              "number": 111,
+              "title": "chore(deps): bump io.netty:netty-bom from 4.2.16.Final to 4.2.17.Final in /partition-core",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/111",
+              "head": "dependabot/maven/partition-core/main/io.netty-netty-bom-4.2.17.Final",
+              "base": "main",
+              "createdAt": "2026-08-27T15:21:44Z",
+              "closedAt": "2026-08-28T18:44:08Z"
+            },
+            {
+              "number": 110,
+              "title": "chore(deps): bump tomcat.version from 10.1.57 to 10.1.59 in /partition-core",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/110",
+              "head": "dependabot/maven/partition-core/main/tomcat.version-10.1.59",
+              "base": "main",
+              "createdAt": "2026-08-27T15:21:34Z",
+              "closedAt": "2026-08-28T18:44:06Z"
+            },
+            {
+              "number": 9,
+              "title": "build(deps): bump quarkus.platform.version from 3.21.3 to 3.21.4",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/9",
+              "head": "dependabot/maven/main/quarkus.platform.version-3.21.4",
+              "base": "main",
+              "createdAt": "2026-02-26T23:58:16Z",
+              "closedAt": "2026-08-28T18:43:57Z"
+            },
+            {
+              "number": 92,
+              "title": "chore(deps): bump com.fasterxml.jackson.core:jackson-databind from 2.15.2 to 2.18.9 in /partition-acceptance-test",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/92",
+              "head": "dependabot/maven/partition-acceptance-test/com.fasterxml.jackson.core-jackson-databind-2.18.9",
+              "base": "main",
+              "createdAt": "2026-07-24T00:05:28Z",
+              "closedAt": "2026-08-28T18:43:54Z"
+            },
+            {
+              "number": 74,
+              "title": "build(deps): bump org.apache.tomcat.embed:tomcat-embed-core from 10.1.48 to 10.1.55",
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/74",
+              "head": "dependabot/maven/org.apache.tomcat.embed-tomcat-embed-core-10.1.55",
+              "base": "main",
+              "createdAt": "2026-05-18T20:55:22Z",
+              "closedAt": "2026-08-28T18:43:51Z"
+            }
+          ],
+          "pastIssues": [
+            {
+              "number": 167,
+              "url": "https://github.com/Azure/osdu-spi-partition/issues/167",
+              "createdAt": "2026-09-30T01:33:04Z",
+              "closedAt": "2026-09-30T01:38:37Z",
+              "labels": ["conflict", "cascade-blocked", "high-priority", "human-required"]
+            },
+            {
+              "number": 91,
+              "url": "https://github.com/Azure/osdu-spi-partition/issues/91",
+              "createdAt": "2026-07-23T00:36:14Z",
+              "closedAt": "2026-08-25T17:03:13Z",
+              "labels": ["sync-failed", "human-required"]
+            },
+            {
+              "number": 64,
+              "url": "https://github.com/Azure/osdu-spi-partition/issues/64",
+              "createdAt": "2026-04-15T13:55:36Z",
+              "closedAt": "2026-04-15T14:09:22Z",
+              "labels": ["conflict", "cascade-blocked", "high-priority", "human-required"]
+            },
+            {
+              "number": 51,
+              "url": "https://github.com/Azure/osdu-spi-partition/issues/51",
+              "createdAt": "2026-03-31T00:25:38Z",
+              "closedAt": "2026-03-31T19:33:40Z",
+              "labels": ["upstream-sync", "cascade-failed", "validated"]
+            },
+            {
+              "number": 52,
+              "url": "https://github.com/Azure/osdu-spi-partition/issues/52",
+              "createdAt": "2026-03-31T00:25:40Z",
+              "closedAt": "2026-03-31T16:15:09Z",
+              "labels": ["sync-failed", "human-required"]
+            },
+            {
+              "number": 41,
+              "url": "https://github.com/Azure/osdu-spi-partition/issues/41",
+              "createdAt": "2026-03-20T14:15:07Z",
+              "closedAt": "2026-03-20T16:04:49Z",
+              "labels": ["sync-failed", "human-required"]
+            },
+            {
+              "number": 12,
+              "url": "https://github.com/Azure/osdu-spi-partition/issues/12",
+              "createdAt": "2026-03-05T00:22:23Z",
+              "closedAt": "2026-03-10T14:03:14Z",
+              "labels": ["sync-failed", "human-required"]
+            },
+            {
+              "number": 14,
+              "url": "https://github.com/Azure/osdu-spi-partition/issues/14",
+              "createdAt": "2026-03-06T00:26:02Z",
+              "closedAt": "2026-03-10T14:03:06Z",
+              "labels": ["sync-failed", "human-required"]
+            },
+            {
+              "number": 15,
+              "url": "https://github.com/Azure/osdu-spi-partition/issues/15",
+              "createdAt": "2026-03-07T00:20:39Z",
+              "closedAt": "2026-03-10T14:02:53Z",
+              "labels": ["sync-failed", "human-required"]
+            },
+            {
+              "number": 16,
+              "url": "https://github.com/Azure/osdu-spi-partition/issues/16",
+              "createdAt": "2026-03-08T00:21:38Z",
+              "closedAt": "2026-03-10T14:02:46Z",
+              "labels": ["sync-failed", "human-required"]
+            },
+            {
+              "number": 17,
+              "url": "https://github.com/Azure/osdu-spi-partition/issues/17",
+              "createdAt": "2026-03-09T00:21:44Z",
+              "closedAt": "2026-03-10T14:02:40Z",
+              "labels": ["sync-failed", "human-required"]
+            },
+            {
+              "number": 18,
+              "url": "https://github.com/Azure/osdu-spi-partition/issues/18",
+              "createdAt": "2026-03-10T00:18:44Z",
+              "closedAt": "2026-03-10T14:02:33Z",
+              "labels": ["sync-failed", "human-required"]
             }
           ]
         },
@@ -1974,6 +2806,390 @@
               "state": "FAILURE",
               "statusAt": "2026-09-17T15:37:26Z"
             }
+          ],
+          "pastPrs": [
+            {
+              "number": 34,
+              "title": "chore(template-sync): sync template updates (updated 2026-10-05)",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/34",
+              "head": "template-sync/20260930-081842",
+              "base": "main",
+              "createdAt": "2026-09-30T08:18:46Z",
+              "mergedAt": "2026-10-05T13:06:48Z",
+              "closedAt": "2026-10-05T13:06:48Z"
+            },
+            {
+              "number": 32,
+              "title": "\u2b06\ufe0f Upstream Integration to Main 3ef9fca6",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/32",
+              "head": "release/upstream-20260930-014613",
+              "base": "main",
+              "createdAt": "2026-09-30T01:46:17Z",
+              "mergedAt": "2026-09-30T01:59:25Z",
+              "closedAt": "2026-09-30T01:59:25Z"
+            },
+            {
+              "number": 33,
+              "title": "docs: keep the configuration table inside the README width",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/33",
+              "head": "docs/readme-table-width",
+              "base": "main",
+              "createdAt": "2026-09-30T02:17:56Z",
+              "mergedAt": "2026-09-30T02:38:27Z",
+              "closedAt": "2026-09-30T02:38:27Z"
+            },
+            {
+              "number": 21,
+              "title": "docs: add CONTRIBUTING.md and replace the Azure DevOps infrastructure link",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/21",
+              "head": "docs/oss-release-readiness",
+              "base": "main",
+              "createdAt": "2026-09-25T20:50:53Z",
+              "mergedAt": "2026-09-25T22:04:03Z",
+              "closedAt": "2026-09-25T22:04:03Z"
+            },
+            {
+              "number": 11,
+              "title": "chore: release 1.2.0",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/11",
+              "head": "release-please--branches--main",
+              "base": "main",
+              "createdAt": "2026-09-17T14:55:05Z",
+              "mergedAt": "2026-10-06T16:53:17Z",
+              "closedAt": "2026-10-06T16:53:17Z"
+            },
+            {
+              "number": 46,
+              "title": "fix(test): delete leaked data group in Azure CreateGroupsAzureTest cleanup",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/46",
+              "head": "copilot/deploy-and-test-leaks-test-groups",
+              "base": "main",
+              "createdAt": "2026-10-06T13:26:50Z",
+              "mergedAt": "2026-10-06T15:31:32Z",
+              "closedAt": "2026-10-06T15:31:32Z"
+            },
+            {
+              "number": 44,
+              "title": "test(azure): support supplied bearer token in integration suite",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/44",
+              "head": "feat/azure-integration-suite",
+              "base": "main",
+              "createdAt": "2026-10-06T12:43:18Z",
+              "mergedAt": "2026-10-06T13:24:32Z",
+              "closedAt": "2026-10-06T13:24:32Z"
+            },
+            {
+              "number": 43,
+              "title": "chore(template-sync): sync template updates 2026-10-06",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/43",
+              "head": "template-sync/20261006-081806",
+              "base": "main",
+              "createdAt": "2026-10-06T08:18:09Z",
+              "mergedAt": "2026-10-06T12:24:25Z",
+              "closedAt": "2026-10-06T12:24:25Z"
+            },
+            {
+              "number": 40,
+              "title": "chore(deps): bump org.apache.commons:commons-configuration2 from 2.13.0 to 2.15.0 in /provider/entitlements-v2-azure",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/40",
+              "head": "dependabot/maven/provider/entitlements-v2-azure/org.apache.commons-commons-configuration2-2.15.0",
+              "base": "main",
+              "createdAt": "2026-10-06T04:04:52Z",
+              "mergedAt": "2026-10-06T11:36:25Z",
+              "closedAt": "2026-10-06T11:36:26Z"
+            },
+            {
+              "number": 18,
+              "title": "chore(deps): bump io.netty:netty-all from 4.1.50.Final to 4.1.138.Final in /testing/entitlements-v2-test-azure",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/18",
+              "head": "dependabot/maven/testing/entitlements-v2-test-azure/main/io.netty-netty-all-4.1.138.Final",
+              "base": "main",
+              "createdAt": "2026-09-21T09:26:04Z",
+              "mergedAt": "2026-10-06T04:30:09Z",
+              "closedAt": "2026-10-06T04:30:09Z"
+            },
+            {
+              "number": 23,
+              "title": "chore(deps): bump org.slf4j:slf4j-api from 2.0.17 to 2.0.20 in /provider/entitlements-v2-azure",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/23",
+              "head": "dependabot/maven/provider/entitlements-v2-azure/main/org.slf4j-slf4j-api-2.0.20",
+              "base": "main",
+              "createdAt": "2026-09-28T09:24:41Z",
+              "mergedAt": "2026-10-06T04:15:59Z",
+              "closedAt": "2026-10-06T04:15:59Z"
+            },
+            {
+              "number": 41,
+              "title": "chore(deps): bump org.apache.httpcomponents.client5:httpclient5 from 5.2.1 to 5.6.3 in /testing/entitlements-v2-test-core",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/41",
+              "head": "dependabot/maven/testing/entitlements-v2-test-core/org.apache.httpcomponents.client5-httpclient5-5.6.3",
+              "base": "main",
+              "createdAt": "2026-10-06T04:04:56Z",
+              "closedAt": "2026-10-06T04:05:11Z"
+            },
+            {
+              "number": 42,
+              "title": "chore(deps): bump org.springframework:spring-web from 6.2.18 to 6.2.19 in /testing/entitlements-v2-test-core",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/42",
+              "head": "dependabot/maven/testing/entitlements-v2-test-core/org.springframework-spring-web-6.2.19",
+              "base": "main",
+              "createdAt": "2026-10-06T04:05:07Z",
+              "closedAt": "2026-10-06T04:05:21Z"
+            },
+            {
+              "number": 39,
+              "title": "chore(deps-dev): bump com.fasterxml.jackson.core:jackson-databind from 2.21.6 to 2.21.7 in /testing/entitlements-v2-test-azure",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/39",
+              "head": "dependabot/maven/testing/entitlements-v2-test-azure/com.fasterxml.jackson.core-jackson-databind-2.21.7",
+              "base": "main",
+              "createdAt": "2026-10-05T21:47:57Z",
+              "mergedAt": "2026-10-06T04:04:02Z",
+              "closedAt": "2026-10-06T04:04:02Z"
+            },
+            {
+              "number": 38,
+              "title": "chore(deps-dev): bump com.fasterxml.jackson.core:jackson-core from 2.21.6 to 2.21.7 in /testing/entitlements-v2-test-azure",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/38",
+              "head": "dependabot/maven/testing/entitlements-v2-test-azure/com.fasterxml.jackson.core-jackson-core-2.21.7",
+              "base": "main",
+              "createdAt": "2026-10-05T21:47:51Z",
+              "closedAt": "2026-10-06T03:50:06Z"
+            },
+            {
+              "number": 25,
+              "title": "chore(deps): bump jackson.version from 2.21.6 to 2.21.7 in /testing/entitlements-v2-test-azure",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/25",
+              "head": "dependabot/maven/testing/entitlements-v2-test-azure/main/jackson.version-2.21.7",
+              "base": "main",
+              "createdAt": "2026-09-28T09:25:28Z",
+              "closedAt": "2026-10-06T03:50:03Z"
+            },
+            {
+              "number": 14,
+              "title": "chore: add service descriptor",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/14",
+              "head": "chore/add-service-descriptor",
+              "base": "main",
+              "createdAt": "2026-09-17T15:10:10Z",
+              "mergedAt": "2026-10-06T03:44:56Z",
+              "closedAt": "2026-10-06T03:44:56Z"
+            },
+            {
+              "number": 37,
+              "title": "chore(deps): bump org.apache.logging.log4j:log4j-api from 2.25.3 to 2.25.5",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/37",
+              "head": "dependabot/maven/org.apache.logging.log4j-log4j-api-2.25.5",
+              "base": "main",
+              "createdAt": "2026-10-05T21:22:19Z",
+              "closedAt": "2026-10-05T21:49:07Z"
+            },
+            {
+              "number": 36,
+              "title": "chore(deps): bump org.apache.logging.log4j:log4j-core from 2.25.3 to 2.25.4",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/36",
+              "head": "dependabot/maven/org.apache.logging.log4j-log4j-core-2.25.4",
+              "base": "main",
+              "createdAt": "2026-10-05T21:22:02Z",
+              "closedAt": "2026-10-05T21:42:01Z"
+            },
+            {
+              "number": 35,
+              "title": "chore(deps): bump org.apache.httpcomponents.client5:httpclient5 from 5.2.1 to 5.6.3 in /entitlements-v2-acceptance-test",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/35",
+              "head": "dependabot/maven/entitlements-v2-acceptance-test/org.apache.httpcomponents.client5-httpclient5-5.6.3",
+              "base": "main",
+              "createdAt": "2026-10-05T21:20:30Z",
+              "closedAt": "2026-10-05T21:41:15Z"
+            },
+            {
+              "number": 28,
+              "title": "\u2b06\ufe0f Sync with upstream v9.99.0-ibm.1",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/28",
+              "head": "sync/upstream-20260930-002238",
+              "base": "fork_upstream",
+              "createdAt": "2026-09-30T00:22:41Z",
+              "mergedAt": "2026-09-30T01:32:59Z",
+              "closedAt": "2026-09-30T01:32:59Z"
+            },
+            {
+              "number": 27,
+              "title": "docs: make the root README fork-owned and move the Azure documentation there",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/27",
+              "head": "docs/standard-provider-readme",
+              "base": "main",
+              "createdAt": "2026-09-29T22:11:54Z",
+              "mergedAt": "2026-09-29T23:31:00Z",
+              "closedAt": "2026-09-29T23:31:00Z"
+            },
+            {
+              "number": 26,
+              "title": "docs(azure): mark provider README as Microsoft-maintained and point deployment at SPI Stack",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/26",
+              "head": "chore/fork-azure-readmes",
+              "base": "main",
+              "createdAt": "2026-09-29T12:57:28Z",
+              "mergedAt": "2026-09-29T19:50:52Z",
+              "closedAt": "2026-09-29T19:50:52Z"
+            },
+            {
+              "number": 24,
+              "title": "chore(deps): bump com.fasterxml.jackson:jackson-bom from 2.21.6 to 2.21.7 in /provider/entitlements-v2-azure",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/24",
+              "head": "dependabot/maven/provider/entitlements-v2-azure/main/com.fasterxml.jackson-jackson-bom-2.21.7",
+              "base": "main",
+              "createdAt": "2026-09-28T09:25:14Z",
+              "closedAt": "2026-09-28T09:25:49Z"
+            },
+            {
+              "number": 22,
+              "title": "\u2b06\ufe0f Upstream Integration to Main dc6c1f35",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/22",
+              "head": "release/upstream-20260925-213230",
+              "base": "main",
+              "createdAt": "2026-09-25T21:32:34Z",
+              "mergedAt": "2026-09-25T21:59:48Z",
+              "closedAt": "2026-09-25T21:59:48Z"
+            },
+            {
+              "number": 17,
+              "title": "chore(template-sync): sync template updates (updated 2026-09-25)",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/17",
+              "head": "template-sync/20260918-081709",
+              "base": "main",
+              "createdAt": "2026-09-18T08:17:13Z",
+              "mergedAt": "2026-09-25T21:39:15Z",
+              "closedAt": "2026-09-25T21:39:15Z"
+            },
+            {
+              "number": 19,
+              "title": "\u2b06\ufe0f Sync with upstream v9.99.0-ibm.1",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/19",
+              "head": "sync/upstream-20260924-001947",
+              "base": "fork_upstream",
+              "createdAt": "2026-09-24T00:19:50Z",
+              "mergedAt": "2026-09-25T21:26:07Z",
+              "closedAt": "2026-09-25T21:26:07Z"
+            },
+            {
+              "number": 15,
+              "title": "chore: license headers and SUPPORT.md for the release review",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/15",
+              "head": "chore/license-headers",
+              "base": "main",
+              "createdAt": "2026-09-17T15:48:55Z",
+              "mergedAt": "2026-09-17T16:00:39Z",
+              "closedAt": "2026-09-17T16:00:39Z"
+            },
+            {
+              "number": 16,
+              "title": "docs: point SUPPORT.md at this repository's issues",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/16",
+              "head": "docs/support-issue-links",
+              "base": "main",
+              "createdAt": "2026-09-17T15:50:47Z",
+              "closedAt": "2026-09-17T15:51:05Z"
+            },
+            {
+              "number": 10,
+              "title": "chore(deps): bump org.slf4j:slf4j-api from 2.0.17 to 2.0.19 in /provider/entitlements-v2-azure",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/10",
+              "head": "dependabot/maven/provider/entitlements-v2-azure/main/org.slf4j-slf4j-api-2.0.19",
+              "base": "main",
+              "createdAt": "2026-09-17T14:52:57Z",
+              "closedAt": "2026-09-17T15:44:11Z"
+            },
+            {
+              "number": 9,
+              "title": "chore(deps): bump com.auth0:java-jwt from 4.5.0 to 4.5.2 in /provider/entitlements-v2-azure",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/9",
+              "head": "dependabot/maven/provider/entitlements-v2-azure/main/com.auth0-java-jwt-4.5.2",
+              "base": "main",
+              "createdAt": "2026-09-17T14:52:55Z",
+              "closedAt": "2026-09-17T15:44:08Z"
+            },
+            {
+              "number": 4,
+              "title": "chore(deps): bump gremlin.version from 3.8.0 to 3.8.2 in /provider/entitlements-v2-azure",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/4",
+              "head": "dependabot/maven/provider/entitlements-v2-azure/main/gremlin.version-3.8.2",
+              "base": "main",
+              "createdAt": "2026-09-17T14:52:21Z",
+              "closedAt": "2026-09-17T15:44:05Z"
+            },
+            {
+              "number": 12,
+              "title": "chore: restore upstream LICENSE removed by init cleanup",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/12",
+              "head": "chore/restore-license",
+              "base": "main",
+              "createdAt": "2026-09-17T14:57:23Z",
+              "mergedAt": "2026-09-17T15:21:55Z",
+              "closedAt": "2026-09-17T15:21:55Z"
+            },
+            {
+              "number": 13,
+              "title": "fix(azure): run JUnit 4 tests and align mocks with current core",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/13",
+              "head": "fix/azure-junit4-tests",
+              "base": "main",
+              "createdAt": "2026-09-17T14:58:38Z",
+              "mergedAt": "2026-09-17T15:08:40Z",
+              "closedAt": "2026-09-17T15:08:40Z"
+            },
+            {
+              "number": 8,
+              "title": "chore(deps): bump swagger-core.version from 2.2.45 to 2.2.55 in /provider/entitlements-v2-azure",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/8",
+              "head": "dependabot/maven/provider/entitlements-v2-azure/main/swagger-core.version-2.2.55",
+              "base": "main",
+              "createdAt": "2026-09-17T14:52:52Z",
+              "closedAt": "2026-09-17T14:53:16Z"
+            },
+            {
+              "number": 7,
+              "title": "chore(deps): bump io.netty:netty-bom from 4.2.17.Final to 4.2.18.Final in /provider/entitlements-v2-azure",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/7",
+              "head": "dependabot/maven/provider/entitlements-v2-azure/main/io.netty-netty-bom-4.2.18.Final",
+              "base": "main",
+              "createdAt": "2026-09-17T14:52:47Z",
+              "closedAt": "2026-09-17T14:53:16Z"
+            },
+            {
+              "number": 5,
+              "title": "chore(deps): bump tomcat.version from 10.1.59 to 10.1.60 in /provider/entitlements-v2-azure",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/5",
+              "head": "dependabot/maven/provider/entitlements-v2-azure/main/tomcat.version-10.1.60",
+              "base": "main",
+              "createdAt": "2026-09-17T14:52:28Z",
+              "closedAt": "2026-09-17T14:52:48Z"
+            },
+            {
+              "number": 6,
+              "title": "chore(deps): bump log4j.version from 2.25.3 to 2.25.5 in /provider/entitlements-v2-azure",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/6",
+              "head": "dependabot/maven/provider/entitlements-v2-azure/main/log4j.version-2.25.5",
+              "base": "main",
+              "createdAt": "2026-09-17T14:52:38Z",
+              "closedAt": "2026-09-17T14:52:52Z"
+            },
+            {
+              "number": 2,
+              "title": "build(deps): bump the docker group in /build with 2 updates",
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/2",
+              "head": "dependabot/docker/build/main/docker-437fc76631",
+              "base": "main",
+              "createdAt": "2026-09-17T14:26:40Z",
+              "closedAt": "2026-09-17T14:51:16Z"
+            }
+          ],
+          "pastIssues": [
+            {
+              "number": 30,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/issues/30",
+              "createdAt": "2026-09-30T01:33:47Z",
+              "closedAt": "2026-09-30T01:38:47Z",
+              "labels": ["conflict", "cascade-blocked", "high-priority", "human-required"]
+            }
           ]
         },
         "Azure/osdu-spi-legal": {
@@ -2635,6 +3851,245 @@
               "state": "FAILURE",
               "statusAt": "2026-09-17T16:37:41Z"
             }
+          ],
+          "pastPrs": [
+            {
+              "number": 2,
+              "title": "Adding Microsoft SECURITY.MD",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/2",
+              "head": "users/GitHubPolicyService/ac91ad3f-852f-4456-8d38-ed0c2de11b70",
+              "base": "main",
+              "createdAt": "2026-09-17T13:59:11Z",
+              "closedAt": "2026-09-17T16:21:38Z"
+            },
+            {
+              "number": 25,
+              "title": "\u2b06\ufe0f Upstream Integration to Main 512833bf",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/25",
+              "head": "release/upstream-20260930-014329",
+              "base": "main",
+              "createdAt": "2026-09-30T01:43:32Z",
+              "mergedAt": "2026-09-30T02:01:11Z",
+              "closedAt": "2026-09-30T02:01:12Z"
+            },
+            {
+              "number": 30,
+              "title": "test(azure): run the Azure integration suite with a supplied token",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/30",
+              "head": "feat/azure-integration-suite",
+              "base": "main",
+              "createdAt": "2026-10-06T20:45:27Z",
+              "mergedAt": "2026-10-06T21:39:29Z",
+              "closedAt": "2026-10-06T21:39:29Z"
+            },
+            {
+              "number": 26,
+              "title": "docs: keep the configuration table inside the README width",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/26",
+              "head": "docs/readme-table-width",
+              "base": "main",
+              "createdAt": "2026-09-30T02:18:01Z",
+              "mergedAt": "2026-09-30T02:38:54Z",
+              "closedAt": "2026-09-30T02:38:54Z"
+            },
+            {
+              "number": 17,
+              "title": "docs: add CONTRIBUTING.md and replace the Azure DevOps infrastructure link",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/17",
+              "head": "docs/oss-release-readiness",
+              "base": "main",
+              "createdAt": "2026-09-25T20:50:56Z",
+              "mergedAt": "2026-09-25T22:03:46Z",
+              "closedAt": "2026-09-25T22:03:46Z"
+            },
+            {
+              "number": 14,
+              "title": "chore: license headers for the release review",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/14",
+              "head": "chore/license-headers",
+              "base": "main",
+              "createdAt": "2026-09-17T16:24:12Z",
+              "mergedAt": "2026-09-17T16:40:00Z",
+              "closedAt": "2026-09-17T16:40:00Z"
+            },
+            {
+              "number": 13,
+              "title": "chore: release 1.2.0",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/13",
+              "head": "release-please--branches--main",
+              "base": "main",
+              "createdAt": "2026-09-17T16:23:59Z",
+              "mergedAt": "2026-10-06T22:02:00Z",
+              "closedAt": "2026-10-06T22:02:00Z"
+            },
+            {
+              "number": 15,
+              "title": "chore: add service descriptor",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/15",
+              "head": "chore/add-service-descriptor",
+              "base": "main",
+              "createdAt": "2026-09-17T16:24:23Z",
+              "mergedAt": "2026-10-06T20:44:15Z",
+              "closedAt": "2026-10-06T20:44:15Z"
+            },
+            {
+              "number": 27,
+              "title": "chore(template-sync): sync template updates (updated 2026-10-06)",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/27",
+              "head": "template-sync/20260930-081836",
+              "base": "main",
+              "createdAt": "2026-09-30T08:18:41Z",
+              "mergedAt": "2026-10-06T20:20:23Z",
+              "closedAt": "2026-10-06T20:20:23Z"
+            },
+            {
+              "number": 29,
+              "title": "chore(deps): bump com.google.guava:guava from 31.1-jre to 32.0.0-jre in /testing/legal-test-core",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/29",
+              "head": "dependabot/maven/testing/legal-test-core/com.google.guava-guava-32.0.0-jre",
+              "base": "main",
+              "createdAt": "2026-10-05T21:42:20Z",
+              "closedAt": "2026-10-05T22:08:04Z"
+            },
+            {
+              "number": 28,
+              "title": "chore(deps): bump org.apache.commons:commons-lang3 from 3.12.0 to 3.18.0 in /testing/legal-test-core",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/28",
+              "head": "dependabot/maven/testing/legal-test-core/org.apache.commons-commons-lang3-3.18.0",
+              "base": "main",
+              "createdAt": "2026-10-05T21:17:21Z",
+              "closedAt": "2026-10-05T21:39:04Z"
+            },
+            {
+              "number": 21,
+              "title": "\u2b06\ufe0f Sync with upstream 1fc4c683",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/21",
+              "head": "sync/upstream-20260930-000824",
+              "base": "fork_upstream",
+              "createdAt": "2026-09-30T00:08:28Z",
+              "mergedAt": "2026-09-30T01:33:48Z",
+              "closedAt": "2026-09-30T01:33:48Z"
+            },
+            {
+              "number": 20,
+              "title": "docs: make the root README fork-owned and move the Azure documentation there",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/20",
+              "head": "docs/standard-provider-readme",
+              "base": "main",
+              "createdAt": "2026-09-29T22:11:59Z",
+              "mergedAt": "2026-09-29T23:31:35Z",
+              "closedAt": "2026-09-29T23:31:35Z"
+            },
+            {
+              "number": 19,
+              "title": "docs(azure): mark provider README as Microsoft-maintained and point deployment at SPI Stack",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/19",
+              "head": "chore/fork-azure-readmes",
+              "base": "main",
+              "createdAt": "2026-09-29T12:57:33Z",
+              "mergedAt": "2026-09-29T19:51:23Z",
+              "closedAt": "2026-09-29T19:51:23Z"
+            },
+            {
+              "number": 18,
+              "title": "chore(deps): bump com.fasterxml.jackson:jackson-bom from 2.21.2 to 2.21.7 in /testing/legal-test-azure",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/18",
+              "head": "dependabot/maven/testing/legal-test-azure/main/com.fasterxml.jackson-jackson-bom-2.21.7",
+              "base": "main",
+              "createdAt": "2026-09-28T09:25:22Z",
+              "closedAt": "2026-09-28T09:25:38Z"
+            },
+            {
+              "number": 16,
+              "title": "chore(template-sync): sync template updates (updated 2026-09-25)",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/16",
+              "head": "template-sync/20260918-081707",
+              "base": "main",
+              "createdAt": "2026-09-18T08:17:10Z",
+              "mergedAt": "2026-09-25T21:36:34Z",
+              "closedAt": "2026-09-25T21:36:34Z"
+            },
+            {
+              "number": 12,
+              "title": "Bump com.fasterxml.jackson:jackson-bom from 2.21.2 to 2.21.6 in /testing/legal-test-azure",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/12",
+              "head": "dependabot/maven/testing/legal-test-azure/main/com.fasterxml.jackson-jackson-bom-2.21.6",
+              "base": "main",
+              "createdAt": "2026-09-17T16:23:11Z",
+              "closedAt": "2026-09-17T16:23:27Z"
+            },
+            {
+              "number": 10,
+              "title": "Bump io.netty:netty-all from 4.1.50.Final to 4.1.138.Final in /testing/legal-test-azure",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/10",
+              "head": "dependabot/maven/testing/legal-test-azure/main/io.netty-netty-all-4.1.138.Final",
+              "base": "main",
+              "createdAt": "2026-09-17T16:22:26Z",
+              "closedAt": "2026-09-17T16:25:31Z"
+            },
+            {
+              "number": 11,
+              "title": "Bump com.microsoft.azure:azure-servicebus from 3.1.4 to 3.1.5 in /testing/legal-test-azure",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/11",
+              "head": "dependabot/maven/testing/legal-test-azure/main/com.microsoft.azure-azure-servicebus-3.1.5",
+              "base": "main",
+              "createdAt": "2026-09-17T16:23:06Z",
+              "closedAt": "2026-09-17T16:25:28Z"
+            },
+            {
+              "number": 8,
+              "title": "Bump io.netty:netty-bom from 4.2.17.Final to 4.2.18.Final in /provider/legal-azure",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/8",
+              "head": "dependabot/maven/provider/legal-azure/main/io.netty-netty-bom-4.2.18.Final",
+              "base": "main",
+              "createdAt": "2026-09-17T16:21:59Z",
+              "closedAt": "2026-09-17T16:22:14Z"
+            },
+            {
+              "number": 9,
+              "title": "Bump org.springdoc:springdoc-openapi-starter-webmvc-ui from 2.8.16 to 2.8.17 in /provider/legal-azure",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/9",
+              "head": "dependabot/maven/provider/legal-azure/main/org.springdoc-springdoc-openapi-starter-webmvc-ui-2.8.17",
+              "base": "main",
+              "createdAt": "2026-09-17T16:22:14Z",
+              "closedAt": "2026-09-17T16:22:52Z"
+            },
+            {
+              "number": 7,
+              "title": "Bump tomcat.version from 10.1.59 to 10.1.60 in /provider/legal-azure",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/7",
+              "head": "dependabot/maven/provider/legal-azure/main/tomcat.version-10.1.60",
+              "base": "main",
+              "createdAt": "2026-09-17T16:21:53Z",
+              "closedAt": "2026-09-17T16:22:11Z"
+            },
+            {
+              "number": 6,
+              "title": "Bump swagger-core.version from 2.2.45 to 2.2.55 in /provider/legal-azure",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/6",
+              "head": "dependabot/maven/provider/legal-azure/main/swagger-core.version-2.2.55",
+              "base": "main",
+              "createdAt": "2026-09-17T16:21:47Z",
+              "closedAt": "2026-09-17T16:22:06Z"
+            },
+            {
+              "number": 4,
+              "title": "build(deps): bump the docker group in /build with 2 updates",
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/4",
+              "head": "dependabot/docker/build/main/docker-437fc76631",
+              "base": "main",
+              "createdAt": "2026-09-17T16:18:41Z",
+              "closedAt": "2026-09-17T16:20:28Z"
+            }
+          ],
+          "pastIssues": [
+            {
+              "number": 23,
+              "url": "https://github.com/Azure/osdu-spi-legal/issues/23",
+              "createdAt": "2026-09-30T01:34:25Z",
+              "closedAt": "2026-09-30T01:38:57Z",
+              "labels": ["conflict", "cascade-blocked", "high-priority", "human-required"]
+            }
           ]
         },
         "Azure/osdu-spi-schema": {
@@ -3245,6 +4700,286 @@
               "state": "FAILURE",
               "statusAt": "2026-09-29T21:23:27Z"
             }
+          ],
+          "pastPrs": [
+            {
+              "number": 12,
+              "title": "chore: release 1.2.0",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/12",
+              "head": "release-please--branches--main",
+              "base": "main",
+              "createdAt": "2026-09-29T14:38:48Z",
+              "mergedAt": "2026-10-07T21:28:46Z",
+              "closedAt": "2026-10-07T21:28:46Z"
+            },
+            {
+              "number": 36,
+              "title": "test(azure): run the integration suite on the deploy lane",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/36",
+              "head": "agent/33-integration-suite",
+              "base": "main",
+              "createdAt": "2026-10-07T20:07:04Z",
+              "mergedAt": "2026-10-07T20:59:39Z",
+              "closedAt": "2026-10-07T20:59:39Z"
+            },
+            {
+              "number": 28,
+              "title": "\u2b06\ufe0f Upstream Integration to Main 16f7e379",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/28",
+              "head": "release/upstream-20261005-131607",
+              "base": "main",
+              "createdAt": "2026-10-05T13:16:11Z",
+              "mergedAt": "2026-10-07T20:06:09Z",
+              "closedAt": "2026-10-07T20:06:09Z"
+            },
+            {
+              "number": 35,
+              "title": "chore(template-sync): sync template updates 2026-10-07",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/35",
+              "head": "template-sync/20261007-184830",
+              "base": "main",
+              "createdAt": "2026-10-07T18:48:33Z",
+              "mergedAt": "2026-10-07T19:19:18Z",
+              "closedAt": "2026-10-07T19:19:18Z"
+            },
+            {
+              "number": 34,
+              "title": "fix(azure): exclude android-json from the service jar",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/34",
+              "head": "fix/exclude-android-json",
+              "base": "main",
+              "createdAt": "2026-10-07T17:04:15Z",
+              "mergedAt": "2026-10-07T17:58:17Z",
+              "closedAt": "2026-10-07T17:58:17Z"
+            },
+            {
+              "number": 14,
+              "title": "chore: add service descriptor",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/14",
+              "head": "chore/add-service-descriptor",
+              "base": "main",
+              "createdAt": "2026-09-29T21:12:11Z",
+              "mergedAt": "2026-10-07T14:34:45Z",
+              "closedAt": "2026-10-07T14:34:45Z"
+            },
+            {
+              "number": 31,
+              "title": "chore(deps): bump urllib3 from 1.26.20 to 2.8.0 in /deployments/scripts/schema-cleaner",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/31",
+              "head": "dependabot/pip/deployments/scripts/schema-cleaner/urllib3-2.8.0",
+              "base": "main",
+              "createdAt": "2026-10-05T21:46:43Z",
+              "closedAt": "2026-10-07T13:53:21Z"
+            },
+            {
+              "number": 32,
+              "title": "chore(template-sync): sync template updates (updated 2026-10-07)",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/32",
+              "head": "template-sync/20261006-082256",
+              "base": "main",
+              "createdAt": "2026-10-06T08:23:00Z",
+              "mergedAt": "2026-10-07T13:51:48Z",
+              "closedAt": "2026-10-07T13:51:48Z"
+            },
+            {
+              "number": 29,
+              "title": "chore(deps): bump com.fasterxml.jackson.core:jackson-core from 2.14.2 to 2.18.11 in /testing/schema-test-core",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/29",
+              "head": "dependabot/maven/testing/schema-test-core/com.fasterxml.jackson.core-jackson-core-2.18.11",
+              "base": "main",
+              "createdAt": "2026-10-05T21:21:52Z",
+              "closedAt": "2026-10-05T21:47:49Z"
+            },
+            {
+              "number": 30,
+              "title": "chore(deps): bump com.fasterxml.jackson.core:jackson-databind from 2.14.2 to 2.18.11 in /testing/schema-test-core",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/30",
+              "head": "dependabot/maven/testing/schema-test-core/com.fasterxml.jackson.core-jackson-databind-2.18.11",
+              "base": "main",
+              "createdAt": "2026-10-05T21:21:58Z",
+              "closedAt": "2026-10-05T21:41:52Z"
+            },
+            {
+              "number": 26,
+              "title": "\u2b06\ufe0f Sync with upstream 85d0f67f",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/26",
+              "head": "sync/upstream-20261003-000803",
+              "base": "fork_upstream",
+              "createdAt": "2026-10-03T00:08:08Z",
+              "mergedAt": "2026-10-05T13:08:37Z",
+              "closedAt": "2026-10-05T13:08:37Z"
+            },
+            {
+              "number": 25,
+              "title": "chore(template-sync): sync template updates (updated 2026-10-05)",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/25",
+              "head": "template-sync/20260930-082345",
+              "base": "main",
+              "createdAt": "2026-09-30T08:23:51Z",
+              "mergedAt": "2026-10-05T13:07:42Z",
+              "closedAt": "2026-10-05T13:07:42Z"
+            },
+            {
+              "number": 24,
+              "title": "docs: keep the configuration table inside the README width",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/24",
+              "head": "docs/readme-table-width",
+              "base": "main",
+              "createdAt": "2026-09-30T02:18:06Z",
+              "mergedAt": "2026-09-30T02:39:15Z",
+              "closedAt": "2026-09-30T02:39:15Z"
+            },
+            {
+              "number": 23,
+              "title": "\u2b06\ufe0f Upstream Integration to Main 899b7d8f",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/23",
+              "head": "release/upstream-20260930-014728",
+              "base": "main",
+              "createdAt": "2026-09-30T01:47:32Z",
+              "mergedAt": "2026-09-30T02:01:22Z",
+              "closedAt": "2026-09-30T02:01:22Z"
+            },
+            {
+              "number": 19,
+              "title": "\u2b06\ufe0f Sync with upstream 7ea15153",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/19",
+              "head": "sync/upstream-20260930-000825",
+              "base": "fork_upstream",
+              "createdAt": "2026-09-30T00:08:30Z",
+              "mergedAt": "2026-09-30T01:34:13Z",
+              "closedAt": "2026-09-30T01:34:13Z"
+            },
+            {
+              "number": 18,
+              "title": "docs: make the root README fork-owned and move the Azure documentation there",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/18",
+              "head": "docs/fork-owned-readme",
+              "base": "main",
+              "createdAt": "2026-09-29T22:37:52Z",
+              "mergedAt": "2026-09-29T23:32:12Z",
+              "closedAt": "2026-09-29T23:32:12Z"
+            },
+            {
+              "number": 17,
+              "title": "docs(azure): rewrite provider README in the standard SPI service format",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/17",
+              "head": "docs/standard-provider-readme",
+              "base": "main",
+              "createdAt": "2026-09-29T22:12:05Z",
+              "mergedAt": "2026-09-29T22:28:59Z",
+              "closedAt": "2026-09-29T22:28:59Z"
+            },
+            {
+              "number": 16,
+              "title": "docs: replace internal subscription name in azure scripts README",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/16",
+              "head": "docs/placeholder-subscription",
+              "base": "main",
+              "createdAt": "2026-09-29T21:45:35Z",
+              "mergedAt": "2026-09-29T21:48:19Z",
+              "closedAt": "2026-09-29T21:48:19Z"
+            },
+            {
+              "number": 15,
+              "title": "docs(azure): mark provider README as Microsoft-maintained and point deployment at SPI Stack",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/15",
+              "head": "docs/azure-readme",
+              "base": "main",
+              "createdAt": "2026-09-29T21:37:56Z",
+              "mergedAt": "2026-09-29T21:39:28Z",
+              "closedAt": "2026-09-29T21:39:28Z"
+            },
+            {
+              "number": 13,
+              "title": "chore: license headers for the release review",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/13",
+              "head": "chore/license-headers",
+              "base": "main",
+              "createdAt": "2026-09-29T19:52:24Z",
+              "mergedAt": "2026-09-29T21:22:06Z",
+              "closedAt": "2026-09-29T21:22:06Z"
+            },
+            {
+              "number": 11,
+              "title": "chore(deps-dev): bump com.google.inject:guice from 4.2.0 to 4.2.3 in /testing/schema-test-azure",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/11",
+              "head": "dependabot/maven/testing/schema-test-azure/main/com.google.inject-guice-4.2.3",
+              "base": "main",
+              "createdAt": "2026-09-29T14:35:44Z",
+              "closedAt": "2026-09-29T19:52:54Z"
+            },
+            {
+              "number": 10,
+              "title": "chore(deps): bump org.eclipse.parsson:parsson from 1.1.7 to 1.1.9 in /provider/schema-azure",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/10",
+              "head": "dependabot/maven/provider/schema-azure/main/org.eclipse.parsson-parsson-1.1.9",
+              "base": "main",
+              "createdAt": "2026-09-29T14:35:37Z",
+              "closedAt": "2026-09-29T19:52:52Z"
+            },
+            {
+              "number": 2,
+              "title": "Adding Microsoft SECURITY.MD",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/2",
+              "head": "users/GitHubPolicyService/45d564b6-757e-4728-9348-0cea5c07c144",
+              "base": "main",
+              "createdAt": "2026-09-28T22:19:09Z",
+              "closedAt": "2026-09-29T19:52:44Z"
+            },
+            {
+              "number": 8,
+              "title": "chore(deps): bump swagger-core.version from 2.2.45 to 2.2.55 in /provider/schema-azure",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/8",
+              "head": "dependabot/maven/provider/schema-azure/main/swagger-core.version-2.2.55",
+              "base": "main",
+              "createdAt": "2026-09-29T14:35:16Z",
+              "closedAt": "2026-09-29T14:35:32Z"
+            },
+            {
+              "number": 9,
+              "title": "chore(deps): bump org.springdoc:springdoc-openapi-starter-webmvc-ui from 2.8.16 to 2.8.17 in /provider/schema-azure",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/9",
+              "head": "dependabot/maven/provider/schema-azure/main/org.springdoc-springdoc-openapi-starter-webmvc-ui-2.8.17",
+              "base": "main",
+              "createdAt": "2026-09-29T14:35:28Z",
+              "closedAt": "2026-09-29T14:35:45Z"
+            },
+            {
+              "number": 7,
+              "title": "chore(deps): bump tomcat.version from 10.1.59 to 10.1.60 in /provider/schema-azure",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/7",
+              "head": "dependabot/maven/provider/schema-azure/main/tomcat.version-10.1.60",
+              "base": "main",
+              "createdAt": "2026-09-29T14:35:06Z",
+              "closedAt": "2026-09-29T14:35:26Z"
+            },
+            {
+              "number": 6,
+              "title": "chore(deps): bump the docker group across 1 directory with 3 updates",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/6",
+              "head": "dependabot/docker/build/main/docker-abe3f40406",
+              "base": "main",
+              "createdAt": "2026-09-29T08:35:13Z",
+              "closedAt": "2026-09-29T14:34:21Z"
+            },
+            {
+              "number": 5,
+              "title": "chore(deps): bump openjdk/jdk from `2935b84` to `2834747` in /build in the docker group",
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/5",
+              "head": "dependabot/docker/build/main/docker-b4ca1bde93",
+              "base": "main",
+              "createdAt": "2026-09-28T22:27:43Z",
+              "closedAt": "2026-09-29T08:35:15Z"
+            }
+          ],
+          "pastIssues": [
+            {
+              "number": 21,
+              "url": "https://github.com/Azure/osdu-spi-schema/issues/21",
+              "createdAt": "2026-09-30T01:34:57Z",
+              "closedAt": "2026-09-30T01:39:09Z",
+              "labels": ["conflict", "cascade-blocked", "high-priority", "human-required"]
+            }
           ]
         },
         "Azure/osdu-spi-file": {
@@ -3786,11 +5521,421 @@
               "state": "FAILURE",
               "statusAt": "2026-09-29T21:36:41Z"
             }
+          ],
+          "pastPrs": [
+            {
+              "number": 44,
+              "title": "\u2b06\ufe0f Upstream Integration to Main eaa3edbd",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/44",
+              "head": "release/upstream-20260930-014525",
+              "base": "main",
+              "createdAt": "2026-09-30T01:45:29Z",
+              "mergedAt": "2026-09-30T02:04:30Z",
+              "closedAt": "2026-09-30T02:04:30Z"
+            },
+            {
+              "number": 45,
+              "title": "docs: keep the configuration table inside the README width",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/45",
+              "head": "docs/readme-table-width",
+              "base": "main",
+              "createdAt": "2026-09-30T02:18:12Z",
+              "mergedAt": "2026-10-06T22:56:16Z",
+              "closedAt": "2026-10-06T22:56:16Z"
+            },
+            {
+              "number": 34,
+              "title": "chore: release 1.2.0",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/34",
+              "head": "release-please--branches--main",
+              "base": "main",
+              "createdAt": "2026-09-29T21:20:52Z",
+              "mergedAt": "2026-10-07T02:33:09Z",
+              "closedAt": "2026-10-07T02:33:09Z"
+            },
+            {
+              "number": 48,
+              "title": "build(deps-dev): bump com.azure:azure-storage-blob from 12.25.2 to 12.25.4 in /testing/file-test-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/48",
+              "head": "dependabot/maven/testing/file-test-azure/main/com.azure-azure-storage-blob-12.25.4",
+              "base": "main",
+              "createdAt": "2026-10-05T09:32:21Z",
+              "mergedAt": "2026-10-07T01:22:00Z",
+              "closedAt": "2026-10-07T01:22:00Z"
+            },
+            {
+              "number": 50,
+              "title": "build(deps): bump azure-identity, azure-core, and guava in test",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/50",
+              "head": "fix/test-azure-vulnerable-deps",
+              "base": "main",
+              "createdAt": "2026-10-07T00:15:00Z",
+              "mergedAt": "2026-10-07T00:56:16Z",
+              "closedAt": "2026-10-07T00:56:16Z"
+            },
+            {
+              "number": 25,
+              "title": "chore: add service descriptor",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/25",
+              "head": "chore/add-service-descriptor",
+              "base": "main",
+              "createdAt": "2026-09-29T21:18:59Z",
+              "mergedAt": "2026-10-07T00:12:23Z",
+              "closedAt": "2026-10-07T00:12:23Z"
+            },
+            {
+              "number": 49,
+              "title": "chore(template-sync): sync template updates 2026-10-06",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/49",
+              "head": "template-sync/20261006-081555",
+              "base": "main",
+              "createdAt": "2026-10-06T08:15:58Z",
+              "mergedAt": "2026-10-06T22:44:08Z",
+              "closedAt": "2026-10-06T22:44:08Z"
+            },
+            {
+              "number": 46,
+              "title": "chore(template-sync): sync template updates (updated 2026-10-05)",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/46",
+              "head": "template-sync/20260930-081641",
+              "base": "main",
+              "createdAt": "2026-09-30T08:16:45Z",
+              "mergedAt": "2026-10-05T13:09:40Z",
+              "closedAt": "2026-10-05T13:09:40Z"
+            },
+            {
+              "number": 47,
+              "title": "build(deps): bump io.netty:netty-bom from 4.2.17.Final to 4.2.18.Final in /provider/file-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/47",
+              "head": "dependabot/maven/provider/file-azure/main/io.netty-netty-bom-4.2.18.Final",
+              "base": "main",
+              "createdAt": "2026-10-05T09:31:00Z",
+              "closedAt": "2026-10-05T09:31:52Z"
+            },
+            {
+              "number": 40,
+              "title": "\u2b06\ufe0f Sync with upstream e7ef32a0",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/40",
+              "head": "sync/upstream-20260930-002145",
+              "base": "fork_upstream",
+              "createdAt": "2026-09-30T00:21:48Z",
+              "mergedAt": "2026-09-30T01:34:55Z",
+              "closedAt": "2026-09-30T01:34:56Z"
+            },
+            {
+              "number": 39,
+              "title": "docs: make the root README fork-owned and move the Azure documentation there",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/39",
+              "head": "docs/fork-owned-readme",
+              "base": "main",
+              "createdAt": "2026-09-29T22:38:03Z",
+              "mergedAt": "2026-09-29T23:32:40Z",
+              "closedAt": "2026-09-29T23:32:40Z"
+            },
+            {
+              "number": 38,
+              "title": "docs(azure): rewrite provider README in the standard SPI service format",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/38",
+              "head": "docs/standard-provider-readme",
+              "base": "main",
+              "createdAt": "2026-09-29T22:12:10Z",
+              "mergedAt": "2026-09-29T22:26:59Z",
+              "closedAt": "2026-09-29T22:26:59Z"
+            },
+            {
+              "number": 37,
+              "title": "docs(azure): mark provider README as Microsoft-maintained and point deployment at SPI Stack",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/37",
+              "head": "docs/azure-readme",
+              "base": "main",
+              "createdAt": "2026-09-29T21:37:58Z",
+              "mergedAt": "2026-09-29T21:40:13Z",
+              "closedAt": "2026-09-29T21:40:13Z"
+            },
+            {
+              "number": 28,
+              "title": "Bump net.bytebuddy:byte-buddy from 1.17.5 to 1.17.8 in /provider/file-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/28",
+              "head": "dependabot/maven/provider/file-azure/main/net.bytebuddy-byte-buddy-1.17.8",
+              "base": "main",
+              "createdAt": "2026-09-29T21:19:29Z",
+              "closedAt": "2026-09-29T21:32:41Z"
+            },
+            {
+              "number": 30,
+              "title": "Bump org.springframework.boot:spring-boot-dependencies from 3.5.14 to 3.5.16 in /testing/file-test-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/30",
+              "head": "dependabot/maven/testing/file-test-azure/main/org.springframework.boot-spring-boot-dependencies-3.5.16",
+              "base": "main",
+              "createdAt": "2026-09-29T21:19:50Z",
+              "closedAt": "2026-09-29T21:32:39Z"
+            },
+            {
+              "number": 32,
+              "title": "Bump org.slf4j:slf4j-jdk14 from 1.7.25 to 1.7.36 in /testing/file-test-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/32",
+              "head": "dependabot/maven/testing/file-test-azure/main/org.slf4j-slf4j-jdk14-1.7.36",
+              "base": "main",
+              "createdAt": "2026-09-29T21:20:10Z",
+              "closedAt": "2026-09-29T21:32:36Z"
+            },
+            {
+              "number": 35,
+              "title": "Bump com.azure:azure-core-http-netty from 1.14.0 to 1.14.2 in /testing/file-test-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/35",
+              "head": "dependabot/maven/testing/file-test-azure/main/com.azure-azure-core-http-netty-1.14.2",
+              "base": "main",
+              "createdAt": "2026-09-29T21:21:07Z",
+              "closedAt": "2026-09-29T21:32:33Z"
+            },
+            {
+              "number": 36,
+              "title": "Bump com.azure:azure-identity from 1.11.2 to 1.11.4 in /testing/file-test-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/36",
+              "head": "dependabot/maven/testing/file-test-azure/main/com.azure-azure-identity-1.11.4",
+              "base": "main",
+              "createdAt": "2026-09-29T21:21:57Z",
+              "closedAt": "2026-09-29T21:32:30Z"
+            },
+            {
+              "number": 21,
+              "title": "fix(file-azure): bump core-lib-azure to 3.0.3 for single-scope workload identity tokens",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/21",
+              "head": "fix/core-lib-azure-3.0.3",
+              "base": "main",
+              "createdAt": "2026-09-29T21:18:40Z",
+              "mergedAt": "2026-09-29T21:31:44Z",
+              "closedAt": "2026-09-29T21:31:45Z"
+            },
+            {
+              "number": 19,
+              "title": "chore: license headers for the release review",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/19",
+              "head": "chore/license-headers",
+              "base": "main",
+              "createdAt": "2026-09-29T21:18:07Z",
+              "mergedAt": "2026-09-29T21:29:36Z",
+              "closedAt": "2026-09-29T21:29:36Z"
+            },
+            {
+              "number": 33,
+              "title": "Bump com.google.inject:guice from 4.2.0 to 4.2.3 in /testing/file-test-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/33",
+              "head": "dependabot/maven/testing/file-test-azure/main/com.google.inject-guice-4.2.3",
+              "base": "main",
+              "createdAt": "2026-09-29T21:20:13Z",
+              "closedAt": "2026-09-29T21:20:57Z"
+            },
+            {
+              "number": 31,
+              "title": "Bump cucumber.version from 5.4.0 to 5.4.2 in /testing/file-test-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/31",
+              "head": "dependabot/maven/testing/file-test-azure/main/cucumber.version-5.4.2",
+              "base": "main",
+              "createdAt": "2026-09-29T21:20:05Z",
+              "closedAt": "2026-09-29T21:20:23Z"
+            },
+            {
+              "number": 29,
+              "title": "Bump com.github.spotbugs:spotbugs-maven-plugin from 4.9.3.0 to 4.9.8.5 in /provider/file-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/29",
+              "head": "dependabot/maven/provider/file-azure/main/com.github.spotbugs-spotbugs-maven-plugin-4.9.8.5",
+              "base": "main",
+              "createdAt": "2026-09-29T21:19:41Z",
+              "closedAt": "2026-09-29T21:19:58Z"
+            },
+            {
+              "number": 23,
+              "title": "Bump log4j2.version from 2.25.2 to 2.25.5 in /provider/file-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/23",
+              "head": "dependabot/maven/provider/file-azure/main/log4j2.version-2.25.5",
+              "base": "main",
+              "createdAt": "2026-09-29T21:18:50Z",
+              "closedAt": "2026-09-29T21:19:07Z"
+            },
+            {
+              "number": 27,
+              "title": "Bump swagger-core.version from 2.2.45 to 2.2.55 in /provider/file-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/27",
+              "head": "dependabot/maven/provider/file-azure/main/swagger-core.version-2.2.55",
+              "base": "main",
+              "createdAt": "2026-09-29T21:19:12Z",
+              "closedAt": "2026-09-29T21:19:31Z"
+            },
+            {
+              "number": 22,
+              "title": "Bump com.azure:azure-sdk-bom from 1.2.30 to 1.2.38 in /provider/file-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/22",
+              "head": "dependabot/maven/provider/file-azure/main/com.azure-azure-sdk-bom-1.2.38",
+              "base": "main",
+              "createdAt": "2026-09-29T21:18:46Z",
+              "closedAt": "2026-09-29T21:19:25Z"
+            },
+            {
+              "number": 24,
+              "title": "Bump io.netty:netty-tcnative-boringssl-static from 2.0.70.Final to 2.0.84.Final in /provider/file-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/24",
+              "head": "dependabot/maven/provider/file-azure/main/io.netty-netty-tcnative-boringssl-static-2.0.84.Final",
+              "base": "main",
+              "createdAt": "2026-09-29T21:18:57Z",
+              "closedAt": "2026-09-29T21:19:29Z"
+            },
+            {
+              "number": 26,
+              "title": "Bump org.slf4j:slf4j-api from 2.0.16 to 2.0.20 in /provider/file-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/26",
+              "head": "dependabot/maven/provider/file-azure/main/org.slf4j-slf4j-api-2.0.20",
+              "base": "main",
+              "createdAt": "2026-09-29T21:19:02Z",
+              "closedAt": "2026-09-29T21:19:32Z"
+            },
+            {
+              "number": 20,
+              "title": "Bump com.azure:azure-identity from 1.11.2 to 1.12.2 in /testing/file-test-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/20",
+              "head": "dependabot/maven/testing/file-test-azure/com.azure-azure-identity-1.12.2",
+              "base": "main",
+              "createdAt": "2026-09-29T21:18:24Z",
+              "closedAt": "2026-09-29T21:19:22Z"
+            },
+            {
+              "number": 14,
+              "title": "Bump logback.version from 1.5.21 to 1.5.38 in /provider/file-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/14",
+              "head": "dependabot/maven/provider/file-azure/main/logback.version-1.5.38",
+              "base": "main",
+              "createdAt": "2026-09-29T21:17:22Z",
+              "closedAt": "2026-09-29T21:17:44Z"
+            },
+            {
+              "number": 18,
+              "title": "Bump org.springdoc:springdoc-openapi-starter-webmvc-ui from 2.8.16 to 2.8.17 in /provider/file-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/18",
+              "head": "dependabot/maven/provider/file-azure/main/org.springdoc-springdoc-openapi-starter-webmvc-ui-2.8.17",
+              "base": "main",
+              "createdAt": "2026-09-29T21:17:57Z",
+              "closedAt": "2026-09-29T21:18:11Z"
+            },
+            {
+              "number": 17,
+              "title": "Bump tomcat.version from 10.1.59 to 10.1.60 in /provider/file-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/17",
+              "head": "dependabot/maven/provider/file-azure/main/tomcat.version-10.1.60",
+              "base": "main",
+              "createdAt": "2026-09-29T21:17:39Z",
+              "closedAt": "2026-09-29T21:18:03Z"
+            },
+            {
+              "number": 11,
+              "title": "Bump ch.qos.logback:logback-core from 1.5.21 to 1.5.34",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/11",
+              "head": "dependabot/maven/ch.qos.logback-logback-core-1.5.34",
+              "base": "main",
+              "createdAt": "2026-09-29T21:17:20Z",
+              "closedAt": "2026-09-29T21:17:41Z"
+            },
+            {
+              "number": 9,
+              "title": "Bump org.springframework.cloud:spring-cloud-dependencies from 2025.0.0 to 2025.0.3 in /provider/file-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/9",
+              "head": "dependabot/maven/provider/file-azure/main/org.springframework.cloud-spring-cloud-dependencies-2025.0.3",
+              "base": "main",
+              "createdAt": "2026-09-29T21:17:13Z",
+              "closedAt": "2026-09-29T21:17:27Z"
+            },
+            {
+              "number": 16,
+              "title": "Bump org.checkerframework:checker-compat-qual from 2.5.5 to 2.5.6 in /provider/file-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/16",
+              "head": "dependabot/maven/provider/file-azure/main/org.checkerframework-checker-compat-qual-2.5.6",
+              "base": "main",
+              "createdAt": "2026-09-29T21:17:29Z",
+              "closedAt": "2026-09-29T21:19:19Z"
+            },
+            {
+              "number": 13,
+              "title": "Bump org.springframework:spring-web from 6.2.18 to 6.2.19 in /testing/file-test-core",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/13",
+              "head": "dependabot/maven/testing/file-test-core/org.springframework-spring-web-6.2.19",
+              "base": "main",
+              "createdAt": "2026-09-29T21:17:22Z",
+              "closedAt": "2026-09-29T21:17:42Z"
+            },
+            {
+              "number": 12,
+              "title": "Bump com.google.guava:guava from 29.0-jre to 32.0.0-jre in /testing/file-test-azure",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/12",
+              "head": "dependabot/maven/testing/file-test-azure/com.google.guava-guava-32.0.0-jre",
+              "base": "main",
+              "createdAt": "2026-09-29T21:17:21Z",
+              "closedAt": "2026-09-29T21:19:16Z"
+            },
+            {
+              "number": 15,
+              "title": "Bump commons-io:commons-io from 2.6 to 2.14.0 in /testing/file-test-core",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/15",
+              "head": "dependabot/maven/testing/file-test-core/commons-io-commons-io-2.14.0",
+              "base": "main",
+              "createdAt": "2026-09-29T21:17:25Z",
+              "closedAt": "2026-09-29T21:17:42Z"
+            },
+            {
+              "number": 10,
+              "title": "Bump org.apache.logging.log4j:log4j-api from 2.25.2 to 2.25.5",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/10",
+              "head": "dependabot/maven/org.apache.logging.log4j-log4j-api-2.25.5",
+              "base": "main",
+              "createdAt": "2026-09-29T21:17:16Z",
+              "closedAt": "2026-09-29T21:17:41Z"
+            },
+            {
+              "number": 2,
+              "title": "Adding Microsoft SECURITY.MD",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/2",
+              "head": "users/GitHubPolicyService/c6a923e7-f723-4912-966e-11ff2286c52e",
+              "base": "main",
+              "createdAt": "2026-09-28T22:38:25Z",
+              "closedAt": "2026-09-29T21:17:09Z"
+            },
+            {
+              "number": 6,
+              "title": "chore(deps): bump the docker group across 1 directory with 3 updates",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/6",
+              "head": "dependabot/docker/build/main/docker-abe3f40406",
+              "base": "main",
+              "createdAt": "2026-09-29T08:35:20Z",
+              "closedAt": "2026-09-29T21:16:22Z"
+            },
+            {
+              "number": 4,
+              "title": "chore(deps): bump openjdk/jdk from `2935b84` to `2834747` in /build in the docker group",
+              "url": "https://github.com/Azure/osdu-spi-file/pull/4",
+              "head": "dependabot/docker/build/main/docker-b4ca1bde93",
+              "base": "main",
+              "createdAt": "2026-09-28T22:46:00Z",
+              "closedAt": "2026-09-29T08:35:19Z"
+            }
+          ],
+          "pastIssues": [
+            {
+              "number": 42,
+              "url": "https://github.com/Azure/osdu-spi-file/issues/42",
+              "createdAt": "2026-09-30T01:35:35Z",
+              "closedAt": "2026-09-30T01:39:20Z",
+              "labels": ["conflict", "cascade-blocked", "high-priority", "human-required"]
+            }
           ]
         }
       },
-      "planned": { "storage": false, "indexer": false, "search": false },
-      "rate": { "remaining": 4889, "resetAt": "2026-10-12T22:19:00Z" }
+      "planned": {
+        "storage": false,
+        "indexer": false,
+        "search": false
+      },
+      "rate": {
+        "remaining": 4889,
+        "resetAt": "2026-10-12T22:19:00Z"
+      }
     }
   },
   "runs": {
@@ -11174,7 +13319,12 @@
                   "status": "completed",
                   "conclusion": "success"
                 },
-                { "number": 10, "name": "spi up", "status": "completed", "conclusion": "success" },
+                {
+                  "number": 10,
+                  "name": "spi up",
+                  "status": "completed",
+                  "conclusion": "success"
+                },
                 {
                   "number": 11,
                   "name": "Capture diagnostics on failure",
@@ -11244,10 +13394,26 @@
                   "status": "completed",
                   "conclusion": "success"
                 },
-                { "number": 6, "name": "Azure login (OIDC)", "status": "in_progress" },
-                { "number": 7, "name": "Pre-cache Azure tokens", "status": "pending" },
-                { "number": 8, "name": "Install exact release wheel", "status": "pending" },
-                { "number": 9, "name": "spi connect", "status": "pending" },
+                {
+                  "number": 6,
+                  "name": "Azure login (OIDC)",
+                  "status": "in_progress"
+                },
+                {
+                  "number": 7,
+                  "name": "Pre-cache Azure tokens",
+                  "status": "pending"
+                },
+                {
+                  "number": 8,
+                  "name": "Install exact release wheel",
+                  "status": "pending"
+                },
+                {
+                  "number": 9,
+                  "name": "spi connect",
+                  "status": "pending"
+                },
                 {
                   "number": 10,
                   "name": "Resolve the upgraded source revision",
@@ -11273,12 +13439,36 @@
                   "name": "Verify deployed stack matches the declaration",
                   "status": "pending"
                 },
-                { "number": 15, "name": "Clear maintenance", "status": "pending" },
-                { "number": 16, "name": "Require deployable status", "status": "pending" },
-                { "number": 17, "name": "Load default datasets", "status": "pending" },
-                { "number": 18, "name": "Capture diagnostics on failure", "status": "pending" },
-                { "number": 19, "name": "Upload diagnostics artifact", "status": "pending" },
-                { "number": 37, "name": "Post Azure login (OIDC)", "status": "pending" },
+                {
+                  "number": 15,
+                  "name": "Clear maintenance",
+                  "status": "pending"
+                },
+                {
+                  "number": 16,
+                  "name": "Require deployable status",
+                  "status": "pending"
+                },
+                {
+                  "number": 17,
+                  "name": "Load default datasets",
+                  "status": "pending"
+                },
+                {
+                  "number": 18,
+                  "name": "Capture diagnostics on failure",
+                  "status": "pending"
+                },
+                {
+                  "number": 19,
+                  "name": "Upload diagnostics artifact",
+                  "status": "pending"
+                },
+                {
+                  "number": 37,
+                  "name": "Post Azure login (OIDC)",
+                  "status": "pending"
+                },
                 {
                   "number": 38,
                   "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
@@ -11628,7 +13818,12 @@
                   "status": "completed",
                   "conclusion": "success"
                 },
-                { "number": 10, "name": "spi up", "status": "completed", "conclusion": "success" },
+                {
+                  "number": 10,
+                  "name": "spi up",
+                  "status": "completed",
+                  "conclusion": "success"
+                },
                 {
                   "number": 11,
                   "name": "Capture diagnostics on failure",
@@ -12146,7 +14341,12 @@
                   "status": "completed",
                   "conclusion": "success"
                 },
-                { "number": 10, "name": "spi up", "status": "completed", "conclusion": "failure" },
+                {
+                  "number": 10,
+                  "name": "spi up",
+                  "status": "completed",
+                  "conclusion": "failure"
+                },
                 {
                   "number": 11,
                   "name": "Capture diagnostics on failure",
@@ -12367,7 +14567,12 @@
                   "status": "completed",
                   "conclusion": "success"
                 },
-                { "number": 10, "name": "spi up", "status": "completed", "conclusion": "success" },
+                {
+                  "number": 10,
+                  "name": "spi up",
+                  "status": "completed",
+                  "conclusion": "success"
+                },
                 {
                   "number": 11,
                   "name": "Capture diagnostics on failure",
@@ -13051,7 +15256,12 @@
                   "status": "completed",
                   "conclusion": "success"
                 },
-                { "number": 10, "name": "spi up", "status": "completed", "conclusion": "success" },
+                {
+                  "number": 10,
+                  "name": "spi up",
+                  "status": "completed",
+                  "conclusion": "success"
+                },
                 {
                   "number": 11,
                   "name": "Capture diagnostics on failure",
@@ -13436,7 +15646,12 @@
                   "status": "completed",
                   "conclusion": "success"
                 },
-                { "number": 10, "name": "spi up", "status": "completed", "conclusion": "success" },
+                {
+                  "number": 10,
+                  "name": "spi up",
+                  "status": "completed",
+                  "conclusion": "success"
+                },
                 {
                   "number": 11,
                   "name": "Capture diagnostics on failure",
@@ -13948,7 +16163,12 @@
                   "status": "completed",
                   "conclusion": "success"
                 },
-                { "number": 10, "name": "spi up", "status": "completed", "conclusion": "success" },
+                {
+                  "number": 10,
+                  "name": "spi up",
+                  "status": "completed",
+                  "conclusion": "success"
+                },
                 {
                   "number": 11,
                   "name": "Capture diagnostics on failure",
@@ -14460,7 +16680,12 @@
                   "status": "completed",
                   "conclusion": "success"
                 },
-                { "number": 10, "name": "spi up", "status": "completed", "conclusion": "success" },
+                {
+                  "number": 10,
+                  "name": "spi up",
+                  "status": "completed",
+                  "conclusion": "success"
+                },
                 {
                   "number": 11,
                   "name": "Capture diagnostics on failure",
@@ -14712,7 +16937,12 @@
                   "status": "completed",
                   "conclusion": "success"
                 },
-                { "number": 10, "name": "spi up", "status": "completed", "conclusion": "success" },
+                {
+                  "number": 10,
+                  "name": "spi up",
+                  "status": "completed",
+                  "conclusion": "success"
+                },
                 {
                   "number": 11,
                   "name": "Capture diagnostics on failure",
@@ -15484,7 +17714,12 @@
                   "status": "completed",
                   "conclusion": "success"
                 },
-                { "number": 10, "name": "spi up", "status": "completed", "conclusion": "success" },
+                {
+                  "number": 10,
+                  "name": "spi up",
+                  "status": "completed",
+                  "conclusion": "success"
+                },
                 {
                   "number": 11,
                   "name": "Capture diagnostics on failure",
@@ -15996,7 +18231,12 @@
                   "status": "completed",
                   "conclusion": "success"
                 },
-                { "number": 10, "name": "spi up", "status": "completed", "conclusion": "success" },
+                {
+                  "number": 10,
+                  "name": "spi up",
+                  "status": "completed",
+                  "conclusion": "success"
+                },
                 {
                   "number": 11,
                   "name": "Capture diagnostics on failure",
@@ -16508,7 +18748,12 @@
                   "status": "completed",
                   "conclusion": "success"
                 },
-                { "number": 10, "name": "spi up", "status": "completed", "conclusion": "success" },
+                {
+                  "number": 10,
+                  "name": "spi up",
+                  "status": "completed",
+                  "conclusion": "success"
+                },
                 {
                   "number": 11,
                   "name": "Capture diagnostics on failure",
@@ -17022,7 +19267,12 @@
                   "status": "completed",
                   "conclusion": "success"
                 },
-                { "number": 10, "name": "spi up", "status": "completed", "conclusion": "success" },
+                {
+                  "number": 10,
+                  "name": "spi up",
+                  "status": "completed",
+                  "conclusion": "success"
+                },
                 {
                   "number": 11,
                   "name": "Capture diagnostics on failure",
@@ -17918,16 +20168,36 @@
         "completedAt": "2026-10-12T20:04:03Z",
         "url": "https://github.com/Azure/osdu-spi-partition/actions/runs/38222934119/job/114982304735",
         "steps": [
-          { "number": 1, "name": "Set up job", "status": "completed", "conclusion": "success" },
-          { "number": 2, "name": "Checkout", "status": "completed", "conclusion": "success" },
+          {
+            "number": 1,
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 2,
+            "name": "Checkout",
+            "status": "completed",
+            "conclusion": "success"
+          },
           {
             "number": 3,
             "name": "Log in as deploy identity",
             "status": "completed",
             "conclusion": "success"
           },
-          { "number": 4, "name": "Set up uv", "status": "completed", "conclusion": "success" },
-          { "number": 5, "name": "Install spi", "status": "completed", "conclusion": "success" },
+          {
+            "number": 4,
+            "name": "Set up uv",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 5,
+            "name": "Install spi",
+            "status": "completed",
+            "conclusion": "success"
+          },
           {
             "number": 6,
             "name": "Connect to cluster",
@@ -17946,8 +20216,18 @@
             "status": "completed",
             "conclusion": "failure"
           },
-          { "number": 9, "name": "Borrow", "status": "completed", "conclusion": "skipped" },
-          { "number": 10, "name": "Verify", "status": "completed", "conclusion": "skipped" },
+          {
+            "number": 9,
+            "name": "Borrow",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "number": 10,
+            "name": "Verify",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
           {
             "number": 11,
             "name": "Mint test callers",
@@ -17960,14 +20240,24 @@
             "status": "completed",
             "conclusion": "skipped"
           },
-          { "number": 13, "name": "Prove", "status": "completed", "conclusion": "skipped" },
+          {
+            "number": 13,
+            "name": "Prove",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
           {
             "number": 14,
             "name": "Upload suite reports",
             "status": "completed",
             "conclusion": "skipped"
           },
-          { "number": 15, "name": "Restore", "status": "completed", "conclusion": "success" },
+          {
+            "number": 15,
+            "name": "Restore",
+            "status": "completed",
+            "conclusion": "success"
+          },
           {
             "number": 28,
             "name": "Post Set up uv",
@@ -17980,8 +20270,18 @@
             "status": "completed",
             "conclusion": "success"
           },
-          { "number": 30, "name": "Post Checkout", "status": "completed", "conclusion": "success" },
-          { "number": 31, "name": "Complete job", "status": "completed", "conclusion": "success" }
+          {
+            "number": 30,
+            "name": "Post Checkout",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 31,
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success"
+          }
         ],
         "failedStep": "Confirm environment deployable",
         "reason": "environment is not deployable after 10 minutes: spi-redis: Reconciliation in progress"
@@ -17995,8 +20295,18 @@
         "completedAt": "2026-10-08T18:26:35Z",
         "url": "https://github.com/Azure/osdu-spi-entitlements/actions/runs/37822112872/job/113471663686",
         "steps": [
-          { "number": 1, "name": "Set up job", "status": "completed", "conclusion": "success" },
-          { "number": 2, "name": "Checkout Code", "status": "completed", "conclusion": "success" },
+          {
+            "number": 1,
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 2,
+            "name": "Checkout Code",
+            "status": "completed",
+            "conclusion": "success"
+          },
           {
             "number": 3,
             "name": "Restore local actions for sync PRs",
@@ -18027,7 +20337,12 @@
             "status": "completed",
             "conclusion": "success"
           },
-          { "number": 13, "name": "Complete job", "status": "completed", "conclusion": "success" }
+          {
+            "number": 13,
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success"
+          }
         ],
         "failedStep": "Validate Commit Messages",
         "reason": "No release type found in pull request title \"Test External Contribution flow\". Add a prefix to indicate what kind of release this pull request corresponds to. For reference, see https://www.conventionalcommits.org/ Avai\u2026"
@@ -18041,16 +20356,36 @@
         "completedAt": "2026-10-12T08:50:30Z",
         "url": "https://github.com/Azure/osdu-spi-entitlements/actions/runs/38224153176/job/114729921174",
         "steps": [
-          { "number": 1, "name": "Set up job", "status": "completed", "conclusion": "success" },
-          { "number": 2, "name": "Checkout", "status": "completed", "conclusion": "success" },
+          {
+            "number": 1,
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 2,
+            "name": "Checkout",
+            "status": "completed",
+            "conclusion": "success"
+          },
           {
             "number": 3,
             "name": "Log in as deploy identity",
             "status": "completed",
             "conclusion": "success"
           },
-          { "number": 4, "name": "Set up uv", "status": "completed", "conclusion": "success" },
-          { "number": 5, "name": "Install spi", "status": "completed", "conclusion": "success" },
+          {
+            "number": 4,
+            "name": "Set up uv",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 5,
+            "name": "Install spi",
+            "status": "completed",
+            "conclusion": "success"
+          },
           {
             "number": 6,
             "name": "Connect to cluster",
@@ -18069,8 +20404,18 @@
             "status": "completed",
             "conclusion": "failure"
           },
-          { "number": 9, "name": "Borrow", "status": "completed", "conclusion": "skipped" },
-          { "number": 10, "name": "Verify", "status": "completed", "conclusion": "skipped" },
+          {
+            "number": 9,
+            "name": "Borrow",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "number": 10,
+            "name": "Verify",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
           {
             "number": 11,
             "name": "Mint test callers",
@@ -18083,14 +20428,24 @@
             "status": "completed",
             "conclusion": "skipped"
           },
-          { "number": 13, "name": "Prove", "status": "completed", "conclusion": "skipped" },
+          {
+            "number": 13,
+            "name": "Prove",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
           {
             "number": 14,
             "name": "Upload suite reports",
             "status": "completed",
             "conclusion": "skipped"
           },
-          { "number": 15, "name": "Restore", "status": "completed", "conclusion": "success" },
+          {
+            "number": 15,
+            "name": "Restore",
+            "status": "completed",
+            "conclusion": "success"
+          },
           {
             "number": 28,
             "name": "Post Set up uv",
@@ -18103,8 +20458,18 @@
             "status": "completed",
             "conclusion": "success"
           },
-          { "number": 30, "name": "Post Checkout", "status": "completed", "conclusion": "success" },
-          { "number": 31, "name": "Complete job", "status": "completed", "conclusion": "success" }
+          {
+            "number": 30,
+            "name": "Post Checkout",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 31,
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success"
+          }
         ],
         "failedStep": "Confirm environment deployable",
         "reason": "environment is not deployable after 10 minutes: The environment is in maintenance."
@@ -18118,16 +20483,36 @@
         "completedAt": "2026-10-12T08:48:44Z",
         "url": "https://github.com/Azure/osdu-spi-legal/actions/runs/38224167314/job/114729427464",
         "steps": [
-          { "number": 1, "name": "Set up job", "status": "completed", "conclusion": "success" },
-          { "number": 2, "name": "Checkout", "status": "completed", "conclusion": "success" },
+          {
+            "number": 1,
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 2,
+            "name": "Checkout",
+            "status": "completed",
+            "conclusion": "success"
+          },
           {
             "number": 3,
             "name": "Log in as deploy identity",
             "status": "completed",
             "conclusion": "success"
           },
-          { "number": 4, "name": "Set up uv", "status": "completed", "conclusion": "success" },
-          { "number": 5, "name": "Install spi", "status": "completed", "conclusion": "success" },
+          {
+            "number": 4,
+            "name": "Set up uv",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 5,
+            "name": "Install spi",
+            "status": "completed",
+            "conclusion": "success"
+          },
           {
             "number": 6,
             "name": "Connect to cluster",
@@ -18146,8 +20531,18 @@
             "status": "completed",
             "conclusion": "failure"
           },
-          { "number": 9, "name": "Borrow", "status": "completed", "conclusion": "skipped" },
-          { "number": 10, "name": "Verify", "status": "completed", "conclusion": "skipped" },
+          {
+            "number": 9,
+            "name": "Borrow",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "number": 10,
+            "name": "Verify",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
           {
             "number": 11,
             "name": "Mint test callers",
@@ -18160,14 +20555,24 @@
             "status": "completed",
             "conclusion": "skipped"
           },
-          { "number": 13, "name": "Prove", "status": "completed", "conclusion": "skipped" },
+          {
+            "number": 13,
+            "name": "Prove",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
           {
             "number": 14,
             "name": "Upload suite reports",
             "status": "completed",
             "conclusion": "skipped"
           },
-          { "number": 15, "name": "Restore", "status": "completed", "conclusion": "success" },
+          {
+            "number": 15,
+            "name": "Restore",
+            "status": "completed",
+            "conclusion": "success"
+          },
           {
             "number": 28,
             "name": "Post Set up uv",
@@ -18180,8 +20585,18 @@
             "status": "completed",
             "conclusion": "success"
           },
-          { "number": 30, "name": "Post Checkout", "status": "completed", "conclusion": "success" },
-          { "number": 31, "name": "Complete job", "status": "completed", "conclusion": "success" }
+          {
+            "number": 30,
+            "name": "Post Checkout",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 31,
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success"
+          }
         ],
         "failedStep": "Confirm environment deployable",
         "reason": "environment is not deployable after 10 minutes: The environment is in maintenance."
@@ -18195,7 +20610,12 @@
         "completedAt": "2026-10-08T00:09:51Z",
         "url": "https://github.com/Azure/osdu-spi-legal/actions/runs/37706140110/job/113081034815",
         "steps": [
-          { "number": 1, "name": "Set up job", "status": "completed", "conclusion": "success" },
+          {
+            "number": 1,
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success"
+          },
           {
             "number": 2,
             "name": "Run actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
@@ -18208,7 +20628,12 @@
             "status": "completed",
             "conclusion": "success"
           },
-          { "number": 4, "name": "Set up JDK", "status": "completed", "conclusion": "success" },
+          {
+            "number": 4,
+            "name": "Set up JDK",
+            "status": "completed",
+            "conclusion": "success"
+          },
           {
             "number": 5,
             "name": "Cache Maven packages",
@@ -18221,7 +20646,12 @@
             "status": "completed",
             "conclusion": "success"
           },
-          { "number": 7, "name": "Run Java Build", "status": "completed", "conclusion": "failure" },
+          {
+            "number": 7,
+            "name": "Run Java Build",
+            "status": "completed",
+            "conclusion": "failure"
+          },
           {
             "number": 11,
             "name": "Post Run Java Build",
@@ -18246,7 +20676,12 @@
             "status": "completed",
             "conclusion": "success"
           },
-          { "number": 15, "name": "Complete job", "status": "completed", "conclusion": "success" }
+          {
+            "number": 15,
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success"
+          }
         ],
         "failedStep": "Run Java Build",
         "reason": "RequireJavaVersion: JDK 17.0.20-1 is outside the allowed range [25,)"
@@ -18260,16 +20695,36 @@
         "completedAt": "2026-10-12T08:54:03Z",
         "url": "https://github.com/Azure/osdu-spi-schema/actions/runs/38224682332/job/114731235585",
         "steps": [
-          { "number": 1, "name": "Set up job", "status": "completed", "conclusion": "success" },
-          { "number": 2, "name": "Checkout", "status": "completed", "conclusion": "success" },
+          {
+            "number": 1,
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 2,
+            "name": "Checkout",
+            "status": "completed",
+            "conclusion": "success"
+          },
           {
             "number": 3,
             "name": "Log in as deploy identity",
             "status": "completed",
             "conclusion": "success"
           },
-          { "number": 4, "name": "Set up uv", "status": "completed", "conclusion": "success" },
-          { "number": 5, "name": "Install spi", "status": "completed", "conclusion": "success" },
+          {
+            "number": 4,
+            "name": "Set up uv",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 5,
+            "name": "Install spi",
+            "status": "completed",
+            "conclusion": "success"
+          },
           {
             "number": 6,
             "name": "Connect to cluster",
@@ -18288,8 +20743,18 @@
             "status": "completed",
             "conclusion": "failure"
           },
-          { "number": 9, "name": "Borrow", "status": "completed", "conclusion": "skipped" },
-          { "number": 10, "name": "Verify", "status": "completed", "conclusion": "skipped" },
+          {
+            "number": 9,
+            "name": "Borrow",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "number": 10,
+            "name": "Verify",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
           {
             "number": 11,
             "name": "Mint test callers",
@@ -18302,14 +20767,24 @@
             "status": "completed",
             "conclusion": "skipped"
           },
-          { "number": 13, "name": "Prove", "status": "completed", "conclusion": "skipped" },
+          {
+            "number": 13,
+            "name": "Prove",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
           {
             "number": 14,
             "name": "Upload suite reports",
             "status": "completed",
             "conclusion": "skipped"
           },
-          { "number": 15, "name": "Restore", "status": "completed", "conclusion": "success" },
+          {
+            "number": 15,
+            "name": "Restore",
+            "status": "completed",
+            "conclusion": "success"
+          },
           {
             "number": 28,
             "name": "Post Set up uv",
@@ -18322,8 +20797,18 @@
             "status": "completed",
             "conclusion": "success"
           },
-          { "number": 30, "name": "Post Checkout", "status": "completed", "conclusion": "success" },
-          { "number": 31, "name": "Complete job", "status": "completed", "conclusion": "success" }
+          {
+            "number": 30,
+            "name": "Post Checkout",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 31,
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success"
+          }
         ],
         "failedStep": "Confirm environment deployable",
         "reason": "environment is not deployable after 10 minutes: The environment is in maintenance."
@@ -18337,16 +20822,36 @@
         "completedAt": "2026-10-12T08:50:05Z",
         "url": "https://github.com/Azure/osdu-spi-file/actions/runs/38223915937/job/114729818458",
         "steps": [
-          { "number": 1, "name": "Set up job", "status": "completed", "conclusion": "success" },
-          { "number": 2, "name": "Checkout", "status": "completed", "conclusion": "success" },
+          {
+            "number": 1,
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 2,
+            "name": "Checkout",
+            "status": "completed",
+            "conclusion": "success"
+          },
           {
             "number": 3,
             "name": "Log in as deploy identity",
             "status": "completed",
             "conclusion": "success"
           },
-          { "number": 4, "name": "Set up uv", "status": "completed", "conclusion": "success" },
-          { "number": 5, "name": "Install spi", "status": "completed", "conclusion": "success" },
+          {
+            "number": 4,
+            "name": "Set up uv",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 5,
+            "name": "Install spi",
+            "status": "completed",
+            "conclusion": "success"
+          },
           {
             "number": 6,
             "name": "Connect to cluster",
@@ -18365,8 +20870,18 @@
             "status": "completed",
             "conclusion": "failure"
           },
-          { "number": 9, "name": "Borrow", "status": "completed", "conclusion": "skipped" },
-          { "number": 10, "name": "Verify", "status": "completed", "conclusion": "skipped" },
+          {
+            "number": 9,
+            "name": "Borrow",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "number": 10,
+            "name": "Verify",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
           {
             "number": 11,
             "name": "Mint test callers",
@@ -18379,14 +20894,24 @@
             "status": "completed",
             "conclusion": "skipped"
           },
-          { "number": 13, "name": "Prove", "status": "completed", "conclusion": "skipped" },
+          {
+            "number": 13,
+            "name": "Prove",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
           {
             "number": 14,
             "name": "Upload suite reports",
             "status": "completed",
             "conclusion": "skipped"
           },
-          { "number": 15, "name": "Restore", "status": "completed", "conclusion": "success" },
+          {
+            "number": 15,
+            "name": "Restore",
+            "status": "completed",
+            "conclusion": "success"
+          },
           {
             "number": 28,
             "name": "Post Set up uv",
@@ -18399,8 +20924,18 @@
             "status": "completed",
             "conclusion": "success"
           },
-          { "number": 30, "name": "Post Checkout", "status": "completed", "conclusion": "success" },
-          { "number": 31, "name": "Complete job", "status": "completed", "conclusion": "success" }
+          {
+            "number": 30,
+            "name": "Post Checkout",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "number": 31,
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success"
+          }
         ],
         "failedStep": "Confirm environment deployable",
         "reason": "environment is not deployable after 10 minutes: The environment is in maintenance."
@@ -18626,7 +21161,9 @@
         }
       },
       "mainAhead": 14,
-      "targets": { "bb49a034a3dcdaa922a1905e708ec66bde930888": "v1.2.0 +14" },
+      "targets": {
+        "bb49a034a3dcdaa922a1905e708ec66bde930888": "v1.2.0 +14"
+      },
       "files": {
         "bb49a034a3dcdaa922a1905e708ec66bde930888": ["build/Dockerfile"],
         "4175ec88d05069166a5b1f43774e6b32a747e941": [
@@ -18681,9 +21218,20 @@
   "auth": {
     "at": "2026-10-12T21:58:15.134Z",
     "data": {
-      "gh": { "ok": true, "detail": "signed in as operator" },
-      "glab": { "ok": true, "detail": "signed in to community.opengroup.org" }
+      "gh": {
+        "ok": true,
+        "detail": "signed in as operator"
+      },
+      "glab": {
+        "ok": true,
+        "detail": "signed in to community.opengroup.org"
+      }
     }
   },
-  "sweep": { "at": "2026-10-12T21:58:14.428Z", "ms": 13015, "calls": 38, "errors": 0 }
+  "sweep": {
+    "at": "2026-10-12T21:58:14.428Z",
+    "ms": 13015,
+    "calls": 38,
+    "errors": 0
+  }
 }

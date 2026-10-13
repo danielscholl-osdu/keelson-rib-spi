@@ -8,6 +8,7 @@
 
 import { FORKS, PLANNED, type ServiceDef, STACK_REPO, TEMPLATE_REPO } from "../config.ts";
 import type { Facts } from "../facts.ts";
+import { buildGates, type Gates } from "./gates.ts";
 import { buildLine, type LineModel } from "./lines.ts";
 import { buildQueue, type Queue } from "./queue.ts";
 import { buildStack, type StackModel } from "./stack.ts";
@@ -16,10 +17,13 @@ import { buildTemplate, nextTag, type TemplateModel } from "./template.ts";
 export interface Model {
   measured: boolean;
   sweptAt?: string;
+  // When GitLab was last read; it is read less often than the sweep.
+  upstreamAt?: string;
   stack: StackModel;
   lines: LineModel[];
   planned: { service: ServiceDef; exists: boolean }[];
   template: TemplateModel;
+  gates: Gates;
   queue: Queue;
 }
 
@@ -62,6 +66,7 @@ export function buildModel(facts: Facts, now: Date): Model {
   return {
     measured: facts.github.data !== undefined,
     sweptAt: facts.sweep?.at,
+    upstreamAt: facts.upstream.at,
     stack,
     lines,
     planned: PLANNED.map((service) => ({
@@ -69,6 +74,7 @@ export function buildModel(facts: Facts, now: Date): Model {
       exists: facts.github.data?.planned[service.id] ?? false,
     })),
     template,
+    gates: buildGates(lines, now),
     queue,
   };
 }

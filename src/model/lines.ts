@@ -13,6 +13,7 @@ import type {
   ForkRuns,
   IssueFact,
   JobDetail,
+  PastPrFact,
   PrFact,
   RepoFact,
   RunFact,
@@ -29,6 +30,7 @@ import {
   toolchainText,
 } from "./attribution.ts";
 import { prVerdict } from "./checks.ts";
+import { type LineHistory, lineHistory, windowDays } from "./history.ts";
 import type { StackModel } from "./stack.ts";
 
 export type StationId = "upstream" | "sync" | "cascade" | "main" | "release" | "lane";
@@ -130,6 +132,9 @@ export interface LineModel {
   autoMerge?: boolean;
   why?: string;
   prs: LinePr[];
+  // Merged and closed PRs; undefined when the history was not read.
+  past?: PastPrFact[];
+  history?: LineHistory;
 }
 
 const CASCADE_STOP = ["cascade-failed", "cascade-blocked", "conflict", "validation-failed"];
@@ -184,7 +189,7 @@ function laneStats(deployments: readonly DeploymentFact[], now: Date): LineModel
   };
 }
 
-function prRed(p: LinePr | undefined): boolean {
+export function prRed(p: LinePr | undefined): boolean {
   return !!p && prVerdict(p.pr) === "red";
 }
 
@@ -396,6 +401,18 @@ export function buildLine(input: {
   }
   const current = pill.kind === "current";
   const atHead = !!marker && marker === templateHead?.sha;
+  const history = repo?.pastPrs
+    ? lineHistory({
+        seeded: fork.seeded,
+        past: repo.pastPrs,
+        pastIssues: repo.pastIssues ?? [],
+        openPrs: prs,
+        openIssues: issues,
+        templateDeliveryFailedAt:
+          templateDelivery.state === "failed" ? templateDelivery.run?.createdAt : undefined,
+        days: windowDays(now),
+      })
+    : undefined;
 
   return {
     fork,
@@ -437,5 +454,7 @@ export function buildLine(input: {
     autoMerge: repo?.autoMergeAllowed,
     why,
     prs,
+    past: repo?.pastPrs,
+    history,
   };
 }
