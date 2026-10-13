@@ -171,7 +171,7 @@ describe("what the boards say", () => {
       tone: "warn",
     });
     expect(b.header?.chip).toMatch(/^GitLab read \d\d:\d\d · \d\d:\d\d /);
-    expect(b.sections.map((s) => s.kind)).toEqual(["stats", "table", "rows", "table"]);
+    expect(b.sections.map((s) => s.kind)).toEqual(["stats", "table", "rows", "rows", "table"]);
     const [tiles, table, fleet] = b.sections;
     if (tiles?.kind !== "stats" || table?.kind !== "table" || fleet?.kind !== "rows")
       throw new Error("tiles, table, fleet");
@@ -300,36 +300,81 @@ describe("what the boards say", () => {
     expect(tiles.items[1]?.clock?.at).toBe(release.createdAt);
   });
 
-  test("at twenty forks current forks fold and the fleet lanes keep one row per track", () => {
+  function copies(n: number) {
     const f = fixtureFacts();
     const base = buildModel(f, FIXTURE_NOW);
-    const lines = [0, 1, 2, 3].flatMap((k) =>
-      base.lines.map((line, i) => {
+    const lines = Array.from({ length: n + 1 }, (_, k) => k).flatMap((k) =>
+      base.lines.map((line) => {
         const fork = { ...line.fork, id: `${line.fork.id}-${k}` };
-        if (k === 0 || (k === 1 && i === 0)) return { ...line, fork };
+        if (k === 0) return { ...line, fork };
+        const pill = { label: "current", kind: "current" as const, tone: "ok" as const };
+        if (line.halt || line.syncPr) return { ...line, fork, pill };
         return {
           ...line,
           fork,
-          pill: { label: "current", kind: "current" as const, tone: "ok" as const },
+          pill,
           releasePr: undefined,
+          templatePr: undefined,
+          template: { ...line.template, behind: 0 },
         };
       }),
     );
     const templateRepo = f.github.data?.repos["Azure/osdu-spi"];
-    const model = {
+    return {
       ...base,
       lines,
       template: buildTemplate(templateRepo, f.template.data, lines),
     };
-    const b = linesBoard(model, FIXTURE_NOW);
-    const [, table, fleet] = b.sections;
-    if (table?.kind !== "table" || fleet?.kind !== "rows") throw new Error("table, then fleet");
-    const folded = table.rows.at(-1);
-    expect(String(folded?.service)).toStartWith("14 current: ");
-    expect(table.rows).toHaveLength(7);
+  }
+
+  function serviceNames(b: ReturnType<typeof linesBoard>): string[] {
+    const table = b.sections[1];
+    if (table?.kind !== "table") throw new Error("services table");
+    return table.rows.map((r) =>
+      typeof r.service === "object" && r.service ? String(r.service.value) : String(r.service),
+    );
+  }
+
+  test("forks with nothing red fold once there are four; a red PR keeps a fork out", () => {
+    const b = linesBoard(copies(3), FIXTURE_NOW);
+    const rows = serviceNames(b);
+    expect(rows).toHaveLength(12);
+    expect(rows.at(-1)).toBe(
+      "9 forks current · partition-1, schema-1, file-1, partition-2, schema-2, file-2, partition-3, schema-3 and file-3",
+    );
+    expect(rows).toContain("legal-2");
+    expect(rows).toContain("entitlements-3");
+    const [, , fleet] = b.sections;
+    if (fleet?.kind !== "rows") throw new Error("fleet lanes");
     expect(fleet.items).toHaveLength(2);
     for (const item of fleet.items) expect(item.bar).toMatchObject({ total: 20 });
     expect(() => expectView(LINES_KEY, "board")(b)).not.toThrow();
+  });
+
+  test("three quiet forks stay as rows, as on the recorded sweep", () => {
+    expect(serviceNames(linesBoard(copies(1), FIXTURE_NOW))).toHaveLength(10);
+    expect(serviceNames(linesBoard(model, FIXTURE_NOW))).toEqual([
+      "entitlements",
+      "legal",
+      "partition",
+      "schema",
+      "file",
+    ]);
+  });
+
+  test("the fold row counts the PRs its forks wait on, named in the banner", () => {
+    const m = copies(3);
+    const open = model.lines[0]?.templatePr;
+    if (!open) throw new Error("fixture has a template-sync PR");
+    const releasePr = {
+      pr: { ...open.pr, title: "chore: release 1.3.2", checks: [] },
+      prClass: "release" as const,
+      failures: [],
+    };
+    const lines = m.lines.map((l) => (l.fork.id === "partition-1" ? { ...l, releasePr } : l));
+    const rows = serviceNames(linesBoard({ ...m, lines }, FIXTURE_NOW));
+    expect(rows.at(-1)).toEndWith("· 1 release PR waits, named in the banner");
+    expect(rows.at(-1)).toStartWith("9 forks current or waiting on review · ");
   });
 
   test("the header is red only for a red main, and calm when only updates wait", () => {

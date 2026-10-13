@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { expectView } from "@keelson/shared";
 import { linesBoard } from "../src/boards/lines";
+import { foldList, type OpenEntry, stackOpen } from "../src/boards/open";
 import { stackBoard } from "../src/boards/stack";
 import { parseRepo } from "../src/collect/github";
 import { FORKS, STACK_REPO } from "../src/config";
@@ -131,13 +132,16 @@ describe("open work", () => {
       typeof c === "object" && c !== null && "value" in c
         ? String(c.value).replaceAll("\u00a0", " ")
         : c;
-    expect(table.rows.map((r) => text(r.repo))).toEqual(FORKS.map((f) => f.id));
+    expect(table.rows.map((r) => text(r.repo))).toEqual(["entitlements", "schema", "file"]);
+    const totals = b.sections.at(-2);
+    if (totals?.kind !== "rows") throw new Error("totals above open work");
+    expect(totals.items[0]?.text).toMatch(/^\d+ pipeline PRs · 1 Dependabot across 4 forks$/);
+    expect(totals.items[0]?.href).toContain("repo%3AAzure%2Fosdu-spi-file");
+    expect(totals.items[0]?.href).not.toContain("osdu-spi-schema");
     const schema = table.rows.find((r) => text(r.repo) === "schema");
     expect(text(schema?.people)).toBe("?");
     const file = table.rows.find((r) => text(r.repo) === "file");
     expect(file?.people).toMatchObject({ value: "3 · 2 outside · 1 draft", tone: "info" });
-    expect(text(file?.bots)).toBe("1");
-    expect(text(file?.pipeline)).toBe("1");
     expect(text(file?.issues)).toBe("4 · 2 bug · 1 enhancement · 1 other");
     expect(text(file?.automation)).toBe("1");
     expect(text(file?.oldest)).toBe("#323 · 4d");
@@ -161,20 +165,21 @@ describe("open work", () => {
     if (open?.kind !== "rows") throw new Error("open on the stack last");
     expect(open.title).toBe("Open on osdu-spi-stack · 5 PRs · 5 issues");
     expect(open.items.map((i) => [i.chip?.label, i.text.split(" ")[0]])).toEqual([
-      ["outside", "#323"],
-      ["outside", "#341"],
-      ["feature", "#330"],
       ["Dependabot", "#340"],
-      ["env bump", "#339"],
       ["bug", "#324"],
       ["bug", "#321"],
-      ["enhancement", "#133"],
-      ["issue", "#300"],
-      ["automation", "#299"],
-      [undefined, "3"],
+      ["outside", "#323"],
+      ["outside", "#341"],
+      ["env bump", "#339"],
+      [undefined, "and"],
     ]);
-    expect(open.items[1]?.trailing).toContain("draft");
-    expect(open.items.at(-1)?.href).toBe("https://github.com/Azure/osdu-spi-stack/issues");
+    expect(open.items[4]?.trailing).toContain("draft");
+    expect(open.items.at(-1)).toMatchObject({
+      icon: "↗",
+      text: "and 1 PR, 1 enhancement, 1 issue, 1 automation issue, 3 past the page",
+      trailing: "open on GitHub",
+      href: "https://github.com/Azure/osdu-spi-stack/issues?q=is%3Aopen",
+    });
   });
 
   test("a repository read reports authors' association, app authors and open totals", () => {
@@ -219,5 +224,49 @@ describe("open work", () => {
     expect(fact.openPrs).toBe(41);
     expect(fact.openIssues).toBe(1);
     expect(buildWork({ [STACK_REPO]: fact }).stack.unreadPrs).toBe(40);
+  });
+
+  test("an open list shows six rows, then one row that counts the rest by kind and links them", () => {
+    const entry = (n: number, kind: string, first = false): OpenEntry => ({
+      row: { text: `#${n}` },
+      at: `2026-10-${String(n).padStart(2, "0")}T00:00:00Z`,
+      first,
+      kind,
+      pr: false,
+    });
+    const six = [1, 2, 3, 4, 5, 6].map((n) => entry(n, "enhancement"));
+    const none = { prs: 0, issues: 0 };
+    expect(foldList(STACK_REPO, six, none).map((r) => r.text)).toEqual([
+      "#6",
+      "#5",
+      "#4",
+      "#3",
+      "#2",
+      "#1",
+    ]);
+    const seven = [...six, entry(7, "bug", true)];
+    const folded = foldList(STACK_REPO, seven, none);
+    expect(folded.map((r) => r.text)).toEqual([
+      "#7",
+      "#6",
+      "#5",
+      "#4",
+      "#3",
+      "#2",
+      "and 1 enhancement",
+    ]);
+    expect(folded.at(-1)?.href).toBe("https://github.com/Azure/osdu-spi-stack/issues");
+    expect(foldList(STACK_REPO, six, { prs: 2, issues: 0 }).at(-1)).toMatchObject({
+      text: "and 2 past the page",
+      href: "https://github.com/Azure/osdu-spi-stack/pulls",
+    });
+  });
+
+  test("an outside PR whose runs wait approval says so", () => {
+    const { stack } = buildWork(seeded().github.data?.repos ?? {});
+    const open = stackOpen(stack, FIXTURE_NOW, new Set([323]));
+    if (open?.kind !== "rows") throw new Error("open rows");
+    const row = open.items.find((i) => i.text.startsWith("#323"));
+    expect(row?.trailing).toBe("outside-a · waits approval · 4d");
   });
 });

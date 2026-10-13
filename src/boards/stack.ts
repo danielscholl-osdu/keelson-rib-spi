@@ -516,7 +516,12 @@ export function stackBoard(
       ],
     });
   }
-  const open = stackOpen(model.work.stack, now);
+  const waits = new Set(
+    model.queue.items
+      .flatMap((i) => (i.kind === "approvals" ? (i.approve ?? []) : []))
+      .map((a) => a.pr.number),
+  );
+  const open = stackOpen(model.work.stack, now, waits);
   if (open) sections.push(open);
   return { view: "board", header: { status: statusOf(model, hurt), chip }, sections };
 }

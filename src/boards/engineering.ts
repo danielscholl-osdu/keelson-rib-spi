@@ -15,10 +15,12 @@ import type { PrClass } from "../model/attribution.ts";
 import type { Model } from "../model/index.ts";
 import { templatePrId, templatePrState } from "../model/queue.ts";
 import { ownFailure, type TemplateRow, type TemplateStep } from "../model/template.ts";
+import { outsider } from "../model/work.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
 import { clip, plural, since, span, stamp, zoned } from "../util.ts";
+import { FOLD_AT, fleetSearch, names } from "./fold.ts";
 import { lastAction } from "./inspect.ts";
-import { issueItems, openTitle } from "./open.ts";
+import { foldList, issueEntries, type OpenEntry, openTitle } from "./open.ts";
 
 type Section = CanvasBoardView["sections"][number];
 type TableSection = Extract<Section, { kind: "table" }>;
@@ -132,32 +134,49 @@ const KIND_CHIP: Partial<Record<PrClass, string>> = {
   agent: "agent",
 };
 
+const KIND_WORD: Partial<Record<PrClass, string>> = {
+  dependabot: "Dependabot PR",
+  release: "release PR",
+  agent: "agent PR",
+};
+
 // What waits on osdu-spi itself; drawn only while something is open.
 function openPrs(model: Model, now: Date, selected: string | undefined): Section | undefined {
   const prs = model.template.prs;
-  const issues = model.work.template.read ? issueItems(model.work.template, now) : [];
+  const work = model.work.template;
+  const issues = work.read ? issueEntries(work, now) : [];
   if (prs.length === 0 && issues.length === 0) return undefined;
   const ids = new Set(model.queue.items.map((i) => i.id));
-  const items: Row[] = prs.map((p) => {
+  const entries: OpenEntry[] = prs.map((p) => {
     const id = p.cls === "release" ? "releases" : templatePrId(p.pr);
     const action = !p.pr.draft && ids.has(id);
     const state = p.pr.draft ? "draft" : templatePrState(p.pr, p.failures);
+    const outside = p.cls === "human" && outsider(p.pr);
     return {
-      chip: {
-        label: KIND_CHIP[p.cls] ?? "feature",
-        tone: p.verdict === "red" ? "warn" : p.cls === "release" ? "info" : "neutral",
+      row: {
+        chip: {
+          label: outside ? "outside" : (KIND_CHIP[p.cls] ?? "feature"),
+          tone: p.verdict === "red" ? "warn" : p.cls === "release" || outside ? "info" : "neutral",
+        },
+        text: `#${p.pr.number} ${p.pr.title}`,
+        trailing: `${state} · ${since(p.pr.createdAt, now)}`,
+        ...(action ? { action: { type: INSPECT_ACTION, payload: { id } } } : { href: p.pr.url }),
+        ...(action && id === selected ? { selected: true } : {}),
       },
-      text: `#${p.pr.number} ${p.pr.title}`,
-      trailing: `${state} · ${since(p.pr.createdAt, now)}`,
-      ...(action ? { action: { type: INSPECT_ACTION, payload: { id } } } : { href: p.pr.url }),
-      ...(action && id === selected ? { selected: true } : {}),
+      at: p.pr.createdAt,
+      first: action || outside || p.cls === "dependabot",
+      kind: outside ? "outside PR" : (KIND_WORD[p.cls] ?? "PR"),
+      pr: true,
     };
   });
-  const issueCount = Object.values(model.work.template.issues).reduce((n, l) => n + l.length, 0);
+  const issueCount = Object.values(work.issues).reduce((n, l) => n + l.length, 0);
   return {
     kind: "rows",
     title: openTitle("osdu-spi", prs.length, issueCount),
-    items: [...items, ...issues],
+    items: foldList(TEMPLATE_REPO, [...entries, ...issues], {
+      prs: 0,
+      issues: work.read ? work.unreadIssues : 0,
+    }),
   };
 }
 
@@ -222,7 +241,7 @@ function prCell(row: TemplateRow): Cell {
     return cell(text, ownFailure(row) ? "warn" : undefined, pr.url);
   }
   if (row.behind === undefined) return "?";
-  if (row.behind === 0) return cell("none · current", "neutral");
+  if (row.behind === 0) return cell("current", "neutral");
   if (row.syncing) return cell("none · Sync Template running", "info", row.syncing.url);
   if (row.dispatched) return cell("none · Sync Template starting", "info");
   if (row.awaitingRun) return cell("none · next run opens it", "neutral");
@@ -280,10 +299,49 @@ function dependabotCell(row: TemplateRow): Cell {
   return cell(`${n} open`, "info", href);
 }
 
+// Current, nothing open and nothing failed: a row that only repeats the head.
+function onHead(row: TemplateRow): boolean {
+  return (
+    row.behind === 0 &&
+    !row.pr &&
+    !row.syncing &&
+    !row.dispatched &&
+    row.delivery.state !== "failed" &&
+    row.delivery.state !== "stale"
+  );
+}
+
+function headRow(rows: readonly TemplateRow[]): Record<string, Cell> {
+  const label = rows[0]?.label ?? "the head";
+  const bots = rows.reduce((n, r) => n + r.dependabot.length, 0);
+  return {
+    fork: `${plural(rows.length, "fork")} on ${label} · ${names(rows.map((r) => r.service))}`,
+    on: cell(label, "ok"),
+    pr: cell("current", "neutral"),
+    checks: "",
+    review: "",
+    sync: "",
+    dependabot:
+      bots === 0
+        ? cell("●", "ok")
+        : cell(
+            `${bots} open`,
+            "info",
+            fleetSearch(
+              rows.map((r) => r.repo),
+              "is:pr is:open author:app/dependabot",
+            ),
+          ),
+  };
+}
+
 function rollout(model: Model, now: Date): Section {
-  const rows = [...model.template.rows].sort(
+  const sorted = [...model.template.rows].sort(
     (a, b) => (b.behind ?? Infinity) - (a.behind ?? Infinity) || a.service.localeCompare(b.service),
   );
+  const head = sorted.filter(onHead);
+  const fold = head.length >= FOLD_AT;
+  const rows = fold ? sorted.filter((r) => !onHead(r)) : sorted;
   return {
     kind: "table",
     caption: "Rollout · one row per fork",
@@ -296,15 +354,20 @@ function rollout(model: Model, now: Date): Section {
       { key: "sync", label: "Sync Template" },
       { key: "dependabot", label: "Dependabot" },
     ],
-    rows: rows.map((row) => ({
-      fork: { value: row.service, href: githubUrl(row.repo, "") },
-      on: row.label ? cell(row.label) : "?",
-      pr: prCell(row),
-      checks: checksCell(row),
-      review: reviewCell(row),
-      sync: syncCell(row, now),
-      dependabot: dependabotCell(row),
-    })),
+    rows: [
+      ...rows.map(
+        (row): Record<string, Cell> => ({
+          fork: { value: row.service, href: githubUrl(row.repo, "") },
+          on: row.label ? cell(row.label) : "?",
+          pr: prCell(row),
+          checks: checksCell(row),
+          review: reviewCell(row),
+          sync: syncCell(row, now),
+          dependabot: dependabotCell(row),
+        }),
+      ),
+      ...(fold ? [headRow(head)] : []),
+    ],
   };
 }
 

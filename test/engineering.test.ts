@@ -197,22 +197,24 @@ describe("the engineering system panel", () => {
     expect(open.items.slice(0, 5).map((i) => [i.chip?.label, i.text])).toEqual([
       ["Dependabot", "#260 build(deps): bump spring-boot"],
       ["release", "#261 chore: release 1.3.1"],
-      ["feature", "#262 build(deps): bump spring-boot"],
       [
         "bug",
         "#250 validate: duplicate PR runs push the same image tag and break the deploy lane pin",
       ],
       ["bug", "#245 Template sync skips file removal when the template tip is unchanged"],
+      ["feature", "#262 build(deps): bump spring-boot"],
     ]);
-    expect(open.items).toHaveLength(10);
+    expect(open.items).toHaveLength(7);
     expect(open.items[5]?.href).toBe("https://github.com/Azure/osdu-spi/issues/241");
+    expect(open.items.at(-1)).toMatchObject({ icon: "↗", trailing: "open on GitHub" });
+    expect(open.items.at(-1)?.text).toMatch(/^and \d/);
     expect(open.items[0]).toMatchObject({
       action: { type: "inspect", payload: { id: "template-pr:260" } },
       selected: true,
     });
     expect(open.items[1]?.action).toEqual({ type: "inspect", payload: { id: "releases" } });
-    expect(open.items[2]?.href).toBe("https://github.com/Azure/osdu-spi/pull/262");
-    expect(open.items[2]?.trailing).toStartWith("draft · ");
+    expect(open.items[4]?.href).toBe("https://github.com/Azure/osdu-spi/pull/262");
+    expect(open.items[4]?.trailing).toStartWith("draft · ");
     const insp = inspectBoard(m, { selected: "template-pr:260" }, FIXTURE_NOW);
     expect(insp.header?.status?.label).toBe("READY");
   });
@@ -229,5 +231,45 @@ describe("the engineering system panel", () => {
     const item = m.queue.items.find((i) => i.id === "template-pr:263");
     expect(item?.rung).toBe(1);
     expect(item?.text).toEndWith("· fails Lint");
+  });
+
+  function rolloutRows(current: number) {
+    const m = model();
+    const rows = m.template.rows.map((r, i) =>
+      i < current
+        ? {
+            ...r,
+            behind: 0,
+            label: "v1.3.0",
+            pr: undefined,
+            delivery: { state: "ok" as const },
+            dependabot: i === 0 ? [dependabotPr(r.repo, 70)] : [],
+          }
+        : r,
+    );
+    const b = engineeringBoard({ ...m, template: { ...m.template, rows } }, FIXTURE_NOW);
+    expect(() => expectView(ENGINEERING_KEY, "board")(b)).not.toThrow();
+    const table = b.sections.find((s) => s.kind === "table");
+    if (table?.kind !== "table") throw new Error("rollout table");
+    return table.rows;
+  }
+
+  test("four forks on the head fold into one row with their Dependabot total", () => {
+    const rows = rolloutRows(4);
+    expect(rows).toHaveLength(2);
+    const fold = rows.at(-1);
+    expect(text(fold?.fork)).toBe("4 forks on v1.3.0 · entitlements, legal, partition and schema");
+    expect(text(fold?.pr)).toBe("current");
+    expect(fold?.dependabot).toMatchObject({
+      value: "1\u00a0open",
+      tone: "info",
+      href: expect.stringContaining("repo%3AAzure%2Fosdu-spi-partition"),
+    });
+  });
+
+  test("three forks on the head stay as rows and read current", () => {
+    const rows = rolloutRows(3);
+    expect(rows).toHaveLength(5);
+    expect(rows.filter((r) => text(r.pr) === "current")).toHaveLength(3);
   });
 });

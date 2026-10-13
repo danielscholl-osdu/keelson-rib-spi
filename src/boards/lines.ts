@@ -14,6 +14,7 @@ import type { Model } from "../model/index.ts";
 import { type LineModel, type LinePr, type PillKind, prRed } from "../model/lines.ts";
 import type { IssueKind, WorkRow } from "../model/work.ts";
 import { plural, releaseTag, since, span, stamp, zoned } from "../util.ts";
+import { FOLD_AT, fleetSearch, names } from "./fold.ts";
 
 type Section = CanvasBoardView["sections"][number];
 type TableSection = Extract<Section, { kind: "table" }>;
@@ -22,9 +23,6 @@ type Stat = Extract<Section, { kind: "stats" }>["items"][number];
 type Row = Extract<Section, { kind: "rows" }>["items"][number];
 type Bar = NonNullable<Row["bar"]>;
 type SeriesCell = Extract<Bar, { cells: unknown }>["cells"][number];
-
-// With this many forks current on every station, they fold into one row.
-const FOLD_AT = 4;
 
 const SEVERITY: PillKind[] = [
   "broken",
@@ -183,20 +181,75 @@ function daysCell(line: LineModel): Cell {
   return { bar: { cells, quiet: true } };
 }
 
-function names(list: readonly string[]): string {
-  return list.length <= 1
-    ? (list[0] ?? "")
-    : `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
-}
-
 function plannedText(model: Model): string | undefined {
   const planned = model.planned.map((p) => p.service.id);
   if (planned.length === 0) return undefined;
   return `${names(planned)} ${planned.length === 1 ? "has" : "have"} no fork yet`;
 }
 
-function settled(line: LineModel): boolean {
-  return line.pill.kind === "current" && !line.releasePr;
+type LineCells = Record<string, Cell>;
+
+function lineCells(line: LineModel, now: Date): LineCells {
+  return {
+    service: { value: line.fork.id, href: line.url },
+    upstream: upstreamCell(line),
+    sync: syncCell(line, now),
+    cascade: cascadeCell(line, now),
+    main: mainCell(line, now),
+    release: releaseCell(line, now),
+    lane: laneCell(line),
+    template: templateCell(line, now),
+    days: daysCell(line),
+  };
+}
+
+// Waiting or current on every station, read everywhere, and no PR red: the banner names its PRs.
+function quiet(line: LineModel, cells: LineCells): boolean {
+  if (line.pill.kind !== "current" && line.pill.kind !== "waiting") return false;
+  if ([line.syncPr, line.cascadePr, line.releasePr, line.templatePr].some((p) => p && prRed(p)))
+    return false;
+  return Object.entries(cells).every(
+    ([key, c]) =>
+      key === "days" ||
+      (c !== "?" && !(typeof c === "object" && c && (c.tone === "warn" || c.tone === "error"))),
+  );
+}
+
+function waitingPrs(lines: readonly LineModel[]): string | undefined {
+  const count = (pick: (l: LineModel) => boolean) => lines.filter(pick).length;
+  const parts: [number, string][] = [
+    [count((l) => !!l.releasePr && !l.release?.tag), "first-release PR"],
+    [count((l) => !!l.releasePr && !!l.release?.tag), "release PR"],
+    [count((l) => !!l.templatePr), "template-sync PR"],
+    [count((l) => !!l.syncPr), "sync PR"],
+    [count((l) => !!l.cascadePr), "release/upstream PR"],
+  ];
+  const named = parts.filter(([n]) => n > 0);
+  if (named.length === 0) return undefined;
+  const total = named.reduce((n, [k]) => n + k, 0);
+  return `${names(named.map(([n, w]) => plural(n, w)))} ${total === 1 ? "waits" : "wait"}, named in the banner`;
+}
+
+function foldRow(lines: readonly LineModel[]): LineCells {
+  const prs = waitingPrs(lines);
+  const text = [
+    `${plural(lines.length, "fork")} ${prs ? "current or waiting on review" : "current"}`,
+    names(lines.map((l) => l.fork.id)),
+    prs,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return {
+    service: text,
+    upstream: "",
+    sync: "",
+    cascade: "",
+    main: "",
+    release: "",
+    lane: "",
+    template: "",
+    days: "",
+  };
 }
 
 function gateStat(
@@ -278,13 +331,11 @@ function workRowCells(row: WorkRow, now: Date): Record<string, Cell> {
     return {
       repo,
       people: "?",
-      bots: "?",
-      pipeline: "?",
       issues: "?",
       automation: "?",
       oldest: "?",
     };
-  const { people, bots, pipeline } = row.prs;
+  const { people } = row.prs;
   const drafts = people.filter((p) => p.draft).length;
   const outside = row.contributors.length;
   const issues = peopleIssues(row);
@@ -297,8 +348,6 @@ function workRowCells(row: WorkRow, now: Date): Record<string, Cell> {
     repo,
     people:
       outside && typeof peopleCell === "object" ? { ...peopleCell, tone: "info" } : peopleCell,
-    bots: countCell(bots.length, search(row.repo, "pulls", "is:pr is:open author:app/dependabot")),
-    pipeline: countCell(pipeline.length, githubUrl(row.repo, "/pulls")),
     issues: countCell(
       issues.length,
       search(row.repo, "issues", `is:issue is:open -author:app/${AUTOMATION_APP}`),
@@ -321,10 +370,43 @@ function workRowCells(row: WorkRow, now: Date): Record<string, Cell> {
   };
 }
 
-function workTable(model: Model, now: Date): Section {
+// Pipeline PRs and Dependabot are the pipeline's own; one line counts them across the fleet.
+function workTotals(rows: readonly WorkRow[]): Section {
+  const read = rows.filter((r) => r.read);
+  const pipeline = read.reduce((n, r) => n + r.prs.pipeline.length, 0);
+  const bots = read.reduce((n, r) => n + r.prs.bots.length, 0);
+  return {
+    kind: "rows",
+    items: [
+      {
+        icon: "↗",
+        text: `${plural(pipeline, "pipeline PR")} · ${bots} Dependabot across ${plural(read.length, "fork")}`,
+        trailing: "open on GitHub",
+        href: fleetSearch(
+          read.map((r) => r.repo),
+          "is:pr is:open",
+        ),
+      },
+    ],
+  };
+}
+
+function peopleWork(row: WorkRow): boolean {
+  return (
+    !row.read ||
+    row.prs.people.length > 0 ||
+    peopleIssues(row).length > 0 ||
+    row.unreadPrs > 0 ||
+    row.unreadIssues > 0
+  );
+}
+
+function workTable(model: Model, now: Date): Section | undefined {
+  const rows = model.work.forks.filter(peopleWork);
+  if (rows.length === 0) return undefined;
   const short = model.work.forks.filter((r) => r.unreadPrs > 0 || r.unreadIssues > 0);
   const caption = [
-    "Open work · every open PR and issue, one row per fork",
+    "Open work · forks with people PRs or issues",
     ...short.map(
       (r) =>
         `${r.name}: ${[r.unreadPrs ? plural(r.unreadPrs, "PR") : undefined, r.unreadIssues ? plural(r.unreadIssues, "issue") : undefined].filter(Boolean).join(" and ")} past the page, not counted`,
@@ -336,13 +418,11 @@ function workTable(model: Model, now: Date): Section {
     columns: [
       { key: "repo", label: "fork" },
       { key: "people", label: "people PRs" },
-      { key: "bots", label: "Dependabot" },
-      { key: "pipeline", label: "pipeline PRs" },
       { key: "issues", label: "issues" },
       { key: "automation", label: "automation issues" },
       { key: "oldest", label: "oldest people PR" },
     ],
-    rows: model.work.forks.map((row) => workRowCells(row, now)),
+    rows: rows.map((row) => workRowCells(row, now)),
   };
 }
 
@@ -411,9 +491,10 @@ export function linesBoard(
   const ordered = [...model.lines].sort(
     (a, b) => SEVERITY.indexOf(a.pill.kind) - SEVERITY.indexOf(b.pill.kind),
   );
-  const fold = ordered.filter(settled).length >= FOLD_AT;
-  const folded = fold ? ordered.filter(settled) : [];
-  const shown = fold ? ordered.filter((l) => !settled(l)) : ordered;
+  const drawn = ordered.map((line) => ({ line, cells: lineCells(line, now) }));
+  const calm = drawn.filter(({ line, cells }) => quiet(line, cells));
+  const fold = calm.length >= FOLD_AT;
+  const shown = fold ? drawn.filter((d) => !calm.includes(d)) : drawn;
   const sections: Section[] = [
     tiles(model),
     {
@@ -430,34 +511,7 @@ export function linesBoard(
         { key: "template", label: "template" },
         { key: "days", label: `${HISTORY_DAYS} days` },
       ],
-      rows: [
-        ...shown.map((line) => ({
-          service: { value: line.fork.id, href: line.url },
-          upstream: upstreamCell(line),
-          sync: syncCell(line, now),
-          cascade: cascadeCell(line, now),
-          main: mainCell(line, now),
-          release: releaseCell(line, now),
-          lane: laneCell(line),
-          template: templateCell(line, now),
-          days: daysCell(line),
-        })),
-        ...(folded.length
-          ? [
-              {
-                service: `${folded.length} current: ${names(folded.map((l) => l.fork.id))}`,
-                upstream: CLEAR,
-                sync: CLEAR,
-                cascade: CLEAR,
-                main: CLEAR,
-                release: "",
-                lane: CLEAR,
-                template: station(model.template.steps[0]?.label ?? "current", "ok"),
-                days: "",
-              },
-            ]
-          : []),
-      ],
+      rows: [...shown.map((d) => d.cells), ...(fold ? [foldRow(calm.map((d) => d.line))] : [])],
     },
   ];
   const fleet = (["upstream", "template"] as const).flatMap((t) => fleetLane(model, t) ?? []);
@@ -467,7 +521,9 @@ export function linesBoard(
       title: `Fleet · forks not caught up at day end, last ${HISTORY_DAYS} UTC days`,
       items: fleet,
     });
-  sections.push(workTable(model, now));
+  sections.push(workTotals(model.work.forks));
+  const work = workTable(model, now);
+  if (work) sections.push(work);
   const gitlab = stamp(model.upstreamAt, now);
   return {
     view: "board",
