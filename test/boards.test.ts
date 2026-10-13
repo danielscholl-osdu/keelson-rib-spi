@@ -171,8 +171,15 @@ describe("what the boards say", () => {
       tone: "warn",
     });
     expect(b.header?.chip).toMatch(/^GitLab read \d\d:\d\d · \d\d:\d\d /);
-    expect(b.sections.map((s) => s.kind)).toEqual(["stats", "table", "rows", "rows", "table"]);
-    const [tiles, table, fleet] = b.sections;
+    expect(b.sections.map((s) => s.kind)).toEqual([
+      "stats",
+      "table",
+      "grid",
+      "rows",
+      "rows",
+      "table",
+    ]);
+    const [tiles, table, , fleet] = b.sections;
     if (tiles?.kind !== "stats" || table?.kind !== "table" || fleet?.kind !== "rows")
       throw new Error("tiles, table, fleet");
     expect(tiles.items.map((i) => i.label)).toEqual([
@@ -335,16 +342,21 @@ describe("what the boards say", () => {
     );
   }
 
+  function foldText(b: ReturnType<typeof linesBoard>): string | undefined {
+    const next = b.sections[2];
+    return next?.kind === "rows" && !next.title ? next.items[0]?.text : undefined;
+  }
+
   test("forks with nothing red fold once there are four; a red PR keeps a fork out", () => {
     const b = linesBoard(copies(3), FIXTURE_NOW);
     const rows = serviceNames(b);
-    expect(rows).toHaveLength(12);
-    expect(rows.at(-1)).toBe(
+    expect(rows).toHaveLength(11);
+    expect(foldText(b)).toBe(
       "9 forks current · partition-1, schema-1, file-1, partition-2, schema-2, file-2, partition-3, schema-3 and file-3",
     );
     expect(rows).toContain("legal-2");
     expect(rows).toContain("entitlements-3");
-    const [, , fleet] = b.sections;
+    const fleet = b.sections[4];
     if (fleet?.kind !== "rows") throw new Error("fleet lanes");
     expect(fleet.items).toHaveLength(2);
     for (const item of fleet.items) expect(item.bar).toMatchObject({ total: 20 });
@@ -352,7 +364,9 @@ describe("what the boards say", () => {
   });
 
   test("three quiet forks stay as rows, as on the recorded sweep", () => {
-    expect(serviceNames(linesBoard(copies(1), FIXTURE_NOW))).toHaveLength(10);
+    const few = linesBoard(copies(1), FIXTURE_NOW);
+    expect(serviceNames(few)).toHaveLength(10);
+    expect(foldText(few)).toBeUndefined();
     expect(serviceNames(linesBoard(model, FIXTURE_NOW))).toEqual([
       "entitlements",
       "legal",
@@ -372,9 +386,9 @@ describe("what the boards say", () => {
       failures: [],
     };
     const lines = m.lines.map((l) => (l.fork.id === "partition-1" ? { ...l, releasePr } : l));
-    const rows = serviceNames(linesBoard({ ...m, lines }, FIXTURE_NOW));
-    expect(rows.at(-1)).toEndWith("· 1 release PR waits, named in the banner");
-    expect(rows.at(-1)).toStartWith("9 forks current or waiting on review · ");
+    const text = foldText(linesBoard({ ...m, lines }, FIXTURE_NOW));
+    expect(text).toEndWith("· 1 release PR waits, named in the banner");
+    expect(text).toStartWith("9 forks current or waiting on review · ");
   });
 
   test("the header is red only for a red main, and calm when only updates wait", () => {

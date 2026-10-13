@@ -10,7 +10,7 @@ import type { CanvasBoardView, CanvasTone } from "@keelson/shared";
 import type { ActionEntry } from "../act/log.ts";
 import { heldText, rolloutActions, rolloutTargets } from "../act/rollout.ts";
 import { writeBlocked } from "../act/verbs.ts";
-import { FORKS, githubUrl, TEMPLATE_REPO } from "../config.ts";
+import { FORKS, githubUrl, HISTORY_DAYS, TEMPLATE_REPO } from "../config.ts";
 import type { PrClass } from "../model/attribution.ts";
 import type { Model } from "../model/index.ts";
 import { templatePrId, templatePrState } from "../model/queue.ts";
@@ -234,13 +234,25 @@ function ladder(model: Model, selected: string | undefined): Section | undefined
   return { kind: "rows", title: "Release ladder · newest first", items };
 }
 
-function prCell(row: TemplateRow): Cell {
+interface Reads {
+  repo: boolean;
+  runs: boolean;
+}
+
+const NONE: Cell = { value: "—", tone: "neutral" };
+
+// A fork read with no template marker has no position yet; "?" is for a read that failed.
+function unplaced(row: TemplateRow, reads: Reads): Cell {
+  return reads.repo && !row.marker ? NONE : "?";
+}
+
+function prCell(row: TemplateRow, reads: Reads): Cell {
   const pr = row.pr;
   if (pr) {
     const text = `#${pr.number}${row.target ? ` → ${row.target}` : ""}`;
     return cell(text, ownFailure(row) ? "warn" : undefined, pr.url);
   }
-  if (row.behind === undefined) return "?";
+  if (row.behind === undefined) return unplaced(row, reads);
   if (row.behind === 0) return cell("current", "neutral");
   if (row.syncing) return cell("none · Sync Template running", "info", row.syncing.url);
   if (row.dispatched) return cell("none · Sync Template starting", "info");
@@ -277,7 +289,7 @@ function reviewCell(row: TemplateRow): Cell {
   }
 }
 
-function syncCell(row: TemplateRow, now: Date): Cell {
+function syncCell(row: TemplateRow, reads: Reads, now: Date): Cell {
   const active = row.syncing;
   if (active) {
     const word = active.status === "in_progress" ? "running" : "queued";
@@ -285,7 +297,7 @@ function syncCell(row: TemplateRow, now: Date): Cell {
   }
   if (row.dispatched) return cell(`↻ starting · ${stamp(row.dispatched, now) ?? ""}`, "info");
   const { run, state } = row.delivery;
-  if (!run) return "?";
+  if (!run) return reads.runs ? cell(`no run in ${HISTORY_DAYS} d`, "neutral") : "?";
   const at = stamp(run.createdAt, now) ?? "";
   if (state === "failed") return cell(`✕ ${at}`, "error", run.url);
   if (state === "stale") return cell(`● ${at}`, "warn", run.url);
@@ -311,38 +323,40 @@ function onHead(row: TemplateRow): boolean {
   );
 }
 
-function headRow(rows: readonly TemplateRow[]): Record<string, Cell> {
+function headLine(rows: readonly TemplateRow[]): Section {
   const label = rows[0]?.label ?? "the head";
   const bots = rows.reduce((n, r) => n + r.dependabot.length, 0);
   return {
-    fork: `${plural(rows.length, "fork")} on ${label} · ${names(rows.map((r) => r.service))}`,
-    on: cell(label, "ok"),
-    pr: cell("current", "neutral"),
-    checks: "",
-    review: "",
-    sync: "",
-    dependabot:
-      bots === 0
-        ? cell("●", "ok")
-        : cell(
-            `${bots} open`,
-            "info",
-            fleetSearch(
-              rows.map((r) => r.repo),
-              "is:pr is:open author:app/dependabot",
-            ),
-          ),
+    kind: "rows",
+    items: [
+      {
+        glyph: "ok",
+        text: `${plural(rows.length, "fork")} on ${label} · ${names(rows.map((r) => r.service))}`,
+        trailing: `current · ${bots === 0 ? "no Dependabot PRs" : `${bots} Dependabot open`}`,
+        ...(bots > 0
+          ? {
+              href: fleetSearch(
+                rows.map((r) => r.repo),
+                "is:pr is:open author:app/dependabot",
+              ),
+            }
+          : {}),
+      },
+    ],
   };
 }
 
-function rollout(model: Model, now: Date): Section {
+function rollout(model: Model, now: Date): Section[] {
   const sorted = [...model.template.rows].sort(
     (a, b) => (b.behind ?? Infinity) - (a.behind ?? Infinity) || a.service.localeCompare(b.service),
   );
   const head = sorted.filter(onHead);
   const fold = head.length >= FOLD_AT;
   const rows = fold ? sorted.filter((r) => !onHead(r)) : sorted;
-  return {
+  const reads = new Map(
+    model.lines.map((l) => [l.fork.id, { repo: l.repoRead, runs: l.runsRead }] as const),
+  );
+  const table: Section = {
     kind: "table",
     caption: "Rollout · one row per fork",
     columns: [
@@ -354,21 +368,20 @@ function rollout(model: Model, now: Date): Section {
       { key: "sync", label: "Sync Template" },
       { key: "dependabot", label: "Dependabot" },
     ],
-    rows: [
-      ...rows.map(
-        (row): Record<string, Cell> => ({
-          fork: { value: row.service, href: githubUrl(row.repo, "") },
-          on: row.label ? cell(row.label) : "?",
-          pr: prCell(row),
-          checks: checksCell(row),
-          review: reviewCell(row),
-          sync: syncCell(row, now),
-          dependabot: dependabotCell(row),
-        }),
-      ),
-      ...(fold ? [headRow(head)] : []),
-    ],
+    rows: rows.map((row) => {
+      const read = reads.get(row.service) ?? { repo: false, runs: false };
+      return {
+        fork: { value: row.service, href: githubUrl(row.repo, "") },
+        on: row.label ? cell(row.label) : unplaced(row, read),
+        pr: prCell(row, read),
+        checks: checksCell(row),
+        review: reviewCell(row),
+        sync: syncCell(row, read, now),
+        dependabot: dependabotCell(row),
+      };
+    }),
   };
+  return fold ? [table, headLine(head)] : [table];
 }
 
 function links(model: Model): Section | undefined {
@@ -444,7 +457,7 @@ export function engineeringBoard(
   if (open) sections.push(open);
   const steps = ladder(model, opts.selected);
   if (steps) sections.push(steps);
-  sections.push(rollout(model, now));
+  sections.push(...rollout(model, now));
   sections.push({
     kind: "actions",
     wrap: true,

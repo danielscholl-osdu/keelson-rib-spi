@@ -9,12 +9,19 @@
 import type { CanvasBoardView, CanvasTone } from "@keelson/shared";
 import { AUTOMATION_APP, githubUrl, HISTORY_DAYS } from "../config.ts";
 import type { Gate } from "../model/gates.ts";
-import { type TrackDay, type TrackState, worse } from "../model/history.ts";
+import {
+  type FleetDay,
+  fleetDays,
+  type TrackDay,
+  type TrackState,
+  worse,
+} from "../model/history.ts";
 import type { Model } from "../model/index.ts";
 import { type LineModel, type LinePr, type PillKind, prRed } from "../model/lines.ts";
 import type { IssueKind, WorkRow } from "../model/work.ts";
 import { plural, releaseTag, since, span, stamp, zoned } from "../util.ts";
 import { FOLD_AT, fleetSearch, names } from "./fold.ts";
+import { keyGrid, spanText } from "./key.ts";
 
 type Section = CanvasBoardView["sections"][number];
 type TableSection = Extract<Section, { kind: "table" }>;
@@ -230,7 +237,7 @@ function waitingPrs(lines: readonly LineModel[]): string | undefined {
   return `${names(named.map(([n, w]) => plural(n, w)))} ${total === 1 ? "waits" : "wait"}, named in the banner`;
 }
 
-function foldRow(lines: readonly LineModel[]): LineCells {
+function foldLine(lines: readonly LineModel[]): Section {
   const prs = waitingPrs(lines);
   const text = [
     `${plural(lines.length, "fork")} ${prs ? "current or waiting on review" : "current"}`,
@@ -239,17 +246,7 @@ function foldRow(lines: readonly LineModel[]): LineCells {
   ]
     .filter(Boolean)
     .join(" · ");
-  return {
-    service: text,
-    upstream: "",
-    sync: "",
-    cascade: "",
-    main: "",
-    release: "",
-    lane: "",
-    template: "",
-    days: "",
-  };
+  return { kind: "rows", items: [{ glyph: prs ? "info" : "ok", text }] };
 }
 
 function gateStat(
@@ -426,34 +423,64 @@ function workTable(model: Model, now: Date): Section | undefined {
   };
 }
 
-function fleetLane(model: Model, track: "upstream" | "template"): Row | undefined {
-  const lines = model.lines;
-  const first = lines[0]?.history;
-  if (!first) return undefined;
+function fleetColumn(d: FleetDay) {
+  if (d.unread) return { label: `${d.day.key} · unread`, segments: [{ label: "unread", n: null }] };
+  const behind = d.halted + d.failing + d.waiting;
+  return {
+    label: `${d.day.key} · ${behind} of ${d.forks} not caught up`,
+    segments: [
+      { label: "halted", n: d.halted, tone: "error" as const },
+      { label: "failing", n: d.failing, tone: "warn" as const },
+      { label: "waiting on review", n: d.waiting, tone: "info" as const },
+    ].filter((s) => s.n > 0),
+  };
+}
+
+function fleetLane(days: readonly FleetDay[], track: string, total: number): Row {
   return {
     text: track,
     bar: {
-      total: lines.length,
+      total,
       rest: "ok",
-      columns: first[track].map((d, i) => {
-        const days = lines.map((l) => l.history?.[track][i]);
-        if (days.some((x) => x === undefined))
-          return { label: `${d.day.key} · unread`, segments: [{ label: "unread", n: null }] };
-        const count = (state: TrackState) => days.filter((x) => x?.state === state).length;
-        const waiting = count("waiting");
-        const failing = count("failing");
-        const halted = count("halted");
-        return {
-          label: `${d.day.key} · ${waiting + failing + halted} of ${lines.length} not caught up`,
-          segments: [
-            { label: "halted", n: halted, tone: "error" as const },
-            { label: "failing", n: failing, tone: "warn" as const },
-            { label: "waiting on review", n: waiting, tone: "info" as const },
-          ].filter((s) => s.n > 0),
-        };
+      columns: days.map((d) => {
+        const column = fleetColumn(d);
+        const absent = total - d.forks;
+        return d.unread || absent === 0
+          ? column
+          : {
+              ...column,
+              segments: [
+                ...column.segments,
+                { label: "no fork yet", n: absent, tone: "neutral" as const },
+              ],
+            };
       }),
     },
   };
+}
+
+const FLEET_KEY = [
+  { label: "halted", tone: "error" as const },
+  { label: "failing", tone: "warn" as const },
+  { label: "waiting on review", tone: "info" as const },
+  { label: "no fork yet", tone: "neutral" as const },
+];
+
+function fleet(model: Model): Section[] {
+  const total = model.lines.length;
+  const tracks = (["upstream", "template"] as const).map((t) => ({
+    t,
+    days: fleetDays(model.lines.map((l) => l.history?.[t])),
+  }));
+  const lanes = tracks.filter((x) => x.days.length > 0);
+  if (lanes.length === 0) return [];
+  return [
+    keyGrid(
+      `Fleet · forks not caught up at day end · ${spanText(lanes[0]?.days ?? [], "column")}`,
+      FLEET_KEY,
+    ),
+    { kind: "rows", items: lanes.map((x) => fleetLane(x.days, x.t, total)) },
+  ];
 }
 
 export function linesBoard(
@@ -511,16 +538,11 @@ export function linesBoard(
         { key: "template", label: "template" },
         { key: "days", label: `${HISTORY_DAYS} days` },
       ],
-      rows: [...shown.map((d) => d.cells), ...(fold ? [foldRow(calm.map((d) => d.line))] : [])],
+      rows: shown.map((d) => d.cells),
     },
   ];
-  const fleet = (["upstream", "template"] as const).flatMap((t) => fleetLane(model, t) ?? []);
-  if (fleet.length > 0)
-    sections.push({
-      kind: "rows",
-      title: `Fleet · forks not caught up at day end, last ${HISTORY_DAYS} UTC days`,
-      items: fleet,
-    });
+  if (fold) sections.push(foldLine(calm.map((d) => d.line)));
+  sections.push(...fleet(model));
   sections.push(workTotals(model.work.forks));
   const work = workTable(model, now);
   if (work) sections.push(work);

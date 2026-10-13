@@ -251,6 +251,33 @@ function trackDays(spans: readonly Span[], days: readonly Day[], seeded: number)
   });
 }
 
+// One fleet day: only forks that existed that day count toward it; unread when any fork's history is.
+export interface FleetDay {
+  day: Day;
+  unread: boolean;
+  forks: number;
+  halted: number;
+  failing: number;
+  waiting: number;
+}
+
+export function fleetDays(tracks: readonly (readonly TrackDay[] | undefined)[]): FleetDay[] {
+  const first = tracks.find((t) => t !== undefined);
+  if (!first) return [];
+  return first.map((d, i) => {
+    const days = tracks.map((t) => t?.[i]);
+    const count = (state: TrackState) => days.filter((x) => x?.state === state).length;
+    return {
+      day: d.day,
+      unread: days.some((x) => x === undefined),
+      forks: days.length - count("none"),
+      halted: count("halted"),
+      failing: count("failing"),
+      waiting: count("waiting"),
+    };
+  });
+}
+
 export function lineHistory(input: {
   seeded?: string;
   past: readonly PastPrFact[];

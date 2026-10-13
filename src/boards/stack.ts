@@ -26,6 +26,7 @@ import {
 } from "../model/stack.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
 import { againstUsual, clip, span, stamp, took, zoned } from "../util.ts";
+import { keyGrid, spanText } from "./key.ts";
 import { stackOpen } from "./open.ts";
 
 type Section = CanvasBoardView["sections"][number];
@@ -429,7 +430,7 @@ function housekeeping(model: Model, now: Date): Section {
     days.every((d) => d.state === "ok" || (d.state === "idle" && !d.due));
   return {
     kind: "rows",
-    title: "Housekeeping",
+    title: clean ? "Housekeeping" : `Housekeeping · ${spanText(days, "cell")}`,
     items: [
       clean
         ? {
@@ -443,17 +444,27 @@ function housekeeping(model: Model, now: Date): Section {
   };
 }
 
+const HISTORY_KEY = [
+  { label: "failed", tone: "error" as const },
+  { label: "cancelled, or releases behind", tone: "warn" as const },
+  { label: "running", tone: "info" as const },
+  { label: "missed its slot", tone: "error" as const, hollow: true },
+  { label: "nothing due", tone: "neutral" as const, hollow: true },
+];
+
 function history(model: Model, now: Date): Section[] {
   const behind = behindLane(model);
+  const span = spanText(model.stack.history.runs.smoke, "cell");
   return [
+    keyGrid(`History · last ${HISTORY_DAYS} days`, HISTORY_KEY),
     {
       kind: "rows",
-      title: `Greenfield · last ${HISTORY_DAYS} days, one cell per UTC day`,
+      title: `Greenfield · ${span}`,
       items: [lane(model, "smoke", now)],
     },
     {
       kind: "rows",
-      title: "Brownfield",
+      title: `Brownfield · ${span}`,
       items: [
         ...(behind ? [behind] : []),
         lane(model, "upgrade", now, "on bump"),

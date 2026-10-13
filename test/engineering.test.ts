@@ -249,26 +249,28 @@ describe("the engineering system panel", () => {
     );
     const b = engineeringBoard({ ...m, template: { ...m.template, rows } }, FIXTURE_NOW);
     expect(() => expectView(ENGINEERING_KEY, "board")(b)).not.toThrow();
-    const table = b.sections.find((s) => s.kind === "table");
+    const at = b.sections.findIndex((s) => s.kind === "table");
+    const table = b.sections[at];
     if (table?.kind !== "table") throw new Error("rollout table");
-    return table.rows;
+    const next = b.sections[at + 1];
+    const fold = next?.kind === "rows" && !next.title ? next.items[0] : undefined;
+    return { rows: table.rows, fold };
   }
 
-  test("four forks on the head fold into one row with their Dependabot total", () => {
-    const rows = rolloutRows(4);
-    expect(rows).toHaveLength(2);
-    const fold = rows.at(-1);
-    expect(text(fold?.fork)).toBe("4 forks on v1.3.0 · entitlements, legal, partition and schema");
-    expect(text(fold?.pr)).toBe("current");
-    expect(fold?.dependabot).toMatchObject({
-      value: "1\u00a0open",
-      tone: "info",
+  test("four forks on the head fold into one full-width line with their Dependabot total", () => {
+    const { rows, fold } = rolloutRows(4);
+    expect(rows).toHaveLength(1);
+    expect(fold).toMatchObject({
+      glyph: "ok",
+      text: "4 forks on v1.3.0 · entitlements, legal, partition and schema",
+      trailing: "current · 1 Dependabot open",
       href: expect.stringContaining("repo%3AAzure%2Fosdu-spi-partition"),
     });
   });
 
   test("three forks on the head stay as rows and read current", () => {
-    const rows = rolloutRows(3);
+    const { rows, fold } = rolloutRows(3);
+    expect(fold?.text ?? "").not.toContain("forks on");
     expect(rows).toHaveLength(5);
     expect(rows.filter((r) => text(r.pr) === "current")).toHaveLength(3);
   });
