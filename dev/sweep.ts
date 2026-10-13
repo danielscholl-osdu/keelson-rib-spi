@@ -82,6 +82,14 @@ for (const st of m.template.steps) {
   for (const c of st.changes) console.log(`      ${c.title}${c.pr ? ` (#${c.pr})` : ""}`);
 }
 
+console.log("\nOPEN WORK  people(outside) bots pipeline · bug enh other auto · oldest");
+for (const w of m.work) {
+  const i = w.issues;
+  console.log(
+    `  ${w.name.padEnd(14)} ${w.read ? `${w.prs.people.length}(${w.contributors.length}) ${w.prs.bots.length} ${w.prs.pipeline.length} · ${i.bug.length} ${i.enhancement.length} ${i.other.length} ${i.automation.length} · ${w.oldest ? `#${w.oldest.number} ${age(w.oldest.createdAt, now)}` : "-"}${w.unreadPrs || w.unreadIssues ? ` · unread ${w.unreadPrs}/${w.unreadIssues}` : ""}` : "unread"}`,
+  );
+}
+
 const boards = {
   [ATTENTION_KEY]: attentionBoard(m, sweeper.facts, now),
   [STACK_KEY]: stackBoard(m, now),

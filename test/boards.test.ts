@@ -141,20 +141,21 @@ describe("what the boards say", () => {
     expect(badge(model).count).toBe(p0 + p1);
   });
 
-  test("services lead with the gate tiles, then one row per fork, worst first, then fleet lanes", () => {
+  test("services lead with the gate tiles, then one row per fork, worst first, then fleet lanes and open work", () => {
     const b = linesBoard(model, FIXTURE_NOW);
     expect(b.header?.status).toEqual({
       label: "1 HALTED · 1 BLOCKED · 3 UPDATES WAITING",
       tone: "warn",
     });
     expect(b.header?.chip).toMatch(/^GitLab read \d\d:\d\d · \d\d:\d\d /);
-    expect(b.sections.map((s) => s.kind)).toEqual(["stats", "table", "rows"]);
+    expect(b.sections.map((s) => s.kind)).toEqual(["stats", "table", "rows", "table"]);
     const [tiles, table, fleet] = b.sections;
     if (tiles?.kind !== "stats" || table?.kind !== "table" || fleet?.kind !== "rows")
       throw new Error("tiles, table, fleet");
     expect(tiles.items.map((i) => i.label)).toEqual([
       "Upstream · oldest held",
       "Release · oldest PR",
+      "Open work · people",
     ]);
     expect(tiles.items[0]).toMatchObject({
       clock: { at: "2026-10-08T00:08:17Z", mode: "since" },

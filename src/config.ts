@@ -123,6 +123,8 @@ export const PLANNED: readonly ServiceDef[] = SERVICES.filter((s) => !s.repo);
 
 export const TEMPLATE_REPO = "Azure/osdu-spi";
 export const STACK_REPO = "Azure/osdu-spi-stack";
+// The GitHub App the sync engine and template workflows open PRs and issues as.
+export const AUTOMATION_APP = "osdu-spi-automation";
 export const GITLAB_HOST = "community.opengroup.org";
 export const DECLARATION_PATH = "ops/environments/shared.yaml";
 export const MARKER_PATH = ".github/.template-sync-commit";

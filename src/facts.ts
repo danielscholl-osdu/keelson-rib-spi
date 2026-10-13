@@ -39,6 +39,8 @@ export interface PrFact {
   mergeState?: string;
   reviewDecision?: string;
   author?: string;
+  // GitHub's authorAssociation: OWNER, MEMBER, COLLABORATOR, CONTRIBUTOR, NONE...
+  association?: string;
   labels: string[];
   checks: CheckFact[];
 }
@@ -50,6 +52,10 @@ export interface IssueFact {
   url: string;
   createdAt: string;
   updatedAt: string;
+  author?: string;
+  association?: string;
+  // Opened by a GitHub App, such as the sync engine.
+  bot?: boolean;
   labels: string[];
   comments: number;
   halt?: string;
@@ -108,6 +114,9 @@ export interface RepoFact {
   declaration?: Declaration;
   prs: PrFact[];
   issues: IssueFact[];
+  // Open totals, which can exceed the page of PRs and issues read.
+  openPrs?: number;
+  openIssues?: number;
   deployments: DeploymentFact[];
   pastPrs?: PastPrFact[];
   pastIssues?: PastIssueFact[];

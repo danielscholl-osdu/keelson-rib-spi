@@ -15,6 +15,7 @@ import { prVerdict } from "./model/checks.ts";
 import type { Model } from "./model/index.ts";
 import type { LinePr } from "./model/lines.ts";
 import { attemptText, overdue, type RunView, usualText } from "./model/stack.ts";
+import { type IssueKind, issueKind, outsider, prKind } from "./model/work.ts";
 import type { Sweeper } from "./sweep.ts";
 import { age, errorText, took } from "./util.ts";
 
@@ -111,6 +112,17 @@ const PR_CLASSES = [
   "dependabot",
   "human",
 ] as const satisfies readonly PrClass[];
+
+const ISSUE_KINDS = [
+  "bug",
+  "enhancement",
+  "other",
+  "automation",
+] as const satisfies readonly IssueKind[];
+
+function repoMatch(r: string, repo: string | undefined): boolean {
+  return !repo || shortRepo(r) === repo || r === repo || shortRepo(r).endsWith(repo);
+}
 
 export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
   const now = () => sweeper.now();
@@ -361,7 +373,7 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
     ),
     tool(
       "spi_prs",
-      "Open PRs across the template, the stack and the five forks, each with its class (sync, cascade, template, release, bump, agent, dependabot, human), check verdict and attributed failures. Filter by repository short name or class.",
+      "Open PRs across the template, the stack and every fork, each with its class (sync, cascade, template, release, bump, agent, dependabot, human), its kind (people, bots, pipeline), whether its author is outside the organization, check verdict and attributed failures. Filter by repository short name or class.",
       z.object({
         repo: z.string().optional(),
         class: z.enum(PR_CLASSES).optional(),
@@ -371,9 +383,7 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
         const repos = facts.github.data?.repos ?? {};
         const details = facts.details.data ?? {};
         const t = now();
-        const rows = REPOS.filter(
-          (r) => !repo || shortRepo(r) === repo || r === repo || shortRepo(r).endsWith(repo),
-        )
+        const rows = REPOS.filter((r) => repoMatch(r, repo))
           .flatMap((r) => repos[r]?.prs ?? [])
           .filter((pr) => !cls || classifyPr(pr) === cls)
           .map((pr) => {
@@ -383,6 +393,9 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
               number: pr.number,
               title: pr.title,
               class: prClass,
+              kind: prKind(pr),
+              author: pr.author,
+              outside: outsider(pr),
               draft: pr.draft,
               verdict: prVerdict(pr),
               review: pr.reviewDecision,
@@ -399,6 +412,43 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
             };
           });
         return sweeper.model.measured ? { prs: rows } : notMeasured(sweeper.model);
+      },
+    ),
+    tool(
+      "spi_issues",
+      "Open issues across the template, the stack and every fork, each with its kind (bug, enhancement, other, or automation for the sync engine's halt and tracking issues), labels, author, comment count and age. unread names repositories with more open issues than the sweep read. Filter by repository short name or kind.",
+      z.object({
+        repo: z.string().optional(),
+        kind: z.enum(ISSUE_KINDS).optional(),
+      }),
+      ({ repo, kind }) => {
+        const repos = sweeper.facts.github.data?.repos ?? {};
+        const t = now();
+        const matched = REPOS.filter((r) => repoMatch(r, repo));
+        const issues = matched
+          .flatMap((r) => repos[r]?.issues ?? [])
+          .filter((i) => !kind || issueKind(i) === kind)
+          .map((i) => ({
+            repo: shortRepo(i.repo),
+            number: i.number,
+            title: i.title,
+            kind: issueKind(i),
+            labels: i.labels,
+            author: i.author,
+            comments: i.comments,
+            age: age(i.createdAt, t),
+            updated: age(i.updatedAt, t),
+            url: i.url,
+            ...(i.halt ? { halt: i.halt } : {}),
+          }));
+        const unread = matched.flatMap((r) => {
+          const fact = repos[r];
+          const n = (fact?.openIssues ?? 0) - (fact?.issues.length ?? 0);
+          return n > 0 ? [{ repo: shortRepo(r), issues: n }] : [];
+        });
+        return sweeper.model.measured
+          ? { issues, ...(unread.length ? { unread } : {}) }
+          : notMeasured(sweeper.model);
       },
     ),
   ];

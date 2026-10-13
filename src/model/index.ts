@@ -13,6 +13,7 @@ import { buildLine, type LineModel } from "./lines.ts";
 import { buildQueue, type Queue } from "./queue.ts";
 import { buildStack, type StackModel } from "./stack.ts";
 import { buildTemplate, nextTag, type TemplateModel } from "./template.ts";
+import { buildWork, type WorkRow } from "./work.ts";
 
 export interface Model {
   measured: boolean;
@@ -25,6 +26,8 @@ export interface Model {
   template: TemplateModel;
   gates: Gates;
   queue: Queue;
+  // Every open PR and issue per repository, including work that sits on no line.
+  work: WorkRow[];
 }
 
 // Pure: the same facts and clock always give the same model, so every region
@@ -86,5 +89,6 @@ export function buildModel(
     template,
     gates: buildGates(lines, now),
     queue,
+    work: buildWork(repos),
   };
 }

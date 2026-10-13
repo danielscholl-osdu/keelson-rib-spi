@@ -7,11 +7,12 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import type { CanvasBoardView, CanvasTone } from "@keelson/shared";
-import { HISTORY_DAYS } from "../config.ts";
+import { AUTOMATION_APP, githubUrl, HISTORY_DAYS } from "../config.ts";
 import type { Gate } from "../model/gates.ts";
 import { type TrackDay, type TrackState, worse } from "../model/history.ts";
 import type { Model } from "../model/index.ts";
 import { type LineModel, type LinePr, type PillKind, prRed } from "../model/lines.ts";
+import type { IssueKind, WorkRow } from "../model/work.ts";
 import { plural, releaseTag, since, span, stamp, zoned } from "../util.ts";
 
 type Section = CanvasBoardView["sections"][number];
@@ -231,7 +232,117 @@ function tiles(model: Model): Section {
         gates.measured,
         () => `${plural(gates.release.n, "release")} cut in ${HISTORY_DAYS} d`,
       ),
+      workStat(model.work),
     ],
+  };
+}
+
+function workStat(rows: readonly WorkRow[]): Stat {
+  const read = rows.filter((r) => r.read);
+  const prs = read.reduce((n, r) => n + r.prs.people.length, 0);
+  const outside = read.reduce((n, r) => n + r.contributors.length, 0);
+  const issues = read.reduce((n, r) => n + peopleIssues(r).length, 0);
+  return {
+    label: "Open work · people",
+    value: plural(prs, "PR"),
+    sub: [outside ? `${outside} from outside` : undefined, plural(issues, "issue")]
+      .filter(Boolean)
+      .join(" · "),
+  };
+}
+
+const ISSUE_WORDS: [Exclude<IssueKind, "automation">, string][] = [
+  ["bug", "bug"],
+  ["enhancement", "enhancement"],
+  ["other", "other"],
+];
+
+function peopleIssues(row: WorkRow) {
+  return [...row.issues.bug, ...row.issues.enhancement, ...row.issues.other];
+}
+
+function search(repo: string, kind: "pulls" | "issues", q: string): string {
+  return `${githubUrl(repo, `/${kind}`)}?q=${encodeURIComponent(q)}`;
+}
+
+const NONE: Cell = { value: "—", tone: "neutral" };
+
+function countCell(n: number, href: string, extra: (string | undefined)[] = []): Cell {
+  if (n === 0) return NONE;
+  return { value: [String(n), ...extra].filter(Boolean).join(" · "), href };
+}
+
+function workRowCells(row: WorkRow, now: Date): Record<string, Cell> {
+  const repo = { value: row.name, href: githubUrl(row.repo) };
+  if (!row.read)
+    return {
+      repo,
+      people: "?",
+      bots: "?",
+      pipeline: "?",
+      issues: "?",
+      automation: "?",
+      oldest: "?",
+    };
+  const { people, bots, pipeline } = row.prs;
+  const drafts = people.filter((p) => p.draft).length;
+  const outside = row.contributors.length;
+  const issues = peopleIssues(row);
+  const peopleCell = countCell(
+    people.length,
+    search(row.repo, "pulls", `is:pr is:open -author:app/dependabot -author:app/${AUTOMATION_APP}`),
+    [outside ? `${outside} outside` : undefined, drafts ? `${drafts} draft` : undefined],
+  );
+  return {
+    repo,
+    people:
+      outside && typeof peopleCell === "object" ? { ...peopleCell, tone: "info" } : peopleCell,
+    bots: countCell(bots.length, search(row.repo, "pulls", "is:pr is:open author:app/dependabot")),
+    pipeline: countCell(pipeline.length, githubUrl(row.repo, "/pulls")),
+    issues: countCell(
+      issues.length,
+      search(row.repo, "issues", `is:issue is:open -author:app/${AUTOMATION_APP}`),
+      ISSUE_WORDS.map(([k, word]) =>
+        row.issues[k].length && row.issues[k].length < issues.length
+          ? `${row.issues[k].length} ${word}`
+          : undefined,
+      ),
+    ),
+    automation: countCell(
+      row.issues.automation.length,
+      search(row.repo, "issues", `is:issue is:open author:app/${AUTOMATION_APP}`),
+    ),
+    oldest: row.oldest
+      ? {
+          value: one(`#${row.oldest.number} · ${since(row.oldest.createdAt, now)}`),
+          href: row.oldest.url,
+        }
+      : NONE,
+  };
+}
+
+function workTable(model: Model, now: Date): Section {
+  const short = model.work.filter((r) => r.unreadPrs > 0 || r.unreadIssues > 0);
+  const caption = [
+    "Open work · every open PR and issue, one row per repository",
+    ...short.map(
+      (r) =>
+        `${r.name}: ${[r.unreadPrs ? plural(r.unreadPrs, "PR") : undefined, r.unreadIssues ? plural(r.unreadIssues, "issue") : undefined].filter(Boolean).join(" and ")} past the page, not counted`,
+    ),
+  ].join(" · ");
+  return {
+    kind: "table",
+    caption,
+    columns: [
+      { key: "repo", label: "repository" },
+      { key: "people", label: "people PRs" },
+      { key: "bots", label: "Dependabot" },
+      { key: "pipeline", label: "pipeline PRs" },
+      { key: "issues", label: "issues" },
+      { key: "automation", label: "automation issues" },
+      { key: "oldest", label: "oldest people PR" },
+    ],
+    rows: model.work.map((row) => workRowCells(row, now)),
   };
 }
 
@@ -356,6 +467,7 @@ export function linesBoard(
       title: `Fleet · forks not caught up at day end, last ${HISTORY_DAYS} UTC days`,
       items: fleet,
     });
+  sections.push(workTable(model, now));
   const gitlab = stamp(model.upstreamAt, now);
   return {
     view: "board",

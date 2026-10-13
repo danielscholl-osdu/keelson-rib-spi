@@ -37,9 +37,9 @@ import type { Gh } from "../forge.ts";
 // release, markers, the lane ledger and 21 days of gate history for every
 // repository at once.
 
-const PULLS = `pullRequests(states: OPEN, first: 40, orderBy: {field: CREATED_AT, direction: DESC}) { nodes {
+const PULLS = `pullRequests(states: OPEN, first: 40, orderBy: {field: CREATED_AT, direction: DESC}) { totalCount nodes {
   number title url createdAt updatedAt isDraft headRefName baseRefName headRefOid mergeStateStatus reviewDecision
-  author { login }
+  author { login } authorAssociation
   headRef { target { ... on Commit { file(path: "${MARKER_PATH}") { object { ... on Blob { text } } } } } }
   labels(first: 15) { nodes { name } }
   commits(last: 1) { nodes { commit { statusCheckRollup { contexts(first: 80) { nodes {
@@ -48,8 +48,9 @@ const PULLS = `pullRequests(states: OPEN, first: 40, orderBy: {field: CREATED_AT
   } } } } } }
 } }`;
 
-const ISSUES = `issues(states: OPEN, first: 50, orderBy: {field: CREATED_AT, direction: DESC}) { nodes {
-  number title url createdAt updatedAt labels(first: 15) { nodes { name } } comments { totalCount } body
+const ISSUES = `issues(states: OPEN, first: 50, orderBy: {field: CREATED_AT, direction: DESC}) { totalCount nodes {
+  number title url createdAt updatedAt author { __typename login } authorAssociation
+  labels(first: 15) { nodes { name } } comments { totalCount } body
 } }`;
 
 const PAST_PULLS = `pastPrs: pullRequests(states: [MERGED, CLOSED], first: 100, orderBy: {field: UPDATED_AT, direction: DESC}) { nodes {
@@ -180,6 +181,7 @@ interface RawPr {
   mergeStateStatus?: string;
   reviewDecision?: string | null;
   author?: { login?: string } | null;
+  authorAssociation?: string;
   headRef?: { target?: { file?: { object?: { text?: string } | null } | null } } | null;
   labels?: { nodes?: { name: string }[] };
   commits?: {
@@ -193,6 +195,8 @@ interface RawIssue {
   url: string;
   createdAt: string;
   updatedAt: string;
+  author?: { __typename?: string; login?: string } | null;
+  authorAssociation?: string;
   labels?: { nodes?: { name: string }[] };
   comments?: { totalCount?: number };
   body?: string | null;
@@ -204,8 +208,8 @@ interface RawRepo {
   autoMergeAllowed?: boolean;
   defaultBranchRef?: { target?: { oid?: string; committedDate?: string } } | null;
   latestRelease?: { tagName: string; publishedAt: string; url: string } | null;
-  pullRequests?: { nodes?: RawPr[] };
-  issues?: { nodes?: RawIssue[] };
+  pullRequests?: { totalCount?: number; nodes?: RawPr[] };
+  issues?: { totalCount?: number; nodes?: RawIssue[] };
   marker?: { text?: string } | null;
   upstreamLog?: {
     target?: { history?: { nodes?: { oid: string; message: string; committedDate: string }[] } };
@@ -284,6 +288,7 @@ function parsePr(repo: string, p: RawPr): PrFact {
     mergeState: p.mergeStateStatus ?? undefined,
     reviewDecision: p.reviewDecision ?? undefined,
     author: p.author?.login ?? undefined,
+    association: p.authorAssociation ?? undefined,
     labels: (p.labels?.nodes ?? []).map((l) => l.name),
     checks: parseChecks(p.commits?.nodes?.[0]?.commit?.statusCheckRollup?.contexts?.nodes),
   };
@@ -310,6 +315,9 @@ function parseIssue(repo: string, i: RawIssue): IssueFact {
     url: i.url,
     createdAt: i.createdAt,
     updatedAt: i.updatedAt,
+    author: i.author?.login ?? undefined,
+    association: i.authorAssociation ?? undefined,
+    ...(i.author?.__typename === "Bot" ? { bot: true } : {}),
     labels,
     comments: i.comments?.totalCount ?? 0,
     halt: labels.includes("sync-failed") ? parseHalt(i.body) : undefined,
@@ -424,6 +432,8 @@ export function parseRepo(raw: RawRepo): RepoFact {
     declaration: parseDeclaration(raw.declaration?.text ?? undefined),
     prs: (raw.pullRequests?.nodes ?? []).map((p) => parsePr(repo, p)),
     issues: (raw.issues?.nodes ?? []).map((i) => parseIssue(repo, i)),
+    ...(raw.pullRequests?.totalCount !== undefined ? { openPrs: raw.pullRequests.totalCount } : {}),
+    ...(raw.issues?.totalCount !== undefined ? { openIssues: raw.issues.totalCount } : {}),
     deployments: parseDeployments(raw.deployments),
     pastPrs: parsePastPrs(raw.pastPrs),
     pastIssues: parsePastIssues(raw.pastIssues),
