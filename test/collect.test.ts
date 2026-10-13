@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { RibExec } from "@keelson/shared";
 import {
-  buildQuery,
+  buildQueries,
+  mergeReads,
   parseCrons,
   parseDeclaration,
   parseGithub,
@@ -14,7 +15,7 @@ import { Gh } from "../src/forge";
 
 describe("GraphQL query", () => {
   test("reads the template, the stack, every fork and probes each planned repository", () => {
-    const q = buildQuery();
+    const q = buildQueries().join("\n");
     for (const repo of [TEMPLATE_REPO, STACK_REPO, ...FORKS.map((f) => f.repo)]) {
       expect(q).toContain(`name: "${repo.split("/")[1]}"`);
     }
@@ -69,7 +70,24 @@ describe("GraphQL query", () => {
       rateLimit: { cost: 14, remaining: 4870, resetAt: "2026-10-13T19:33:02Z" },
     });
     expect(facts.rate).toEqual({ cost: 14, remaining: 4870, resetAt: "2026-10-13T19:33:02Z" });
-    expect(buildQuery()).toContain("rateLimit { cost remaining resetAt }");
+    for (const q of buildQueries()) expect(q).toContain("rateLimit { cost remaining resetAt }");
+  });
+
+  test("forks are read in batches, and the budget sums each query's cost", () => {
+    const queries = buildQueries(2);
+    expect(queries).toHaveLength(1 + Math.ceil(FORKS.length / 2));
+    expect(queries[0]).toContain("r_template:");
+    expect(queries[1]).toContain("r_fork0:");
+    expect(queries[1]).not.toContain("r_fork2:");
+    const merged = mergeReads([
+      { rateLimit: { cost: 3, remaining: 4900, resetAt: "t" }, r_template: { a: 1 } },
+      { rateLimit: { cost: 9, remaining: 4891, resetAt: "t" }, r_fork0: { b: 2 } },
+    ]);
+    expect(merged).toEqual({
+      r_template: { a: 1 },
+      r_fork0: { b: 2 },
+      rateLimit: { cost: 12, remaining: 4891, resetAt: "t" },
+    });
   });
 
   test("the stack's releases and workflow schedules, and a fork's past gates, are parsed", () => {

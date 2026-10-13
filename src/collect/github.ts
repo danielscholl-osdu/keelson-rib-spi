@@ -100,14 +100,59 @@ function repoField(alias: string, repo: string, spread: string): string {
   return `${alias}: repository(owner: "${owner}", name: "${name}") { ${spread} }`;
 }
 
-export function buildQuery(): string {
-  const fields = [
-    repoField("r_template", TEMPLATE_REPO, "...Base ...Template"),
-    repoField("r_stack", STACK_REPO, "...Base ...Stack"),
-    ...FORKS.map((f, i) => repoField(`r_fork${i}`, f.repo, "...Base ...Fork")),
-    ...PLANNED.map((p, i) => repoField(`p_${i}`, plannedRepo(p), "nameWithOwner")),
+// GitHub answers HTTP 502 once one query reads about a dozen forks.
+export const FORKS_PER_QUERY = 5;
+
+function query(fields: string[]): string {
+  const body = fields.join("\n  ");
+  const used = FRAGMENTS.split(/\n(?=fragment )/)
+    .filter((f) => {
+      const name = /^\s*fragment (\w+)/.exec(f)?.[1];
+      return name && body.includes(`...${name}`);
+    })
+    .join("\n");
+  return `query {\n  rateLimit { cost remaining resetAt }\n  ${body}\n}\n${used}`;
+}
+
+export function buildQueries(perQuery = FORKS_PER_QUERY): string[] {
+  const forks = FORKS.map((f, i) => repoField(`r_fork${i}`, f.repo, "...Base ...Fork"));
+  const queries = [
+    query([
+      repoField("r_template", TEMPLATE_REPO, "...Base ...Template"),
+      repoField("r_stack", STACK_REPO, "...Base ...Stack"),
+      ...PLANNED.map((p, i) => repoField(`p_${i}`, plannedRepo(p), "nameWithOwner")),
+    ]),
   ];
-  return `query {\n  rateLimit { cost remaining resetAt }\n  ${fields.join("\n  ")}\n}\n${FRAGMENTS}`;
+  for (let i = 0; i < forks.length; i += perQuery)
+    queries.push(query(forks.slice(i, i + perQuery)));
+  return queries;
+}
+
+interface RateRead {
+  cost?: number;
+  remaining?: number;
+  resetAt?: string;
+}
+
+// Each query reports its own cost and the budget left after it.
+export function mergeReads(reads: Record<string, unknown>[]): Record<string, unknown> {
+  const merged: Record<string, unknown> = {};
+  let rate: RateRead | undefined;
+  for (const data of reads) {
+    const { rateLimit, ...rest } = data as { rateLimit?: RateRead };
+    Object.assign(merged, rest);
+    if (!rateLimit) continue;
+    rate = {
+      cost: (rate?.cost ?? 0) + (rateLimit.cost ?? 0),
+      remaining:
+        rate?.remaining === undefined
+          ? rateLimit.remaining
+          : Math.min(rate.remaining, rateLimit.remaining ?? rate.remaining),
+      resetAt: rateLimit.resetAt ?? rate?.resetAt,
+    };
+  }
+  if (rate) merged.rateLimit = rate;
+  return merged;
 }
 
 interface RawCheck {
@@ -418,7 +463,11 @@ export function parseGithub(data: Record<string, unknown>): GithubFacts {
 }
 
 export async function readGithub(gh: Gh): Promise<GithubFacts> {
-  const { data, errors } = await gh.graphql<Record<string, unknown>>(buildQuery());
+  const reads = await Promise.all(
+    buildQueries().map((q) => gh.graphql<Record<string, unknown>>(q)),
+  );
+  const data = mergeReads(reads.map((r) => r.data));
+  const errors = reads.flatMap((r) => r.errors);
   const real = errors.filter(
     (e) => !(e.type === "NOT_FOUND" && String(e.path?.[0]).startsWith("p_")),
   );
