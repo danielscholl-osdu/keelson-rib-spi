@@ -101,6 +101,7 @@ describe("the engineering system panel", () => {
       "Held back from Roll out: partition #174, entitlements #48, legal #33, schema #37 and file #51 are red on the stack",
     );
     expect(review.items[1]?.text).toBe("Review on GitHub · 5 template-sync PRs in one list");
+    expect(review.items[1]?.href).toStartWith("https://github.com/search?type=pullrequests&q=");
     expect(review.items[1]?.href).toContain("label%3Atemplate-sync");
   });
 

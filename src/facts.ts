@@ -121,7 +121,8 @@ export interface RepoFact {
 export interface GithubFacts {
   repos: Record<string, RepoFact>;
   planned: Record<string, boolean>;
-  rate?: { remaining: number; resetAt: string };
+  // `cost` is what this sweep's query spent, so the rib's own share is visible.
+  rate?: { remaining: number; resetAt: string; cost?: number };
 }
 
 export interface RunFact {

@@ -58,7 +58,7 @@ function checks(facts: Facts, now: Date): Check[] {
       health: rate ? (low ? "warn" : "ok") : "neutral",
       label: "GitHub budget",
       value: rate
-        ? `${rate.remaining} GraphQL points left, resets ${stamp(rate.resetAt, now)}`
+        ? `${rate.remaining} GraphQL points left, resets ${stamp(rate.resetAt, now)}${rate.cost !== undefined ? ` · a sweep costs ${rate.cost}` : ""}`
         : "unknown",
       ...(low
         ? {

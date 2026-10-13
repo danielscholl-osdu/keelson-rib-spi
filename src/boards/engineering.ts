@@ -27,7 +27,8 @@ type Row = Extract<Section, { kind: "rows" }>["items"][number];
 
 export const STEP_PREFIX = "step:";
 
-const REVIEW_SEARCH = `https://github.com/pulls?q=${encodeURIComponent(
+// The pulls dashboard rejects a label filter across repositories; search accepts it.
+const REVIEW_SEARCH = `https://github.com/search?type=pullrequests&q=${encodeURIComponent(
   `is:pr is:open label:template-sync ${FORKS.map((f) => `repo:${f.repo}`).join(" ")}`,
 )}`;
 
@@ -311,6 +312,7 @@ function links(model: Model): Section | undefined {
       {
         icon: "↗",
         text: `Review on GitHub · ${plural(open, "template-sync PR")} in one list`,
+        trailing: "empty until the browser signs in to the Azure org's SSO",
         href: REVIEW_SEARCH,
       },
     ],

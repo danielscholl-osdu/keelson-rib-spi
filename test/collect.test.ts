@@ -64,6 +64,14 @@ describe("GraphQL query", () => {
     expect(facts.repos["Azure/osdu-spi-partition"]?.syncCrons).toEqual(["0 8 * * *"]);
   });
 
+  test("the sweep keeps what its own query cost beside the budget", () => {
+    const facts = parseGithub({
+      rateLimit: { cost: 14, remaining: 4870, resetAt: "2026-10-13T19:33:02Z" },
+    });
+    expect(facts.rate).toEqual({ cost: 14, remaining: 4870, resetAt: "2026-10-13T19:33:02Z" });
+    expect(buildQuery()).toContain("rateLimit { cost remaining resetAt }");
+  });
+
   test("the stack's releases and workflow schedules, and a fork's past gates, are parsed", () => {
     const facts = parseGithub({
       r_stack: {

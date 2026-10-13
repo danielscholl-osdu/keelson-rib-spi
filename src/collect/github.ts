@@ -107,7 +107,7 @@ export function buildQuery(): string {
     ...FORKS.map((f, i) => repoField(`r_fork${i}`, f.repo, "...Base ...Fork")),
     ...PLANNED.map((p, i) => repoField(`p_${i}`, plannedRepo(p), "nameWithOwner")),
   ];
-  return `query {\n  rateLimit { remaining resetAt }\n  ${fields.join("\n  ")}\n}\n${FRAGMENTS}`;
+  return `query {\n  rateLimit { cost remaining resetAt }\n  ${fields.join("\n  ")}\n}\n${FRAGMENTS}`;
 }
 
 interface RawCheck {
@@ -400,13 +400,19 @@ export function parseGithub(data: Record<string, unknown>): GithubFacts {
   PLANNED.forEach((p, i) => {
     planned[p.id] = !!data[`p_${i}`];
   });
-  const rate = data.rateLimit as { remaining?: number; resetAt?: string } | undefined;
+  const rate = data.rateLimit as
+    | { cost?: number; remaining?: number; resetAt?: string }
+    | undefined;
   return {
     repos,
     planned,
     rate:
       rate?.remaining !== undefined && rate.resetAt
-        ? { remaining: rate.remaining, resetAt: rate.resetAt }
+        ? {
+            remaining: rate.remaining,
+            resetAt: rate.resetAt,
+            ...(rate.cost !== undefined ? { cost: rate.cost } : {}),
+          }
         : undefined,
   };
 }
