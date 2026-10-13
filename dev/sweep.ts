@@ -83,7 +83,7 @@ for (const st of m.template.steps) {
 }
 
 console.log("\nOPEN WORK  people(outside) bots pipeline · bug enh other auto · oldest");
-for (const w of m.work) {
+for (const w of [m.work.template, m.work.stack, ...m.work.forks]) {
   const i = w.issues;
   console.log(
     `  ${w.name.padEnd(14)} ${w.read ? `${w.prs.people.length}(${w.contributors.length}) ${w.prs.bots.length} ${w.prs.pipeline.length} · ${i.bug.length} ${i.enhancement.length} ${i.other.length} ${i.automation.length} · ${w.oldest ? `#${w.oldest.number} ${age(w.oldest.createdAt, now)}` : "-"}${w.unreadPrs || w.unreadIssues ? ` · unread ${w.unreadPrs}/${w.unreadIssues}` : ""}` : "unread"}`,

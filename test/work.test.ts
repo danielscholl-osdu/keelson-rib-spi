@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { expectView } from "@keelson/shared";
 import { linesBoard } from "../src/boards/lines";
+import { stackBoard } from "../src/boards/stack";
 import { parseRepo } from "../src/collect/github";
-import { STACK_REPO, TEMPLATE_REPO } from "../src/config";
+import { FORKS, STACK_REPO } from "../src/config";
 import type { Facts, IssueFact, PrFact } from "../src/facts";
+import { STACK_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
 import { buildWork, issueKind, prKind } from "../src/model/work";
 import { FIXTURE_NOW, fixtureFacts } from "./harness";
@@ -39,10 +42,10 @@ function issue(over: Partial<IssueFact>): IssueFact {
   };
 }
 
-function stackWork(): Facts {
+function seeded(repo = STACK_REPO): Facts {
   const f = fixtureFacts();
-  const stack = f.github.data?.repos[STACK_REPO];
-  if (!stack) throw new Error("stack facts");
+  const stack = f.github.data?.repos[repo];
+  if (!stack) throw new Error(`${repo} facts`);
   stack.prs = [
     pr({
       number: 323,
@@ -75,15 +78,16 @@ function stackWork(): Facts {
   ];
   stack.openPrs = 5;
   stack.openIssues = 8;
+  for (const item of [...stack.prs, ...stack.issues]) item.repo = repo;
   return f;
 }
 
 describe("open work", () => {
   test("people, bot and pipeline PRs split by class, with outside authors and drafts apart", () => {
-    const rows = buildWork(stackWork().github.data?.repos ?? {});
-    expect(rows.slice(0, 2).map((r) => r.name)).toEqual(["template", "stack"]);
-    const stack = rows[1];
-    if (!stack) throw new Error("stack row");
+    const work = buildWork(seeded().github.data?.repos ?? {});
+    expect([work.template.name, work.stack.name]).toEqual(["osdu-spi", "osdu-spi-stack"]);
+    expect(work.forks.map((r) => r.name)).toEqual(FORKS.map((f) => f.id));
+    const { stack } = work;
     expect(stack.prs.people.map((p) => p.number)).toEqual([323, 341, 330]);
     expect(stack.prs.bots.map((p) => p.number)).toEqual([340]);
     expect(stack.prs.pipeline.map((p) => p.number)).toEqual([339]);
@@ -93,8 +97,7 @@ describe("open work", () => {
   });
 
   test("automation issues stand apart from bugs, enhancements and the rest", () => {
-    const stack = buildWork(stackWork().github.data?.repos ?? {})[1];
-    if (!stack) throw new Error("stack row");
+    const { stack } = buildWork(seeded().github.data?.repos ?? {});
     expect(stack.issues.bug.map((i) => i.number)).toEqual([324, 321]);
     expect(stack.issues.enhancement.map((i) => i.number)).toEqual([133]);
     expect(stack.issues.other.map((i) => i.number)).toEqual([300]);
@@ -105,11 +108,11 @@ describe("open work", () => {
   });
 
   test("the fixture's sync engine PRs and issues never count as people work", () => {
-    const rows = buildWork(fixtureFacts().github.data?.repos ?? {});
-    const legal = rows.find((r) => r.name === "legal");
+    const { forks } = buildWork(fixtureFacts().github.data?.repos ?? {});
+    const legal = forks.find((r) => r.name === "legal");
     expect(legal?.prs.people).toEqual([]);
     expect(legal?.issues.automation.length).toBe(1);
-    const entitlements = rows.find((r) => r.name === "entitlements");
+    const entitlements = forks.find((r) => r.name === "entitlements");
     expect(entitlements?.issues.automation.map((i) => i.labels)).toContainEqual(
       expect.arrayContaining(["sync-failed"]),
     );
@@ -117,32 +120,61 @@ describe("open work", () => {
     expect(prKind(pr({ head: "release-please--branches--main" }))).toBe("pipeline");
   });
 
-  test("Services draws one row per repository, counts linked, unread rows as ?", () => {
-    const f = stackWork();
-    delete f.github.data?.repos[TEMPLATE_REPO];
+  test("Services draws one row per fork, counts linked, unread forks as ?", () => {
+    const f = seeded("Azure/osdu-spi-file");
+    delete f.github.data?.repos["Azure/osdu-spi-schema"];
     const b = linesBoard(buildModel(f, FIXTURE_NOW), FIXTURE_NOW);
     const table = b.sections.at(-1);
     if (table?.kind !== "table") throw new Error("open work last");
-    expect(table.caption).toContain("stack: 3 issues past the page, not counted");
+    expect(table.caption).toContain("file: 3 issues past the page, not counted");
     const text = (c: unknown) =>
       typeof c === "object" && c !== null && "value" in c
-        ? String(c.value).replaceAll(" ", " ")
+        ? String(c.value).replaceAll("\u00a0", " ")
         : c;
-    const [template, stack] = table.rows;
-    expect(text(template?.people)).toBe("?");
-    expect(stack?.people).toMatchObject({ value: "3 · 2 outside · 1 draft", tone: "info" });
-    expect(text(stack?.bots)).toBe("1");
-    expect(text(stack?.pipeline)).toBe("1");
-    expect(text(stack?.issues)).toBe("4 · 2 bug · 1 enhancement · 1 other");
-    expect(text(stack?.automation)).toBe("1");
-    expect(text(stack?.oldest)).toBe("#323 · 4d");
-    expect(table.rows.length).toBe(7);
+    expect(table.rows.map((r) => text(r.repo))).toEqual(FORKS.map((f) => f.id));
+    const schema = table.rows.find((r) => text(r.repo) === "schema");
+    expect(text(schema?.people)).toBe("?");
+    const file = table.rows.find((r) => text(r.repo) === "file");
+    expect(file?.people).toMatchObject({ value: "3 · 2 outside · 1 draft", tone: "info" });
+    expect(text(file?.bots)).toBe("1");
+    expect(text(file?.pipeline)).toBe("1");
+    expect(text(file?.issues)).toBe("4 · 2 bug · 1 enhancement · 1 other");
+    expect(text(file?.automation)).toBe("1");
+    expect(text(file?.oldest)).toBe("#323 · 4d");
     const tiles = b.sections[0];
     if (tiles?.kind !== "stats") throw new Error("tiles first");
     expect(tiles.items.at(-1)).toMatchObject({
       label: "Open work · people",
       sub: expect.stringContaining("2 from outside"),
     });
+  });
+
+  test("the stack's PRs and issues list on Environment, not on Services", () => {
+    const m = buildModel(seeded(), FIXTURE_NOW);
+    const lines = linesBoard(m, FIXTURE_NOW);
+    const tiles = lines.sections[0];
+    if (tiles?.kind !== "stats") throw new Error("tiles first");
+    expect(tiles.items.at(-1)?.sub).not.toContain("outside");
+    const b = stackBoard(m, FIXTURE_NOW);
+    expect(() => expectView(STACK_KEY, "board")(b)).not.toThrow();
+    const open = b.sections.at(-1);
+    if (open?.kind !== "rows") throw new Error("open on the stack last");
+    expect(open.title).toBe("Open on osdu-spi-stack · 5 PRs · 5 issues");
+    expect(open.items.map((i) => [i.chip?.label, i.text.split(" ")[0]])).toEqual([
+      ["outside", "#323"],
+      ["outside", "#341"],
+      ["feature", "#330"],
+      ["Dependabot", "#340"],
+      ["env bump", "#339"],
+      ["bug", "#324"],
+      ["bug", "#321"],
+      ["enhancement", "#133"],
+      ["issue", "#300"],
+      ["automation", "#299"],
+      [undefined, "3"],
+    ]);
+    expect(open.items[1]?.trailing).toContain("draft");
+    expect(open.items.at(-1)?.href).toBe("https://github.com/Azure/osdu-spi-stack/issues");
   });
 
   test("a repository read reports authors' association, app authors and open totals", () => {
@@ -186,6 +218,6 @@ describe("open work", () => {
     expect(fact.issues[0]).toMatchObject({ author: "osdu-spi-automation", bot: true });
     expect(fact.openPrs).toBe(41);
     expect(fact.openIssues).toBe(1);
-    expect(buildWork({ [STACK_REPO]: fact })[1]?.unreadPrs).toBe(40);
+    expect(buildWork({ [STACK_REPO]: fact }).stack.unreadPrs).toBe(40);
   });
 });

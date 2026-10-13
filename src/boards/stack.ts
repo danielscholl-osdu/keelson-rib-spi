@@ -26,6 +26,7 @@ import {
 } from "../model/stack.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
 import { againstUsual, clip, span, stamp, took, zoned } from "../util.ts";
+import { stackOpen } from "./open.ts";
 
 type Section = CanvasBoardView["sections"][number];
 type Stat = Extract<Section, { kind: "stats" }>["items"][number];
@@ -515,5 +516,7 @@ export function stackBoard(
       ],
     });
   }
+  const open = stackOpen(model.work.stack, now);
+  if (open) sections.push(open);
   return { view: "board", header: { status: statusOf(model, hurt), chip }, sections };
 }

@@ -18,6 +18,7 @@ import { ownFailure, type TemplateRow, type TemplateStep } from "../model/templa
 import { INSPECT_ACTION } from "../surfaces.ts";
 import { clip, plural, since, span, stamp, zoned } from "../util.ts";
 import { lastAction } from "./inspect.ts";
+import { issueItems, openTitle } from "./open.ts";
 
 type Section = CanvasBoardView["sections"][number];
 type TableSection = Extract<Section, { kind: "table" }>;
@@ -134,7 +135,8 @@ const KIND_CHIP: Partial<Record<PrClass, string>> = {
 // What waits on osdu-spi itself; drawn only while something is open.
 function openPrs(model: Model, now: Date, selected: string | undefined): Section | undefined {
   const prs = model.template.prs;
-  if (prs.length === 0) return undefined;
+  const issues = model.work.template.read ? issueItems(model.work.template, now) : [];
+  if (prs.length === 0 && issues.length === 0) return undefined;
   const ids = new Set(model.queue.items.map((i) => i.id));
   const items: Row[] = prs.map((p) => {
     const id = p.cls === "release" ? "releases" : templatePrId(p.pr);
@@ -151,7 +153,12 @@ function openPrs(model: Model, now: Date, selected: string | undefined): Section
       ...(action && id === selected ? { selected: true } : {}),
     };
   });
-  return { kind: "rows", title: `Open on osdu-spi · ${prs.length}`, items };
+  const issueCount = Object.values(model.work.template.issues).reduce((n, l) => n + l.length, 0);
+  return {
+    kind: "rows",
+    title: openTitle("osdu-spi", prs.length, issueCount),
+    items: [...items, ...issues],
+  };
 }
 
 const CHANGE_PREFIX = /^(\w+)(\([^)]*\))?!?:\s*/;

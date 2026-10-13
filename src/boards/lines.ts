@@ -232,7 +232,7 @@ function tiles(model: Model): Section {
         gates.measured,
         () => `${plural(gates.release.n, "release")} cut in ${HISTORY_DAYS} d`,
       ),
-      workStat(model.work),
+      workStat(model.work.forks),
     ],
   };
 }
@@ -322,9 +322,9 @@ function workRowCells(row: WorkRow, now: Date): Record<string, Cell> {
 }
 
 function workTable(model: Model, now: Date): Section {
-  const short = model.work.filter((r) => r.unreadPrs > 0 || r.unreadIssues > 0);
+  const short = model.work.forks.filter((r) => r.unreadPrs > 0 || r.unreadIssues > 0);
   const caption = [
-    "Open work · every open PR and issue, one row per repository",
+    "Open work · every open PR and issue, one row per fork",
     ...short.map(
       (r) =>
         `${r.name}: ${[r.unreadPrs ? plural(r.unreadPrs, "PR") : undefined, r.unreadIssues ? plural(r.unreadIssues, "issue") : undefined].filter(Boolean).join(" and ")} past the page, not counted`,
@@ -334,7 +334,7 @@ function workTable(model: Model, now: Date): Section {
     kind: "table",
     caption,
     columns: [
-      { key: "repo", label: "repository" },
+      { key: "repo", label: "fork" },
       { key: "people", label: "people PRs" },
       { key: "bots", label: "Dependabot" },
       { key: "pipeline", label: "pipeline PRs" },
@@ -342,7 +342,7 @@ function workTable(model: Model, now: Date): Section {
       { key: "automation", label: "automation issues" },
       { key: "oldest", label: "oldest people PR" },
     ],
-    rows: model.work.map((row) => workRowCells(row, now)),
+    rows: model.work.forks.map((row) => workRowCells(row, now)),
   };
 }
 

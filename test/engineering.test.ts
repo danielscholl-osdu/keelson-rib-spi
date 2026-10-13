@@ -38,7 +38,13 @@ function model(edit?: (f: Facts) => void) {
 
 describe("the engineering system panel", () => {
   test("leads with the release and the rollout", () => {
-    const b = engineeringBoard(model(), FIXTURE_NOW);
+    const b = engineeringBoard(
+      model((f) => {
+        const repo = f.github.data?.repos["Azure/osdu-spi"];
+        if (repo) repo.issues = [];
+      }),
+      FIXTURE_NOW,
+    );
     expect(() => expectView(ENGINEERING_KEY, "board")(b)).not.toThrow();
     expect(b.header?.status).toEqual({ label: "v1.3.0 ON 0 OF 5", tone: "info" });
     const tiles = b.sections[0];
@@ -58,8 +64,10 @@ describe("the engineering system panel", () => {
 
   test("the ladder names each step by release and says no PR carries the newest yet", () => {
     const b = engineeringBoard(model(), FIXTURE_NOW);
-    const ladder = b.sections[1];
-    if (ladder?.kind !== "rows") throw new Error("ladder second");
+    const ladder = b.sections.find(
+      (s) => s.kind === "rows" && s.title?.startsWith("Release ladder"),
+    );
+    if (ladder?.kind !== "rows") throw new Error("ladder");
     expect(ladder.items.map((i) => [i.chip?.label, i.trailing])).toEqual([
       ["v1.3.0", "0 of 5 · no PR carries it yet"],
       ["v1.2.0 +2", "1 of 5 · 4 waiting"],
@@ -185,12 +193,19 @@ describe("the engineering system panel", () => {
     expect(tiles.items[0]?.sub).toContain("main is the release · 1 PR merged since ·");
     const open = b.sections[1];
     if (open?.kind !== "rows") throw new Error("open PRs under the tiles");
-    expect(open.title).toBe("Open on osdu-spi · 3");
-    expect(open.items.map((i) => [i.chip?.label, i.text])).toEqual([
+    expect(open.title).toBe("Open on osdu-spi · 3 PRs · 7 issues");
+    expect(open.items.slice(0, 5).map((i) => [i.chip?.label, i.text])).toEqual([
       ["Dependabot", "#260 build(deps): bump spring-boot"],
       ["release", "#261 chore: release 1.3.1"],
       ["feature", "#262 build(deps): bump spring-boot"],
+      [
+        "bug",
+        "#250 validate: duplicate PR runs push the same image tag and break the deploy lane pin",
+      ],
+      ["bug", "#245 Template sync skips file removal when the template tip is unchanged"],
     ]);
+    expect(open.items).toHaveLength(10);
+    expect(open.items[5]?.href).toBe("https://github.com/Azure/osdu-spi/issues/241");
     expect(open.items[0]).toMatchObject({
       action: { type: "inspect", payload: { id: "template-pr:260" } },
       selected: true,

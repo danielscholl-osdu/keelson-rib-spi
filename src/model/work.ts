@@ -88,11 +88,17 @@ function workRow(repo: string, name: string, fact: RepoFact | undefined): WorkRo
   };
 }
 
+export interface WorkModel {
+  template: WorkRow;
+  stack: WorkRow;
+  forks: WorkRow[];
+}
+
 // Every open PR and issue on every repository, whether or not it sits on a line.
-export function buildWork(repos: Record<string, RepoFact>): WorkRow[] {
-  return [
-    workRow(TEMPLATE_REPO, "template", repos[TEMPLATE_REPO]),
-    workRow(STACK_REPO, "stack", repos[STACK_REPO]),
-    ...FORKS.map((f) => workRow(f.repo, f.id, repos[f.repo])),
-  ];
+export function buildWork(repos: Record<string, RepoFact>): WorkModel {
+  return {
+    template: workRow(TEMPLATE_REPO, "osdu-spi", repos[TEMPLATE_REPO]),
+    stack: workRow(STACK_REPO, "osdu-spi-stack", repos[STACK_REPO]),
+    forks: FORKS.map((f) => workRow(f.repo, f.id, repos[f.repo])),
+  };
 }
