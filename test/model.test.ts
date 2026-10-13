@@ -60,7 +60,7 @@ describe("the fleet on 12 October", () => {
   test("template-sync PRs blocked only by the stack wait as one set", () => {
     const set = model.queue.items.find((i) => i.id === "template-set");
     expect(set?.rung).toBe(2);
-    expect(set?.text).toContain("5 template-sync PRs to v1.2.1 (unreleased)");
+    expect(set?.text).toContain("5 template-sync PRs to v1.2.1");
     expect(set?.text).toContain("once the stack is deployable");
   });
 
@@ -79,7 +79,7 @@ describe("the fleet on 12 October", () => {
     expect(lanes?.text).toBe("deployable again; 5 fork lanes failed before it recovered");
     expect(lanes?.note).toBe("re-run now");
     expect(items.find((i) => i.id === "template-set")?.text).toBe(
-      "5 template-sync PRs to v1.2.1 (unreleased) · mergeable together after the lane re-run · review required",
+      "5 template-sync PRs to v1.2.1 · mergeable together after the lane re-run · review required",
     );
   });
 
@@ -114,11 +114,11 @@ describe("the fleet on 12 October", () => {
     expect(model.template.next).toBe("v1.2.1");
     expect(template("partition")).toMatchObject({
       label: "v1.2.0",
-      target: "v1.2.1 (unreleased)",
+      target: "v1.2.1",
     });
     expect(template("schema")).toMatchObject({
       label: "v1.2.0 +2",
-      target: "v1.2.1 (unreleased)",
+      target: "v1.2.1",
     });
   });
 
@@ -131,7 +131,7 @@ describe("the fleet on 12 October", () => {
     expect(line?.template).toMatchObject({ label: "v1.2.0", target: "main" });
   });
 
-  test("a fork already on main past the tag is on the unreleased release", () => {
+  test("a fork already on main past the tag is on the release main will become", () => {
     const f = fixtureFacts();
     const repo = f.github.data?.repos["Azure/osdu-spi-file"];
     const head = f.github.data?.repos["Azure/osdu-spi"]?.head?.sha;
@@ -141,7 +141,7 @@ describe("the fleet on 12 October", () => {
     repo.prs = repo.prs.filter((p) => !p.head.startsWith("template-sync/"));
     compares[head] = { marker: head, head, label: "v1.2.0 +14", aheadBy: 0, shas: [], changes: [] };
     const line = buildModel(f, FIXTURE_NOW).lines.find((l) => l.fork.id === "file");
-    expect(line?.template.label).toBe("v1.2.1 (unreleased)");
+    expect(line?.template.label).toBe("v1.2.1");
     expect(line?.pill.kind).toBe("current");
   });
 

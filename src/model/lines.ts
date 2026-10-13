@@ -149,9 +149,9 @@ function pastTag(label: string | undefined): boolean {
 }
 
 // Template main past its last tag reads as the release its open release PR will cut.
-function unreleased(label: string | undefined, next: string | undefined, atHead: boolean) {
+function asRelease(label: string | undefined, next: string | undefined, atHead: boolean) {
   if (!pastTag(label)) return label;
-  if (next) return `${next} (unreleased)`;
+  if (next) return next;
   return atHead ? "main" : label;
 }
 
@@ -391,8 +391,6 @@ export function buildLine(input: {
     pill = pillOf("lag unmeasured", "unmeasured");
   } else if (templateBehind === undefined) {
     pill = pillOf("template unmeasured", "unmeasured");
-  } else if (releasePr) {
-    pill = pillOf("release ready", "current", "info");
   } else {
     pill = pillOf("current", "current");
   }
@@ -428,11 +426,11 @@ export function buildLine(input: {
     lane,
     template: {
       marker,
-      label: atHead ? unreleased(compare?.label, templateNext, true) : compare?.label,
+      label: atHead ? asRelease(compare?.label, templateNext, true) : compare?.label,
       behind: templateBehind,
       target:
         targetSha && targetSha !== marker
-          ? unreleased(targets[targetSha], templateNext, targetSha === templateHead?.sha)
+          ? asRelease(targets[targetSha], templateNext, targetSha === templateHead?.sha)
           : undefined,
       awaitingRun,
     },

@@ -41,14 +41,19 @@ Service lines is one row per fork, and its state is the line's worst. Red means
 main is red, or the line stopped with nothing open to act on: a sync halt, a
 failed Sync Template run, or no template-sync PR. Amber means an open PR fails
 on a real failure. Blue means an update waits on review or the stack, and
-`current` means caught up with upstream and on the latest template. The header
+`current` means caught up with upstream and on the latest template; a release PR
+waiting on a current line shows in its release column, not its state. Each
+station cell wears the same colors: green ✓ where the station is current, blue ◷
+where it waits, amber or red ✕ where it failed. The header
 turns red only for a red main, since a halt or a failing PR is work to do while
 the service still builds.
 
 A template-sync PR shows the version the fork is on and the one the PR moves it
 to, so a jump across several releases is visible before anyone merges it. When
 osdu-spi main is past its last tag, the target reads as the release its open
-release PR will tag, for example `v1.2.0 → v1.2.1 (unreleased)`.
+release PR will tag, for example `v1.2.0 → v1.2.1` while the osdu-spi release PR
+for 1.2.1 is open. A release PR reads the same way, `v1.3.1 → v1.3.2`, and each
+template change below the table names the forks still missing it.
 
 ## Services
 

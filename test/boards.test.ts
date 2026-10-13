@@ -123,8 +123,9 @@ describe("what the boards say", () => {
         ? String(cell.value).replaceAll("\u00a0", " ")
         : cell;
     const row = (svc: string) => table.rows.find((r) => text(r.service) === svc);
-    expect(text(row("partition")?.template)).toBe("◷ PR #174 · v1.2.0 → v1.2.1 (unreleased)");
-    expect(text(row("schema")?.template)).toBe("◷ PR #37 · v1.2.0 +2 → v1.2.1 (unreleased)");
+    expect(text(row("partition")?.template)).toBe("◷ PR #174 · v1.2.0 → v1.2.1");
+    expect(text(row("schema")?.template)).toBe("◷ PR #37 · v1.2.0 +2 → v1.2.1");
+    expect(text(row("partition")?.upstream)).toBe("✓ current");
     expect(text(row("entitlements")?.upstream)).toBe("✕ halted · 2 behind");
     expect(text(row("legal")?.upstream)).toBe("✕ PR #31 failing · 4 behind");
     const tone = (cell: unknown) =>
@@ -132,16 +133,61 @@ describe("what the boards say", () => {
     expect(tone(row("entitlements")?.upstream)).toBe("error");
     expect(tone(row("legal")?.upstream)).toBe("warn");
     expect(tone(row("partition")?.template)).toBe("info");
+    expect(tone(row("partition")?.upstream)).toBe("ok");
+    expect(tone(row("partition")?.release)).toBe("ok");
     expect(text(row("partition")?.release)).toBe("✓ v1.3.1 · 6d");
     expect(row("legal")?.notes).toContain("upstream requires Java 25");
     expect(row("partition")?.notes).toBe("");
     const changes = b.sections[1];
     if (changes?.kind !== "rows") throw new Error("change list second");
     expect(changes.title).toBe(
-      "Template changes not on every fork · v1.2.1 (unreleased), 14 commits past v1.2.0",
+      "Template changes not on every fork · v1.2.1, 14 commits past v1.2.0",
     );
-    expect(changes.items.find((i) => i.text.endsWith("(#247)"))?.trailing).toStartWith(
-      "all but schema",
+    const trailing = (pr: number) =>
+      changes.items.find((i) => i.text.endsWith(`(#${pr})`))?.trailing;
+    expect(trailing(247)).toStartWith("missing on partition, entitlements, legal and file · ");
+    expect(trailing(252)).toStartWith("missing on all 5 forks · ");
+  });
+
+  test("a fork that took the template reads current, with its release PR as a version move", () => {
+    const f = fixtureFacts();
+    const repos = f.github.data?.repos;
+    const file = repos?.["Azure/osdu-spi-file"];
+    const template = repos?.["Azure/osdu-spi"];
+    const head = template?.head?.sha;
+    const compares = f.template.data?.compares;
+    const release = template?.prs.find((p) => p.head.startsWith("release-please--"));
+    if (!file || !head || !compares || !release)
+      throw new Error("fixture has file and the template");
+    file.marker = head;
+    file.prs = [
+      ...file.prs.filter((p) => !p.head.startsWith("template-sync/")),
+      {
+        ...release,
+        repo: "Azure/osdu-spi-file",
+        number: 60,
+        title: "chore: release 1.2.1",
+        url: "https://github.com/Azure/osdu-spi-file/pull/60",
+      },
+    ];
+    compares[head] = { marker: head, head, label: "v1.2.0 +14", aheadBy: 0, shas: [], changes: [] };
+    const b = linesBoard(buildModel(f, FIXTURE_NOW), FIXTURE_NOW);
+    const table = b.sections[0];
+    if (table?.kind !== "table") throw new Error("table first");
+    const text = (cell: unknown) =>
+      typeof cell === "object" && cell !== null && "value" in cell
+        ? String(cell.value).replaceAll("\u00a0", " ")
+        : cell;
+    const row = table.rows.find((r) => text(r.service) === "file");
+    expect(row?.state).toEqual({ badges: [{ text: "current", tone: "ok" }] });
+    expect(row?.template).toMatchObject({ tone: "ok" });
+    expect(text(row?.template)).toBe("✓ v1.2.1");
+    expect(text(row?.release)).toStartWith("◷ PR #60 · v1.2.0 → v1.2.1");
+    expect(b.header?.chip).toStartWith("main green on all 5 forks · 1 current · ");
+    const changes = b.sections[1];
+    if (changes?.kind !== "rows") throw new Error("change list second");
+    expect(changes.items.find((i) => i.text.endsWith("(#252)"))?.trailing).toStartWith(
+      "missing on partition, entitlements, legal and schema · ",
     );
   });
 

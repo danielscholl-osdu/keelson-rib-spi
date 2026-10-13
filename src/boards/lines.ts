@@ -82,7 +82,7 @@ function upstreamCell(line: LineModel): Cell {
   }
   if (lag === undefined) return "?";
   if (lag > 0) return station(`◷ ${lag} behind`, "info");
-  return station("✓ caught up");
+  return station("✓ current", "ok");
 }
 
 // The version a fork is on and, with a template-sync PR open, the one it moves to.
@@ -96,7 +96,7 @@ function templateCell(line: LineModel, now: Date): Cell {
   }
   const { behind, label, target, awaitingRun } = line.template;
   if (behind === undefined) return "?";
-  if (behind === 0) return station(`✓ ${label ?? "current"}`);
+  if (behind === 0) return station(`✓ ${label ?? "current"}`, "ok");
   const pr = line.templatePr;
   if (awaitingRun) return station(`◷ ${label ?? "?"} · ${behind} behind`, "info");
   if (!pr) return station(`✕ ${label ?? "?"} · ${behind} behind, no PR`, "error");
@@ -124,13 +124,20 @@ function releaseCell(line: LineModel, now: Date): Cell {
   const next = line.releasePr;
   if (next) {
     const version = /release\s+v?(\S+)/i.exec(next.pr.title)?.[1];
-    return prStation(next, `release PR #${next.pr.number}${version ? ` · ${version}` : ""}`);
+    const from = line.release?.tag;
+    const to = version
+      ? `${from === undefined || from.startsWith("v") ? "v" : ""}${version}`
+      : undefined;
+    const move = to ? (from ? ` · ${from} → ${to}` : ` · first release ${to}`) : "";
+    return prStation(next, `PR #${next.pr.number}${move}`);
   }
   if (!line.runsRead) return "?";
   const release = line.release
     ? `${line.release.tag} · ${since(line.release.at, now)}`
     : "no release yet";
-  return station(`${line.mainRun ? "✓ " : ""}${release}`, undefined, line.release?.url);
+  return line.mainRun
+    ? station(`✓ ${release}`, "ok", line.release?.url)
+    : station(release, undefined, line.release?.url);
 }
 
 function names(list: readonly string[]): string {
@@ -151,17 +158,15 @@ function changeTone(title: string): CanvasTone {
   return "neutral";
 }
 
-// "all 5 forks", "all but schema", or the forks still missing it.
 function missingText(missing: readonly string[], forks: readonly string[]): string {
-  if (missing.length === forks.length) return `all ${forks.length} forks`;
-  const have = forks.filter((f) => !missing.includes(f));
-  if (have.length === 1) return `all but ${have[0]}`;
-  return missing.length <= 2 ? names(missing) : plural(missing.length, "fork");
+  return missing.length === forks.length
+    ? `missing on all ${forks.length} forks`
+    : `missing on ${names(missing)}`;
 }
 
 function changesSection(t: TemplateModel, forks: readonly string[], now: Date): RowsSection {
   const ahead = `${plural(t.mainAhead ?? t.commits, "commit")} past ${t.latestTag ?? "the last tag"}`;
-  const title = `Template changes not on every fork · ${t.next ? `${t.next} (unreleased)` : "osdu-spi main"}, ${ahead}`;
+  const title = `Template changes not on every fork · ${t.next ?? "osdu-spi main"}, ${ahead}`;
   const shown = t.changes.slice(0, CHANGES_SHOWN);
   const rest = t.changes.length - shown.length;
   return {
