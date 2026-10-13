@@ -285,8 +285,12 @@ export class Sweeper {
       this.area("template", () => readTemplate(gh, repos, this.cache.template)),
       this.area("details", () => this.readDetails(gh, repos)),
     ]);
+    const upstream = this.facts.upstream.data;
     const gitlabDue =
-      force || !this.facts.upstream.data || started.getTime() - this.gitlabAt >= GITLAB_EVERY_MS;
+      force ||
+      !upstream ||
+      FORKS.some((f) => !upstream[f.id]) ||
+      started.getTime() - this.gitlabAt >= GITLAB_EVERY_MS;
     if (gitlabDue) {
       const ok = await this.area("upstream", () => readUpstream(glab, repos, this.cache.upstream));
       if (ok) this.gitlabAt = started.getTime();

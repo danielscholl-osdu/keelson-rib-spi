@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { RibExec } from "@keelson/shared";
 import { engineeringBoard } from "../src/boards/engineering";
 import { emptyFacts, type LifecycleRun } from "../src/facts";
@@ -202,6 +205,22 @@ describe("the in-flight poll", () => {
     expect(sweeper.hasInflight()).toBe(false);
     expect(cell()).toMatch(/^● \d\d:\d\d$/);
     expect(sweeper.facts.sweep?.at).toBe(FIXTURE_NOW.toISOString());
+  });
+
+  test("a fork GitLab has not been read for is read on the next sweep, not after the cadence", async () => {
+    const glabCalls = async (drop: string | undefined) => {
+      const store = new Store(mkdtempSync(join(tmpdir(), "rib-spi-test-")));
+      const facts = fixtureFacts();
+      facts.upstream.at = FIXTURE_NOW.toISOString();
+      if (drop) delete facts.upstream.data?.[drop];
+      store.write("facts.json", facts);
+      const exec = failingExec();
+      const sweeper = new Sweeper({ exec, store, onChange: () => {}, now: () => FIXTURE_NOW });
+      await sweeper.sweep();
+      return exec.calls.filter((c) => c.cmd === "glab" && c.args[0] === "api").length;
+    };
+    expect(await glabCalls(undefined)).toBe(0);
+    expect(await glabCalls("file")).toBeGreaterThan(0);
   });
 
   test("a sweep with gh and glab unreachable records errors and keeps rendering", async () => {
