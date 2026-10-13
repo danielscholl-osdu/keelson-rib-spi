@@ -15,7 +15,7 @@ import type {
   TemplateChange,
   TemplateFacts,
 } from "../facts.ts";
-import { classifyPr, type Failure, type PrClass } from "./attribution.ts";
+import { classifyPr, type Failure, type PrClass, prFailures } from "./attribution.ts";
 import { type PrVerdict, prReady, prVerdict } from "./checks.ts";
 import type { LineModel } from "./lines.ts";
 import { nextFire, toCrons } from "./schedule.ts";
@@ -44,6 +44,7 @@ export interface TemplatePr {
   pr: PrFact;
   cls: PrClass;
   verdict: PrVerdict;
+  failures: Failure[];
 }
 
 // Merged PRs since the newest release, or, when none, the ones that release took.
@@ -265,7 +266,11 @@ export function buildTemplate(
   templateRepo: RepoFact | undefined,
   facts: TemplateFacts | undefined,
   lines: readonly LineModel[],
-  opts: { syncCrons?: readonly string[]; now?: Date } = {},
+  opts: {
+    syncCrons?: readonly string[];
+    now?: Date;
+    details?: Parameters<typeof prFailures>[1];
+  } = {},
 ): TemplateModel {
   const compares = facts?.compares ?? {};
   const latestTag = facts?.latestTag ?? templateRepo?.release?.tag;
@@ -335,11 +340,10 @@ export function buildTemplate(
     onRelease: read.filter((r) => r.behind === 0 || (positionCmp(r.label, latestTag) ?? -1) >= 0)
       .length,
     read: read.length,
-    prs: (templateRepo?.prs ?? []).map((pr) => ({
-      pr,
-      cls: classifyPr(pr),
-      verdict: prVerdict(pr),
-    })),
+    prs: (templateRepo?.prs ?? []).map((pr) => {
+      const { prClass, failures } = prFailures(pr, opts.details ?? {});
+      return { pr, cls: prClass, verdict: prVerdict(pr), failures };
+    }),
     ...(merged ? { merged } : {}),
     ...(fire !== undefined ? { nextSync: new Date(fire).toISOString() } : {}),
   };

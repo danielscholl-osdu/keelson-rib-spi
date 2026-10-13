@@ -11,7 +11,9 @@ import type { ActionEntry } from "../act/log.ts";
 import { heldText, rolloutActions, rolloutTargets } from "../act/rollout.ts";
 import { writeBlocked } from "../act/verbs.ts";
 import { FORKS, githubUrl, TEMPLATE_REPO } from "../config.ts";
+import type { PrClass } from "../model/attribution.ts";
 import type { Model } from "../model/index.ts";
+import { templatePrId, templatePrState } from "../model/queue.ts";
 import { ownFailure, type TemplateRow, type TemplateStep } from "../model/template.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
 import { clip, plural, since, span, stamp, zoned } from "../util.ts";
@@ -55,9 +57,14 @@ function releaseStat(model: Model, now: Date): Stat {
     head?.head && older && head.changes.length > 0
       ? `${plural(head.changes.length, "change")} past ${older.label}`
       : undefined;
+  const merged =
+    t.merged?.after && t.merged.n > 0
+      ? `${plural(t.merged.n, "PR")} merged since${t.merged.dependabot ? `, ${t.merged.dependabot} from Dependabot` : ""}`
+      : undefined;
   const sub = [
     t.release?.tag === tag ? `released ${stamp(t.release.at, now)}` : undefined,
     main,
+    merged,
     next,
     past,
   ]
@@ -117,36 +124,33 @@ function rolloutStat(model: Model, now: Date): Stat {
   };
 }
 
-function templatePrsStat(model: Model, now: Date): Stat {
-  const t = model.template;
-  const label = "Template PRs · osdu-spi";
-  const merged = t.merged;
-  const mergedText = merged
-    ? merged.after
-      ? `${merged.n} merged since ${merged.tag}${merged.dependabot ? ` · ${merged.dependabot} from Dependabot` : ""}`
-      : `${merged.tag} took ${plural(merged.n, "merged PR")}${merged.dependabot ? ` · ${merged.dependabot} from Dependabot` : ""}`
-    : undefined;
-  if (t.prs.length === 0) {
-    return { label, value: "none open", tone: "ok", ...(mergedText ? { sub: mergedText } : {}) };
-  }
-  const red = t.prs.filter((p) => p.verdict === "red").length;
-  const bots = t.prs.filter((p) => p.cls === "dependabot").length;
-  const review = t.prs.filter((p) => p.pr.reviewDecision === "REVIEW_REQUIRED").length;
-  const release = t.prs.find((p) => p.cls === "release");
-  const oldest = [...t.prs].sort(
-    (a, b) => Date.parse(a.pr.createdAt) - Date.parse(b.pr.createdAt),
-  )[0];
-  const sub = [
-    release ? `release PR #${release.pr.number}` : undefined,
-    bots ? `${bots} from Dependabot` : undefined,
-    red ? `${red} failing` : undefined,
-    review ? `${review} need review` : undefined,
-    oldest ? `oldest ${since(oldest.pr.createdAt, now)}` : undefined,
-    mergedText,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  return { label, value: `${t.prs.length} open`, tone: red ? "warn" : "info", sub };
+const KIND_CHIP: Partial<Record<PrClass, string>> = {
+  dependabot: "Dependabot",
+  release: "release",
+  agent: "agent",
+};
+
+// What waits on osdu-spi itself; drawn only while something is open.
+function openPrs(model: Model, now: Date, selected: string | undefined): Section | undefined {
+  const prs = model.template.prs;
+  if (prs.length === 0) return undefined;
+  const ids = new Set(model.queue.items.map((i) => i.id));
+  const items: Row[] = prs.map((p) => {
+    const id = p.cls === "release" ? "releases" : templatePrId(p.pr);
+    const action = !p.pr.draft && ids.has(id);
+    const state = p.pr.draft ? "draft" : templatePrState(p.pr, p.failures);
+    return {
+      chip: {
+        label: KIND_CHIP[p.cls] ?? "feature",
+        tone: p.verdict === "red" ? "warn" : p.cls === "release" ? "info" : "neutral",
+      },
+      text: `#${p.pr.number} ${p.pr.title}`,
+      trailing: `${state} · ${since(p.pr.createdAt, now)}`,
+      ...(action ? { action: { type: INSPECT_ACTION, payload: { id } } } : { href: p.pr.url }),
+      ...(action && id === selected ? { selected: true } : {}),
+    };
+  });
+  return { kind: "rows", title: `Open on osdu-spi · ${prs.length}`, items };
 }
 
 const CHANGE_PREFIX = /^(\w+)(\([^)]*\))?!?:\s*/;
@@ -354,9 +358,11 @@ export function engineeringBoard(
   const sections: Section[] = [
     {
       kind: "stats",
-      items: [releaseStat(model, now), rolloutStat(model, now), templatePrsStat(model, now)],
+      items: [releaseStat(model, now), rolloutStat(model, now)],
     },
   ];
+  const open = openPrs(model, now, opts.selected);
+  if (open) sections.push(open);
   const steps = ladder(model, opts.selected);
   if (steps) sections.push(steps);
   sections.push(rollout(model, now));

@@ -6,7 +6,7 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-import { forkOf, githubUrl, shortRepo } from "../config.ts";
+import { forkOf, githubUrl, shortRepo, TEMPLATE_REPO } from "../config.ts";
 import type { OutsidePr, PrFact, RepoFact, WaitingRun } from "../facts.ts";
 import { plural, releaseTag, short, stamp } from "../util.ts";
 import {
@@ -62,6 +62,7 @@ export type ItemKind =
   | "template-set"
   | "release-red"
   | "releases"
+  | "template-pr"
   | "bump";
 
 // The entries a halt names, for checking whether other forks will halt on them too.
@@ -710,6 +711,50 @@ function releaseItems(
   return items;
 }
 
+// What a template PR waits on, in the words the banner and the panel use.
+export function templatePrState(pr: PrFact, failures: readonly Failure[]): string {
+  const real = failures.filter((f) => !f.hidden && f.cls !== "POLICY");
+  if (real[0]) return `fails ${real[0].check}`;
+  if (prVerdict(pr) === "pending") return "checks running";
+  if (pr.reviewDecision === "CHANGES_REQUESTED") return "changes requested";
+  if (pr.reviewDecision === "REVIEW_REQUIRED") return "review required";
+  return prReady(pr, failures) ? "ready to merge" : "open";
+}
+
+export function templatePrId(pr: PrFact): string {
+  return `template-pr:${pr.number}`;
+}
+
+// A change waiting to enter the engineering system. The release PR rides with the
+// fleet's release PRs, and a draft waits on its author.
+function templatePrItems(
+  templateRepo: RepoFact | undefined,
+  details: Parameters<typeof prFailures>[1],
+  now: Date,
+): QueueItem[] {
+  const items: QueueItem[] = [];
+  for (const pr of templateRepo?.prs ?? []) {
+    const { prClass, failures } = prFailures(pr, details);
+    if (prClass === "release" || pr.draft) continue;
+    const red = failures.find((f) => !f.hidden && f.cls !== "POLICY");
+    items.push({
+      id: templatePrId(pr),
+      kind: "template-pr",
+      rung: red ? 1 : 2,
+      scope: repoName(pr.repo),
+      text: `${CLASS_LABEL[prClass]} #${pr.number} ${pr.title} · ${templatePrState(pr, failures)}`,
+      since: pr.createdAt,
+      url: pr.url,
+      effects: [{ text: "every fork takes it at the next Sync Template after it merges" }],
+      cause: prFacts({ pr, prClass, failures }, now),
+      ...(red ? { cls: red.cls } : {}),
+      incident: false,
+      blocks: 0,
+    });
+  }
+  return items;
+}
+
 export function diffText(pr: OutsidePr): string {
   return `${plural(pr.changedFiles, "file")} · +${pr.additions} −${pr.deletions}`;
 }
@@ -852,6 +897,7 @@ export function buildQueue(input: {
   const set = templateSetItem(template, lines, stack, now);
   if (set) items.push(set);
   items.push(...releaseItems(repos, details, now));
+  items.push(...templatePrItems(repos[TEMPLATE_REPO], details, now));
   const bump = bumpItem(stack);
   if (bump) items.push(bump);
 

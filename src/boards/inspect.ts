@@ -39,6 +39,7 @@ export const KIND_TITLE: Record<ItemKind, string> = {
   "template-set": "template-sync set",
   "release-red": "release PR failing",
   releases: "release PRs",
+  "template-pr": "osdu-spi PR",
   bump: "env bump",
 };
 

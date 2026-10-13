@@ -57,6 +57,7 @@ export function buildModel(facts: Facts, now: Date): Model {
   const template = buildTemplate(templateRepo, facts.template.data, lines, {
     syncCrons: [...new Set(FORKS.flatMap((f) => repos[f.repo]?.syncCrons ?? []))],
     now,
+    details,
   });
   const queue = buildQueue({
     stack,

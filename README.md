@@ -85,9 +85,11 @@ The Engineering system panel treats the `osdu-spi` template as the one shared
 input it is. **Release** is the newest release and how many forks are on it,
 whether main is the release, and the version an open release PR will cut.
 **Rollout** is the oldest open template-sync PR, what the open set carries, the
-next scheduled Sync Template and the usual merge wait. **Template PRs** is what
-waits on `osdu-spi` itself, Dependabot and the release PR included, and what
-merged since the release. A template commit is named by the newest release it
+next scheduled Sync Template and the usual merge wait. While PRs are open on
+`osdu-spi` itself, Dependabot and the release PR included, a list under the
+tiles names each with its checks, review and age. Each one also waits in the
+banner (P2, or P1 when red; the release PR rides with the fleet's release PRs,
+and a draft waits on its author), so the tab keeps one queue. A template commit is named by the newest release it
 contains, `v1.2.0 +14`, so forks and PRs read against releases even after a
 newer one is cut.
 

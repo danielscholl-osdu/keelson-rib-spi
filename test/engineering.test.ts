@@ -37,17 +37,14 @@ function model(edit?: (f: Facts) => void) {
 }
 
 describe("the engineering system panel", () => {
-  test("leads with the release, the rollout and the template's own PRs", () => {
+  test("leads with the release and the rollout", () => {
     const b = engineeringBoard(model(), FIXTURE_NOW);
     expect(() => expectView(ENGINEERING_KEY, "board")(b)).not.toThrow();
     expect(b.header?.status).toEqual({ label: "v1.3.0 ON 0 OF 5", tone: "info" });
     const tiles = b.sections[0];
     if (tiles?.kind !== "stats") throw new Error("tiles first");
-    expect(tiles.items.map((i) => i.label)).toEqual([
-      "Release",
-      "Rollout · oldest PR",
-      "Template PRs · osdu-spi",
-    ]);
+    expect(tiles.items.map((i) => i.label)).toEqual(["Release", "Rollout · oldest PR"]);
+    expect(b.sections.some((s) => s.kind === "rows" && s.title?.startsWith("Open on"))).toBe(false);
     expect(tiles.items[0]).toMatchObject({
       value: "v1.3.0",
       delta: { text: "on 0 of 5 forks", tone: "info" },
@@ -57,11 +54,6 @@ describe("the engineering system panel", () => {
     expect(tiles.items[1]?.sub).toMatch(
       /^5 PRs carry v1\.2\.0 \+14 · next Sync Template 10-13 \d\d:00 · usually merged in /,
     );
-    expect(tiles.items[2]).toMatchObject({
-      value: "none open",
-      tone: "ok",
-      sub: "v1.3.0 took 2 merged PRs · 1 from Dependabot",
-    });
   });
 
   test("the ladder names each step by release and says no PR carries the newest yet", () => {
@@ -152,7 +144,7 @@ describe("the engineering system panel", () => {
     expect(gone.header?.status?.label).toBe("MOVED");
   });
 
-  test("open PRs on osdu-spi itself show with their verdicts", () => {
+  test("open PRs on osdu-spi list in the panel and wait in the banner", () => {
     const m = model((f) => {
       const repo = f.github.data?.repos["Azure/osdu-spi"];
       repo?.prs.push(
@@ -163,12 +155,63 @@ describe("the engineering system panel", () => {
           author: "osdu-spi-automation",
           title: "chore: release 1.3.1",
         },
+        { ...dependabotPr("Azure/osdu-spi", 262), head: "feat/x", author: "someone", draft: true },
       );
+      if (repo)
+        repo.pastPrs?.push({
+          number: 259,
+          title: "feat: y",
+          url: "",
+          head: "feat/y",
+          base: "main",
+          createdAt: "2026-10-12T21:10:00Z",
+          mergedAt: "2026-10-12T21:30:00Z",
+        });
     });
-    expect(m.template.prs.map((p) => p.cls)).toEqual(["dependabot", "release"]);
-    const tiles = engineeringBoard(m, FIXTURE_NOW).sections[0];
+    const item = m.queue.items.find((i) => i.id === "template-pr:260");
+    expect(item).toMatchObject({
+      kind: "template-pr",
+      rung: 2,
+      scope: "osdu-spi",
+      text: "Dependabot PR #260 build(deps): bump spring-boot · review required",
+    });
+    expect(m.queue.items.some((i) => i.id === "template-pr:262")).toBe(false);
+    expect(m.queue.items.find((i) => i.id === "releases")?.text).toContain("osdu-spi v1.3.1");
+    const b = engineeringBoard(m, FIXTURE_NOW, { selected: "template-pr:260" });
+    expect(() => expectView(ENGINEERING_KEY, "board")(b)).not.toThrow();
+    const tiles = b.sections[0];
     if (tiles?.kind !== "stats") throw new Error("tiles");
-    expect(tiles.items[2]).toMatchObject({ value: "2 open", tone: "info" });
-    expect(tiles.items[2]?.sub).toStartWith("release PR #261 · 1 from Dependabot · 1 need review");
+    expect(tiles.items[0]?.sub).toContain("main is the release · 1 PR merged since ·");
+    const open = b.sections[1];
+    if (open?.kind !== "rows") throw new Error("open PRs under the tiles");
+    expect(open.title).toBe("Open on osdu-spi · 3");
+    expect(open.items.map((i) => [i.chip?.label, i.text])).toEqual([
+      ["Dependabot", "#260 build(deps): bump spring-boot"],
+      ["release", "#261 chore: release 1.3.1"],
+      ["feature", "#262 build(deps): bump spring-boot"],
+    ]);
+    expect(open.items[0]).toMatchObject({
+      action: { type: "inspect", payload: { id: "template-pr:260" } },
+      selected: true,
+    });
+    expect(open.items[1]?.action).toEqual({ type: "inspect", payload: { id: "releases" } });
+    expect(open.items[2]?.href).toBe("https://github.com/Azure/osdu-spi/pull/262");
+    expect(open.items[2]?.trailing).toStartWith("draft · ");
+    const insp = inspectBoard(m, { selected: "template-pr:260" }, FIXTURE_NOW);
+    expect(insp.header?.status?.label).toBe("READY");
+  });
+
+  test("a red PR on osdu-spi is a P1", () => {
+    const m = model((f) => {
+      f.github.data?.repos["Azure/osdu-spi"]?.prs.push({
+        ...dependabotPr("Azure/osdu-spi", 263),
+        checks: [
+          { id: 9, name: "Lint", workflow: "CI", status: "COMPLETED", conclusion: "FAILURE" },
+        ],
+      });
+    });
+    const item = m.queue.items.find((i) => i.id === "template-pr:263");
+    expect(item?.rung).toBe(1);
+    expect(item?.text).toEndWith("· fails Lint");
   });
 });
