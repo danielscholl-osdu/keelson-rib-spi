@@ -55,6 +55,32 @@ export interface IssueFact {
   halt?: string;
 }
 
+// A merged or closed PR, for the 21-day history of each line's gates.
+export interface PastPrFact {
+  number: number;
+  title: string;
+  url: string;
+  head: string;
+  base: string;
+  createdAt: string;
+  mergedAt?: string;
+  closedAt?: string;
+}
+
+export interface PastIssueFact {
+  number: number;
+  url: string;
+  createdAt: string;
+  closedAt?: string;
+  labels: string[];
+}
+
+export interface ReleaseFact {
+  tag: string;
+  at: string;
+  url: string;
+}
+
 export interface DeploymentFact {
   createdAt: string;
   ref?: string;
@@ -82,6 +108,11 @@ export interface RepoFact {
   prs: PrFact[];
   issues: IssueFact[];
   deployments: DeploymentFact[];
+  pastPrs?: PastPrFact[];
+  pastIssues?: PastIssueFact[];
+  releases?: ReleaseFact[];
+  // Cron expressions per lifecycle workflow, read from the workflow files on main.
+  schedules?: Partial<Record<LifecycleKind, string[]>>;
 }
 
 export interface GithubFacts {

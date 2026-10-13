@@ -20,13 +20,15 @@ export type PrClass =
   | "dependabot"
   | "human";
 
-export function classifyPr(pr: PrFact): PrClass {
+export function classifyPr(
+  pr: Pick<PrFact, "head"> & Partial<Pick<PrFact, "labels" | "author">>,
+): PrClass {
   const head = pr.head;
   const author = (pr.author ?? "").toLowerCase();
   if (head.startsWith("sync/upstream-")) return "sync";
   if (head.startsWith("release/upstream-")) return "cascade";
-  if (head.startsWith("template-sync/") || pr.labels.includes("template-sync")) return "template";
-  if (head.startsWith("release-please--") || pr.labels.includes("autorelease: pending")) {
+  if (head.startsWith("template-sync/") || pr.labels?.includes("template-sync")) return "template";
+  if (head.startsWith("release-please--") || pr.labels?.includes("autorelease: pending")) {
     return "release";
   }
   if (head.startsWith("env-bump/")) return "bump";

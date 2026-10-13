@@ -60,7 +60,7 @@ describe("what the boards say", () => {
     if (rows?.kind !== "rows") return;
     expect(rows.items[0]?.chip).toEqual({ label: "P0", tone: "error" });
     expect(rows.items[0]?.text).toStartWith(
-      "Shared stack · maintenance mode; env-upgrade v0.28.2 in verify",
+      "Environment · maintenance mode; env-upgrade v0.28.2 in verify",
     );
     expect(rows.items[0]?.detail).toContain("partition template-sync PR #174");
   });
@@ -101,68 +101,104 @@ describe("what the boards say", () => {
     expect(badge(model).count).toBe(p0 + p1);
   });
 
-  test("one row per fork, worst first, then the template ladder", () => {
+  test("services lead with gate tiles, then one row per fork, worst first, then fleet lanes", () => {
     const b = linesBoard(model, FIXTURE_NOW);
     expect(b.header?.status).toEqual({
       label: "1 HALTED · 1 BLOCKED · 3 UPDATES WAITING",
       tone: "warn",
     });
-    expect(b.header?.chip).toStartWith("main green on all 5 forks · 0 current · ");
-    const table = b.sections[0];
-    if (table?.kind !== "table") throw new Error("table first");
+    expect(b.header?.chip).toMatch(/^GitLab read \d\d:\d\d · \d\d:\d\d /);
+    expect(b.sections.map((s) => s.kind)).toEqual(["stats", "table", "rows"]);
+    const [tiles, table, fleet] = b.sections;
+    if (tiles?.kind !== "stats" || table?.kind !== "table" || fleet?.kind !== "rows")
+      throw new Error("tiles, table, fleet");
+    expect(tiles.items.map((i) => i.label)).toEqual([
+      "Upstream · oldest held",
+      "Template · oldest PR",
+      "Release · oldest PR",
+    ]);
+    expect(tiles.items[0]).toMatchObject({
+      clock: { at: "2026-10-08T00:08:17Z", mode: "since" },
+      tone: "warn",
+      sub: "upstream reaches main in 1 h 53 min at the median · 8 syncs in 21 d",
+    });
+    expect(tiles.items[1]?.sub).toBe(
+      "to v1.2.1 · template-sync PRs merge in 3 d 8 h at the median",
+    );
+    expect(tiles.items[2]).toMatchObject({
+      value: "none",
+      tone: "ok",
+      sub: "5 releases cut in 21 d",
+    });
     expect(table.columns.map((c) => c.label)).toEqual([
       "service",
-      "state",
       "upstream",
-      "template",
+      "sync",
+      "cascade",
+      "main",
       "release",
-      "notes",
+      "lane",
+      "template",
+      "21 days",
     ]);
     expect(table.caption).toBe("storage, indexer and search have no fork yet");
     const text = (cell: unknown) =>
       typeof cell === "object" && cell !== null && "value" in cell
         ? String(cell.value).replaceAll("\u00a0", " ")
         : cell;
-    const row = (svc: string) => table.rows.find((r) => text(r.service) === svc);
-    expect(table.rows.map((r) => text(r.service)).slice(0, 2)).toEqual(["entitlements", "legal"]);
-    expect(text(row("partition")?.template)).toBe("◷ v1.2.0 · PR #174");
-    expect(text(row("schema")?.template)).toBe("◷ v1.2.0 +2 · PR #37");
-    expect(text(row("partition")?.upstream)).toBe("✓ current");
-    expect(text(row("entitlements")?.upstream)).toBe("✕ 2 behind · halted");
-    expect(text(row("legal")?.upstream)).toBe("✕ 4 behind · PR #31 failing");
     const tone = (cell: unknown) =>
       typeof cell === "object" && cell !== null && "tone" in cell ? cell.tone : undefined;
-    expect(tone(row("entitlements")?.upstream)).toBe("error");
-    expect(tone(row("legal")?.upstream)).toBe("warn");
-    expect(tone(row("partition")?.template)).toBe("info");
-    expect(tone(row("partition")?.upstream)).toBe("ok");
-    expect(tone(row("partition")?.release)).toBe("ok");
-    expect(text(row("partition")?.release)).toBe("✓ v1.3.1 · 6d");
-    expect(row("entitlements")?.notes).toBe("UNKNOWN_TOP_LEVEL: schemathesis-tests · 4d");
-    expect(row("legal")?.notes).toBe(
-      "Java Build: upstream requires Java 25, the fork builds on 17 · 4d",
-    );
-    expect(row("partition")?.notes).toBe("");
-    const ladder = b.sections[1];
-    if (ladder?.kind !== "bars") throw new Error("ladder second");
-    expect(b.sections).toHaveLength(2);
-    expect(ladder.title).toBe("Template · osdu-spi main is v1.2.1, 5 changes past v1.2.0");
-    expect(ladder.items.map((i) => [i.label, i.value, i.total, i.trailing])).toEqual([
-      [
-        "v1.2.1 · 4 changes: images, actions, workflows, 1 template only",
-        0,
-        5,
-        "0 of 5 · 5 waiting",
-      ],
-      ["v1.2.0 +2 · 1 change: images, actions, workflows", 1, 5, "1 of 5 · 4 waiting"],
-      ["v1.2.0", 5, 5, "5 of 5 · every fork"],
+    const row = (svc: string) => table.rows.find((r) => text(r.service) === svc);
+    expect(table.rows.map((r) => text(r.service)).slice(0, 2)).toEqual(["entitlements", "legal"]);
+    expect(text(row("partition")?.template)).toBe("◷ v1.2.0 → v1.2.1 · #174");
+    expect(text(row("schema")?.template)).toBe("◷ v1.2.0 +2 → v1.2.1 · #37");
+    expect(row("partition")?.upstream).toEqual({ value: "●", tone: "ok" });
+    expect(text(row("entitlements")?.upstream)).toBe("2 behind");
+    expect(tone(row("entitlements")?.upstream)).toBe("warn");
+    expect(text(row("entitlements")?.sync)).toBe("✕ halted · 4d");
+    expect(tone(row("entitlements")?.sync)).toBe("error");
+    expect(text(row("legal")?.sync)).toBe("✕ PR #31 · 4d");
+    expect(tone(row("legal")?.sync)).toBe("warn");
+    expect(row("legal")?.cascade).toEqual({ value: "○", tone: "neutral" });
+    expect(text(row("partition")?.release)).toBe("v1.3.1");
+    const days = (svc: string) => {
+      const cell = row(svc)?.days;
+      if (typeof cell !== "object" || cell === null || !("bar" in cell))
+        throw new Error("days bar");
+      const bar = cell.bar;
+      if (!bar || !("cells" in bar)) throw new Error("cells bar");
+      return bar;
+    };
+    expect(days("entitlements").quiet).toBe(true);
+    expect(days("entitlements").cells).toHaveLength(21);
+    expect(
+      days("entitlements")
+        .cells.slice(-5)
+        .map((c) => c.tone),
+    ).toEqual(Array(5).fill("error"));
+    expect(
+      days("legal")
+        .cells.slice(-5)
+        .map((c) => c.tone),
+    ).toEqual(Array(5).fill("warn"));
+    expect(days("schema").cells.slice(0, 2)).toEqual([
+      { label: "09-22 · no fork yet", hollow: true },
+      { label: "09-23 · no fork yet", hollow: true },
     ]);
-    expect(ladder.items[0]?.href).toBe(
-      "https://github.com/Azure/osdu-spi/compare/ddfd9ff376b1f49a2f41b7a9f55e9541796cba45...bb49a034a3dcdaa922a1905e708ec66bde930888",
-    );
-    expect(ladder.items[1]?.segments).toEqual([
-      { label: "adopted", n: 1, tone: "ok" },
-      { label: "PR waiting", n: 4, tone: "info" },
+    expect(fleet.items.map((i) => i.text)).toEqual(["upstream", "template"]);
+    const lane = (i: number) => {
+      const bar = fleet.items[i]?.bar;
+      if (!bar || !("columns" in bar)) throw new Error("columns bar");
+      return bar;
+    };
+    expect(lane(1)).toMatchObject({ total: 5, rest: "ok" });
+    expect(lane(1).columns).toHaveLength(21);
+    expect(lane(1).columns.at(-1)?.segments).toEqual([
+      { label: "waiting on review", n: 5, tone: "info" },
+    ]);
+    expect(lane(0).columns.at(-1)?.segments).toEqual([
+      { label: "halted", n: 1, tone: "error" },
+      { label: "failing", n: 1, tone: "warn" },
     ]);
   });
 
@@ -189,25 +225,22 @@ describe("what the boards say", () => {
     ];
     compares[head] = { marker: head, head, label: "v1.2.0 +14", aheadBy: 0, shas: [], changes: [] };
     const b = linesBoard(buildModel(f, FIXTURE_NOW), FIXTURE_NOW);
-    const table = b.sections[0];
-    if (table?.kind !== "table") throw new Error("table first");
+    const table = b.sections[1];
+    if (table?.kind !== "table") throw new Error("table second");
     const text = (cell: unknown) =>
       typeof cell === "object" && cell !== null && "value" in cell
         ? String(cell.value).replaceAll("\u00a0", " ")
         : cell;
     const row = table.rows.find((r) => text(r.service) === "file");
-    expect(row?.state).toEqual({ badges: [{ text: "current", tone: "ok" }] });
     expect(row?.template).toMatchObject({ tone: "ok" });
-    expect(text(row?.template)).toBe("✓ v1.2.1");
-    expect(text(row?.release)).toStartWith("◷ v1.2.0 → v1.2.1 · PR #60");
-    expect(b.header?.chip).toStartWith("main green on all 5 forks · 1 current · ");
-    const ladder = b.sections[1];
-    if (ladder?.kind !== "bars") throw new Error("ladder second");
-    expect(ladder.items[0]).toMatchObject({ value: 1 });
-    expect(ladder.items[0]?.label).toStartWith("v1.2.1 · ");
+    expect(text(row?.template)).toBe("v1.2.1");
+    expect(text(row?.release)).toStartWith("◷ v1.2.0 → v1.2.1 · #60 · ");
+    const tiles = b.sections[0];
+    if (tiles?.kind !== "stats") throw new Error("tiles first");
+    expect(tiles.items[2]?.clock?.at).toBe(release.createdAt);
   });
 
-  test("at twenty forks the ladder keeps one row per template step and current forks fold", () => {
+  test("at twenty forks current forks fold and the fleet lanes keep one row per track", () => {
     const f = fixtureFacts();
     const base = buildModel(f, FIXTURE_NOW);
     const lines = [0, 1, 2, 3].flatMap((k) =>
@@ -229,17 +262,14 @@ describe("what the boards say", () => {
       template: buildTemplate(templateRepo, f.template.data, lines),
     };
     const b = linesBoard(model, FIXTURE_NOW);
-    const table = b.sections[0];
-    const ladder = b.sections[1];
-    if (table?.kind !== "table" || ladder?.kind !== "bars") throw new Error("table, then ladder");
-    expect(ladder.items).toHaveLength(3);
-    expect(ladder.items.every((i) => i.total === 20)).toBe(true);
+    const [, table, fleet] = b.sections;
+    if (table?.kind !== "table" || fleet?.kind !== "rows") throw new Error("table, then fleet");
     const folded = table.rows.at(-1);
-    expect(folded?.service).toBe("14 current");
+    expect(String(folded?.service)).toStartWith("14 current: ");
     expect(table.rows).toHaveLength(7);
-    expect(table.rows[0]?.state).toEqual({
-      badges: [{ text: "sync\u00a0halted", tone: "error" }],
-    });
+    expect(fleet.items).toHaveLength(2);
+    for (const item of fleet.items) expect(item.bar).toMatchObject({ total: 20 });
+    expect(() => expectView(LINES_KEY, "board")(b)).not.toThrow();
   });
 
   test("the header is red only for a red main, and calm when only updates wait", () => {
@@ -252,7 +282,6 @@ describe("what the boards say", () => {
       label: "1 MAIN RED · 1 HALTED · 1 BLOCKED · 2 UPDATES WAITING",
       tone: "error",
     });
-    expect(redBoard.header?.chip).toStartWith("main green on 4 of 5 forks");
 
     const calm = fixtureFacts();
     const repos = calm.github.data?.repos;
@@ -265,28 +294,59 @@ describe("what the boards say", () => {
     expect(calmBoard.header?.status).toEqual({ label: "5 UPDATES WAITING", tone: "info" });
   });
 
-  test("the stack panel answers whether forks can deploy, then shows how the outage unfolded", () => {
+  test("the environment keeps its three tiles in place and shows how the outage unfolded", () => {
     const b = stackBoard(model, FIXTURE_NOW);
     expect(b.header?.status).toEqual({ label: "MAINTENANCE MODE", tone: "error" });
     const stats = b.sections[0];
     if (stats?.kind !== "stats") throw new Error("stats first");
     expect(stats.items.map((i) => i.label)).toEqual([
-      "In maintenance since",
       "Running",
-      "In verify since",
+      "Greenfield · smoke",
+      "Brownfield · in maintenance since",
     ]);
     expect(model.stack.maintenance.since).toStartWith("2026-10-11T22:44");
-    expect(stats.items[0]?.clock).toEqual({ at: model.stack.maintenance.since!, mode: "since" });
-    expect(stats.items[1]?.value).toBe("v0.28.0");
-    expect(stats.items[1]?.delta?.text).toBe("v0.28.2 declared");
+    expect(stats.items[2]?.clock).toEqual({ at: model.stack.maintenance.since!, mode: "since" });
+    expect(stats.items[0]).toMatchObject({ value: "v0.28.0", tone: "warn" });
+    expect(stats.items[0]?.delta?.text).toBe("v0.28.2 declared");
+    expect(stats.items[0]?.sub).toMatch(
+      /^v0\.28\.2 is latest · landed 10-0[56] \d\d:\d\d · 50 min after release, usually 33$/,
+    );
+    expect(stats.items[1]).toMatchObject({ tone: "ok" });
+    expect(stats.items[1]?.sub).toMatch(/^fresh cluster to green in 26 min, usually 32 · next /);
     const kinds = b.sections.map((s) => s.kind);
     expect(kinds.slice(0, 4)).toEqual(["stats", "grid", "timeline", "rows"]);
-    const strips = b.sections.find((s) => s.kind === "rows" && s.title?.startsWith("Each run"));
-    if (strips?.kind !== "rows") throw new Error("run strips");
-    expect(strips.items.map((i) => i.text)).toEqual(["refresh", "upgrade", "smoke", "sweeper"]);
+    const titled = (prefix: string) => {
+      const s = b.sections.find((x) => x.kind === "rows" && x.title?.startsWith(prefix));
+      if (s?.kind !== "rows") throw new Error(prefix);
+      return s;
+    };
+    expect(titled("Greenfield").items.map((i) => i.text)).toEqual(["smoke · daily 08:00Z"]);
+    const brown = titled("Brownfield");
+    expect(brown.items.map((i) => i.text)).toEqual([
+      "behind latest",
+      "upgrade · on bump",
+      "refresh · weekdays 04:00Z",
+    ]);
+    const cells = (i: number) => {
+      const bar = brown.items[i]?.bar;
+      if (!bar || !("cells" in bar)) throw new Error("cells");
+      return bar.cells;
+    };
+    expect(cells(2)).toHaveLength(21);
+    expect(cells(2).at(-1)).toMatchObject({ tone: "error" });
+    expect(cells(2)[4]).toMatchObject({ hollow: true });
+    expect(cells(2)[4]?.tone).toBeUndefined();
+    const behind = brown.items[0]?.bar;
+    if (!behind || !("columns" in behind)) throw new Error("columns");
+    expect(behind.columns.map((c) => c.segments[0]?.n ?? 0)).toEqual([
+      0, 1, 3, 5, 5, 5, 1, 0, 0, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 1, 2,
+    ]);
+    expect(titled("Housekeeping").items).toEqual([
+      expect.objectContaining({ text: "sweeper · green on every run in 21 days" }),
+    ]);
   });
 
-  test("a healthy stack shows the version, the last refresh and smoke, and no incident", () => {
+  test("a healthy environment shows the version, smoke and the last refresh, and no incident", () => {
     const f = fixtureFacts();
     const lc = f.lifecycle.data!;
     const cut = Date.parse("2026-10-11T22:00:00Z");
@@ -299,7 +359,12 @@ describe("what the boards say", () => {
     expect(b.header?.status).toEqual({ label: "DEPLOYABLE", tone: "ok" });
     const stats = b.sections[0];
     if (stats?.kind !== "stats") throw new Error("stats first");
-    expect(stats.items.map((i) => i.label)).toEqual(["Running", "Last refresh", "Smoke"]);
+    expect(stats.items.map((i) => i.label)).toEqual([
+      "Running",
+      "Greenfield · smoke",
+      "Brownfield · refresh",
+    ]);
+    expect(stats.items[2]?.sub).toMatch(/^re-proved in place in \d+ min(, usually \d+)? · next /);
     expect(b.sections.some((s) => s.kind === "timeline")).toBe(false);
     expect(() => expectView(STACK_KEY, "board")(b)).not.toThrow();
   });
@@ -327,9 +392,9 @@ describe("what the boards say", () => {
     expect(b.header?.status).toEqual({ label: "DEPLOYABLE", tone: "ok" });
     const stats = b.sections[0];
     if (stats?.kind !== "stats") throw new Error("stats first");
-    const refresh = stats.items[1];
-    expect(refresh?.label).toBe("Last refresh");
+    const refresh = stats.items[2];
+    expect(refresh?.label).toBe("Brownfield · refresh");
     expect(refresh?.tone).toBe("warn");
-    expect(refresh?.sub).toMatch(/^failed · then env-upgrade v0\.28\.2 green \d\d:\d\d$/);
+    expect(refresh?.sub).toMatch(/^failed · then env-upgrade v0\.28\.2 green \d\d:\d\d · next /);
   });
 });

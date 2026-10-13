@@ -12,8 +12,8 @@ import { ATTENTION_KEY, BADGE_KEY, LINES_KEY, STACK_KEY, SURFACE_ID } from "./ke
 export const REFRESH_ACTION = "refresh";
 
 // The banner holds everything that needs a person, so its pill is the tab's
-// verdict. The stack sits above the lines because a stack fault blocks every
-// line. The rib drives refresh in-process, so no region names a workflow.
+// verdict. The environment sits above the services because a fault there
+// blocks every line. The rib drives refresh in-process, so no region names a workflow.
 export const SURFACES: readonly RibSurfaceDescriptor[] = [
   {
     id: SURFACE_ID,
@@ -35,9 +35,8 @@ export const SURFACES: readonly RibSurfaceDescriptor[] = [
           columns: [
             {
               key: STACK_KEY,
-              title: "Shared stack",
-              byline:
-                "spi-stack-shared · can forks deploy, and is the stack on its declared version",
+              title: "Environment",
+              byline: "shared · osdu-spi-stack · where every fork lane deploys",
               glyph: { char: "◎", tone: "info" },
               live: true,
             },
@@ -47,8 +46,8 @@ export const SURFACES: readonly RibSurfaceDescriptor[] = [
           columns: [
             {
               key: LINES_KEY,
-              title: "Service lines",
-              byline: "upstream · template · release, one row per fork",
+              title: "Services",
+              byline: "one line per fork, from upstream GitLab to the shared environment",
               glyph: { char: "⫶", tone: "brand" },
               live: true,
             },

@@ -103,7 +103,7 @@ function stackItems(
     items.push({
       id: `stack:${first.run.id}`,
       rung: 0,
-      scope: "Shared stack",
+      scope: "Environment",
       text,
       since:
         stack.maintenance.state === "set" && stack.maintenance.since
@@ -121,7 +121,7 @@ function stackItems(
     items.push({
       id: "stack:maintenance",
       rung: 0,
-      scope: "Shared stack",
+      scope: "Environment",
       text: `maintenance held since ${stamp(stack.maintenance.since, now)} with no lifecycle run in flight`,
       since: stack.maintenance.since,
       url: stack.maintenance.run.url,
@@ -137,7 +137,7 @@ function stackItems(
     items.push({
       id: "stack:lanes",
       rung: 1,
-      scope: "Shared stack",
+      scope: "Environment",
       text:
         stack.deployable.state === "yes"
           ? `deployable again; ${plural(loose.length, "fork lane")} failed before it recovered`
@@ -467,7 +467,7 @@ function bumpItem(stack: StackModel): QueueItem | undefined {
   return {
     id: `bump:${pr.number}`,
     rung: 2,
-    scope: "Shared stack",
+    scope: "Environment",
     text: `env bump to ${version} is open; merging it starts env-upgrade${stack.inflight ? " (wait for the run in flight)" : ""}`,
     since: pr.createdAt,
     url: pr.url,

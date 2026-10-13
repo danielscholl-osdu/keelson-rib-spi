@@ -7,33 +7,35 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import type { CanvasBoardView, CanvasTone } from "@keelson/shared";
-import type { LifecycleKind } from "../config.ts";
+import { HISTORY_DAYS, type LifecycleKind } from "../config.ts";
 import type { LifecycleRun } from "../facts.ts";
+import type { RunDay, RunDayState } from "../model/history.ts";
 import type { Model } from "../model/index.ts";
+import { cadence, nextFire } from "../model/schedule.ts";
 import {
   attemptText,
   overdue,
   type RunView,
   runName,
   runResult,
-  runWhere,
   type Stage,
   type StageState,
   semverCmp,
   stoppedAttempts,
   usualText,
 } from "../model/stack.ts";
-import { clip, stamp, took, zoned } from "../util.ts";
+import { againstUsual, clip, span, stamp, took, zoned } from "../util.ts";
 
 type Section = CanvasBoardView["sections"][number];
 type Stat = Extract<Section, { kind: "stats" }>["items"][number];
 type Row = Extract<Section, { kind: "rows" }>["items"][number];
+type Bar = NonNullable<Row["bar"]>;
+type Cell = Extract<Bar, { cells: unknown }>["cells"][number];
 type Span = Extract<Section, { kind: "timeline" }>["spans"][number];
 type Mark = Extract<Section, { kind: "timeline" }>["marks"][number];
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
-const KINDS: LifecycleKind[] = ["refresh", "upgrade", "smoke", "sweeper"];
 
 const STAGE_TONE: Record<StageState, CanvasTone> = {
   ok: "ok",
@@ -84,31 +86,63 @@ function statusOf(model: Model, hurt: boolean): { label: string; tone: CanvasTon
 function runningStat(model: Model, now: Date): Stat {
   const { stack } = model;
   const running = stack.running;
-  const declared = stack.declared;
+  const { declared, latest } = stack;
   const cmp = running && declared ? semverCmp(running.version, declared) : undefined;
+  const newer = running && latest ? semverCmp(latest, running.version) > 0 : false;
   const delta =
     cmp === undefined
       ? undefined
-      : cmp === 0
-        ? { text: "declared", direction: "flat" as const, tone: "ok" as const }
-        : {
-            text: `${declared} declared`,
-            direction: cmp < 0 ? ("down" as const) : ("up" as const),
-            tone: cmp < 0 ? ("warn" as const) : ("caution" as const),
-          };
-  const latest = stack.latest
-    ? stack.latest === declared
-      ? `${stack.latest} is the latest release`
-      : `latest release ${stack.latest}`
-    : undefined;
-  const proof = running
-    ? `${running.source.replace(/^env-refresh /, "")} ${stamp(running.at, now) ?? ""}`.trim()
-    : "no lifecycle run proves it";
+      : cmp < 0
+        ? { text: `${declared} declared`, direction: "down" as const, tone: "warn" as const }
+        : cmp > 0
+          ? { text: `${declared} declared`, direction: "up" as const, tone: "caution" as const }
+          : newer
+            ? { text: `${latest} out`, direction: "up" as const, tone: "info" as const }
+            : {
+                text: latest ? "latest · declared" : "declared",
+                direction: "flat" as const,
+                tone: "ok" as const,
+              };
+  const landed = stack.landed;
+  const lag = againstUsual(landed?.lagMs, stack.usualLagMs, " after release");
+  const proof = landed
+    ? [`landed ${stamp(landed.at, now) ?? ""}`.trim(), lag].filter(Boolean).join(" · ")
+    : running
+      ? `${running.source} ${stamp(running.at, now) ?? ""}`.trim()
+      : "no lifecycle run proves it";
   return {
     label: "Running",
     value: running?.version ?? null,
+    ...(cmp !== undefined && cmp < 0 ? { tone: "warn" as const } : {}),
     ...(delta ? { delta } : {}),
-    sub: [latest, proof].filter(Boolean).join(" · "),
+    sub: [cmp !== undefined && cmp !== 0 && newer ? `${latest} is latest` : undefined, proof]
+      .filter(Boolean)
+      .join(" · "),
+  };
+}
+
+function nextText(model: Model, kind: LifecycleKind, now: Date): string | undefined {
+  const crons = model.stack.schedules?.[kind];
+  const at = crons ? nextFire(crons, now) : undefined;
+  return at === undefined ? undefined : `next ${stamp(new Date(at).toISOString(), now)}`;
+}
+
+function greenfieldStat(model: Model, now: Date): Stat {
+  const { stack } = model;
+  const last = stack.lifecycle.smoke.last;
+  const label = "Greenfield · smoke";
+  if (!last) return { label, value: null, sub: `no smoke run in ${HISTORY_DAYS} days` };
+  const { lastMs, usualMs } = stack.durations.smoke;
+  const spent = runTone(last) === "ok" ? againstUsual(lastMs, usualMs) : span(lastMs);
+  const what =
+    runTone(last) === "ok"
+      ? spent && `fresh cluster to green in ${spent}`
+      : `${runResult(last)}${spent ? ` after ${spent}` : ""}`;
+  return {
+    label,
+    clock: { at: last.updatedAt, mode: "since" },
+    tone: runTone(last),
+    sub: [what, nextText(model, "smoke", now)].filter(Boolean).join(" · "),
   };
 }
 
@@ -120,7 +154,7 @@ function blockedStat(model: Model, now: Date): Stat {
     l.prs.filter((p) => p.failures.some((f) => f.cls === "ENV")),
   ).length;
   return {
-    label: held ? "In maintenance since" : "Not deployable since",
+    label: held ? "Brownfield · in maintenance since" : "Brownfield · not deployable since",
     ...(since ? { clock: { at: since, mode: "since" as const } } : { value: null }),
     tone: "error",
     sub: [
@@ -141,59 +175,36 @@ function inflightStat(model: Model, now: Date): Stat | undefined {
   if (!live?.at) return undefined;
   const startedAt = live.at.startedAt;
   return {
-    label: `In ${live.at.stage} since`,
+    label: `Brownfield · in ${live.at.stage} since`,
     ...(startedAt ? { clock: { at: startedAt, mode: "since" as const } } : { value: null }),
     tone: overdue(stack, now) ? "warn" : "info",
     sub: [runName(live.run), live.at.step, usualText(stack.usual)].filter(Boolean).join(" · "),
   };
 }
 
-function lastAttemptStat(model: Model, now: Date): Stat | undefined {
-  const last = model.stack.attempts[model.stack.attempts.length - 1];
-  if (!last) return undefined;
-  return {
-    label: "Last attempt",
-    value: runResult(last.run),
-    tone: runTone(last.run),
-    sub: [runName(last.run), runWhere(last), stamp(last.run.createdAt, now)]
-      .filter(Boolean)
-      .join(" · "),
-  };
-}
-
 // A later green upgrade proves the stack, so a failed refresh before it is amber.
-function refreshStat(model: Model, now: Date): Stat {
+function brownfieldStat(model: Model, now: Date): Stat {
   const { stack } = model;
   const refresh = stack.lifecycle.refresh.last;
-  if (!refresh) return { label: "Last refresh", value: null, sub: "no refresh in 21 days" };
+  const label = "Brownfield · refresh";
+  if (!refresh) return { label, value: null, sub: `no refresh in ${HISTORY_DAYS} days` };
   const green = stack.lastGreen;
   const proven =
     runTone(refresh) === "error" &&
     green !== undefined &&
     Date.parse(green.createdAt) > Date.parse(refresh.createdAt);
+  const { lastMs, usualMs } = stack.durations.refresh;
+  const what = proven
+    ? `${runResult(refresh)} · then ${runName(green)} green ${stamp(green.updatedAt, now) ?? ""}`.trim()
+    : runTone(refresh) === "ok"
+      ? `re-proved in place in ${againstUsual(lastMs, usualMs) ?? "?"}`
+      : `${runResult(refresh)}${span(lastMs) ? ` after ${span(lastMs)}` : ""}`;
   return {
-    label: "Last refresh",
+    label,
     clock: { at: refresh.updatedAt, mode: "since" },
     tone: proven ? "warn" : runTone(refresh),
-    sub: proven
-      ? `${runResult(refresh)} · then ${runName(green)} green ${stamp(green.updatedAt, now) ?? ""}`.trim()
-      : runResult(refresh),
+    sub: [what, nextText(model, "refresh", now)].filter(Boolean).join(" · "),
   };
-}
-
-function healthyStats(model: Model, now: Date): Stat[] {
-  const { stack } = model;
-  const smoke = stack.lifecycle.smoke;
-  return [
-    runningStat(model, now),
-    refreshStat(model, now),
-    {
-      label: "Smoke",
-      value: smoke.streak ? `${smoke.streak.n} ${smoke.streak.green ? "green" : "red"}` : null,
-      tone: smoke.streak ? (smoke.streak.green ? "ok" : "error") : "neutral",
-      sub: "daily runs in a row, fresh cluster",
-    },
-  ];
 }
 
 // A running stage's time would go stale between frames; the tile's clock carries it.
@@ -337,34 +348,114 @@ function attempts(model: Model, now: Date): Section {
   };
 }
 
-function strip(model: Model, kind: LifecycleKind, now: Date): Row {
-  const s = model.stack.lifecycle[kind];
-  if (s.runs.length === 0) return { text: kind, trailing: "no runs in 21 days" };
-  const done = s.runs.filter((r) => r.status === "completed");
-  const green = done.filter((r) => r.conclusion === "success").length;
-  const cancelled = done.filter((r) => r.conclusion === "cancelled").length;
-  const red = done.length - green - cancelled;
-  const lastRed = [...done]
-    .reverse()
-    .find((r) => r.conclusion !== "success" && r.conclusion !== "cancelled");
+const DAY_TONE: Record<RunDayState, CanvasTone | undefined> = {
+  ok: "ok",
+  failed: "error",
+  cancelled: "warn",
+  running: "info",
+  idle: undefined,
+  missed: "error",
+};
+
+function dayText(day: RunDay, kind: LifecycleKind, now: Date): string {
+  if (day.runs.length > 0)
+    return day.runs
+      .map((r) => `${runName(r)} ${runResult(r)} ${stamp(r.createdAt, now) ?? ""}`.trim())
+      .join(", ");
+  if (day.state === "missed") return `no ${kind} ran in its scheduled slot`;
+  return day.due ? `${kind} not run yet` : "nothing due";
+}
+
+function cellsOf(days: readonly RunDay[], kind: LifecycleKind, now: Date): Cell[] {
+  return days.map((d) => {
+    const tone = DAY_TONE[d.state];
+    return {
+      label: `${d.day.key} · ${dayText(d, kind, now)}`,
+      ...(tone ? { tone } : {}),
+      ...(d.state === "idle" || d.state === "missed" ? { hollow: true } : {}),
+    };
+  });
+}
+
+function lane(model: Model, kind: LifecycleKind, now: Date, unscheduled?: string): Row {
+  const { stack } = model;
+  const when = stack.schedules ? cadence(stack.schedules[kind], unscheduled) : undefined;
+  const last = stack.lifecycle[kind].last;
   return {
-    text: kind,
-    ...(s.last ? { href: s.last.url } : {}),
+    text: when ? `${kind} · ${when}` : kind,
+    ...(last ? { href: last.url } : {}),
+    bar: { cells: cellsOf(stack.history.runs[kind], kind, now), quiet: true },
+  };
+}
+
+function behindLane(model: Model): Row | undefined {
+  const behind = model.stack.history.behind;
+  if (!behind) return undefined;
+  const most = Math.max(3, ...behind.map((b) => b.behind ?? 0));
+  return {
+    text: "behind latest",
     bar: {
-      segments: s.runs.map((r) => ({
-        label: `${stamp(r.createdAt, now) ?? r.createdAt} ${runResult(r)}`,
-        n: 1,
-        tone: runTone(r),
+      total: most,
+      rest: "ok",
+      columns: behind.map((b) => ({
+        label:
+          b.behind === null
+            ? `${b.day.key} · running version unknown`
+            : b.behind === 0
+              ? `${b.day.key} · on ${b.running}, the latest`
+              : `${b.day.key} · running ${b.running}, ${b.behind} behind ${b.newest}`,
+        segments:
+          b.behind === null
+            ? [{ label: "unknown", n: null }]
+            : b.behind > 0
+              ? [{ label: "releases behind", n: b.behind, tone: "warn" as const }]
+              : [],
       })),
     },
-    trailing: [
-      `${green} of ${green + red} green`,
-      cancelled > 0 ? `${cancelled} cancelled` : undefined,
-      lastRed ? `last red ${stamp(lastRed.createdAt, now)}` : undefined,
-    ]
-      .filter(Boolean)
-      .join(" · "),
   };
+}
+
+// A housekeeping lane that never failed folds to one line, and returns on its first red.
+function housekeeping(model: Model, now: Date): Section {
+  const days = model.stack.history.runs.sweeper;
+  const clean =
+    days.some((d) => d.state === "ok") &&
+    days.every((d) => d.state === "ok" || (d.state === "idle" && !d.due));
+  return {
+    kind: "rows",
+    title: "Housekeeping",
+    items: [
+      clean
+        ? {
+            text: `sweeper · green on every run in ${HISTORY_DAYS} days`,
+            ...(model.stack.lifecycle.sweeper.last
+              ? { href: model.stack.lifecycle.sweeper.last.url }
+              : {}),
+          }
+        : lane(model, "sweeper", now),
+    ],
+  };
+}
+
+function history(model: Model, now: Date): Section[] {
+  const behind = behindLane(model);
+  return [
+    {
+      kind: "rows",
+      title: `Greenfield · last ${HISTORY_DAYS} days, one cell per UTC day`,
+      items: [lane(model, "smoke", now)],
+    },
+    {
+      kind: "rows",
+      title: "Brownfield",
+      items: [
+        ...(behind ? [behind] : []),
+        lane(model, "upgrade", now, "on bump"),
+        lane(model, "refresh", now),
+      ],
+    },
+    housekeeping(model, now),
+  ];
 }
 
 export function stackBoard(model: Model, now: Date): CanvasBoardView {
@@ -386,13 +477,11 @@ export function stackBoard(model: Model, now: Date): CanvasBoardView {
     .join(" · ");
   const hurt = incident(model);
   const live = inflightStat(model, now);
-  const tiles: Stat[] = hurt
-    ? [
-        blockedStat(model, now),
-        runningStat(model, now),
-        live ?? lastAttemptStat(model, now),
-      ].filter((t): t is Stat => t !== undefined)
-    : [...healthyStats(model, now), ...(live ? [live] : [])];
+  const tiles: Stat[] = [
+    runningStat(model, now),
+    greenfieldStat(model, now),
+    hurt ? blockedStat(model, now) : (live ?? brownfieldStat(model, now)),
+  ];
   const sections: Section[] = [{ kind: "stats", items: tiles }];
   const focus = stack.inflight ?? (hurt ? stack.attempts[stack.attempts.length - 1] : undefined);
   const steps = focus ? ladder(focus, now) : undefined;
@@ -402,11 +491,7 @@ export function stackBoard(model: Model, now: Date): CanvasBoardView {
     if (plot) sections.push(plot);
     sections.push(attempts(model, now));
   }
-  sections.push({
-    kind: "rows",
-    title: "Each run in the last 21 days, oldest first",
-    items: KINDS.map((k) => strip(model, k, now)),
-  });
+  sections.push(...history(model, now));
   if (stack.releasePr) {
     sections.push({
       kind: "rows",

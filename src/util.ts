@@ -132,3 +132,31 @@ export async function pool<T, R>(
 export function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
+
+// "34 min", "5 h 12 min", "4 d 17 h": a duration in the two largest units.
+export function span(ms: number | undefined): string | undefined {
+  if (ms === undefined || !Number.isFinite(ms) || ms < 0) return undefined;
+  if (ms < HOUR) return `${Math.max(1, Math.round(ms / MINUTE))} min`;
+  if (ms < 2 * DAY) {
+    const m = Math.round((ms % HOUR) / MINUTE);
+    return `${Math.floor(ms / HOUR)} h${m > 0 ? ` ${m} min` : ""}`;
+  }
+  const h = Math.floor((ms % DAY) / HOUR);
+  return `${Math.floor(ms / DAY)} d${h > 0 ? ` ${h} h` : ""}`;
+}
+
+// "7 min, usually 2": a duration beside its usual, the unit said once when both are minutes.
+export function againstUsual(
+  ms: number | undefined,
+  usual: number | undefined,
+  after = "",
+): string | undefined {
+  const now = span(ms);
+  if (!now) return undefined;
+  const typical = span(usual);
+  if (!typical || typical === now) return `${now}${after}`;
+  const minutes = /^\d+ min$/;
+  return minutes.test(now) && minutes.test(typical)
+    ? `${now}${after}, usually ${typical.replace(/ min$/, "")}`
+    : `${now}${after}, usually ${typical}`;
+}

@@ -16,7 +16,7 @@ describe("the fleet on 12 October", () => {
   });
 
   test("one stack incident folds the earlier attempts and every fork lane it turned red", () => {
-    const stack = model.queue.items.find((i) => i.scope === "Shared stack" && i.rung === 0);
+    const stack = model.queue.items.find((i) => i.scope === "Environment" && i.rung === 0);
     expect(stack?.text).toBe(
       "maintenance mode; env-upgrade v0.28.2 in verify › Azure login (OIDC) now",
     );

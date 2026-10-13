@@ -13,14 +13,14 @@ sign-ins; it makes no GitHub or GitLab change and does not touch the cluster.
 | Region | Question | Built from |
 |---|---|---|
 | Needs attention (banner) | What needs a person, ranked by what it blocks? | the incidents and gates the sweep finds |
-| Shared stack | Can forks deploy? If not, since when and what has been tried? Is the stack on its declared version? | `shared.yaml`, releases, and every env-refresh, env-upgrade, smoke and sweeper run with its jobs and steps |
-| Service lines | Where is each fork with upstream, the osdu-spi template and its release, and how far has each template change spread? | PRs, checks, issues, `Upstream-Sha` trailers, GitLab master, `.github/.template-sync-commit` on main and at each template-sync PR head, template compares and `.github/sync-config.json`, Sync Template runs |
+| Environment | Can forks deploy? Is the environment on the latest release, does it deploy from nothing, and does the running one keep proving itself on schedule? | `shared.yaml`, stack releases, the lifecycle workflows' schedules, and every env-refresh, env-upgrade, smoke and sweeper run with its jobs and steps |
+| Services | Where is each fork with upstream, the osdu-spi template and its release, how long does change wait at each gate, and how has each line moved over 21 days? | open and merged PRs, checks, open and closed halt issues, `Upstream-Sha` trailers, GitLab master, `.github/.template-sync-commit` on main and at each template-sync PR head, template compares, Sync Template runs |
 
 The banner's pill is the tab's verdict (`BLOCKED`, `ATTENTION`, `MOVING`,
 `CONVERGED`) and the nav badge counts P0 and P1 items. P0 broke unattended, P1
 is a gate or a decision, P2 is ready work. A red check is classified by its
 failed step before it counts: a lane that failed in `Confirm environment
-deployable` is the stack's fault and folds under the stack incident.
+deployable` is the environment's fault and folds under its incident.
 
 The banner's last row is the doctor: `Doctor · all clear` while every source
 reads, with the sign-in probes, the GitHub budget and each read's age behind its
@@ -28,40 +28,52 @@ disclosure. When a sign-in, the budget or a read fails, that row moves above the
 queue, amber or red, and names what failed; every panel keeps that source's last
 good read until it reads again.
 
-When forks cannot deploy, the stack panel says since when (`MAINTENANCE MODE`
-when the maintenance hold is the reason), the stage the latest attempt is in or
-stopped at with how long each stage took, a timeline since the last green run,
-and every attempt in order, cancelled ones included. A step that runs past every
-green run of its kind turns amber. When forks can deploy, it shows the running
-version, the last refresh and the smoke streak; a refresh that failed before a
-later green upgrade reads amber, since the upgrade proved the stack after it.
-Times are local, the zone Keelson draws its timelines and clocks in.
+The Environment panel has three tiles in fixed places. **Running** is the
+version on the environment against the declared one and the newest release,
+with when it landed and how long after its release, against the usual lag.
+**Greenfield** is the last smoke run, a fresh cluster brought to green, with its
+duration against the usual and the next scheduled run. **Brownfield** is the
+last refresh, the running environment re-proved in place, the same way. A
+refresh that failed before a later green upgrade reads amber, since the upgrade
+proved the stack after it.
 
-Service lines is one row per fork, worst first, and its state is the line's worst. Red means
-main is red, or the line stopped with nothing open to act on: a sync halt, a
-failed Sync Template run, or no template-sync PR. Amber means an open PR fails
-on a real failure. Blue means an update waits on review or the stack, and
-`current` means caught up with upstream and on the latest template; a release PR
-waiting on a current line shows in its release column, not its state. Each
-station cell wears the same colors: green ✓ where the station is current, blue ◷
-where it waits, amber or red ✕ where it failed. A cell reads position first and
-handle last (`4 behind · PR #31 failing`, `v1.2.0 · PR #48`), so each
-column's versions line up under its ✓ cells. Notes give the reason and its age in
-the same `5d` form as the release column. The header turns red only for a red
-main, since a halt or a failing PR is work to do while the service still builds.
-Once four or more forks are current on every station, they fold into one row.
+When forks cannot deploy, Brownfield turns into the time since (`MAINTENANCE
+MODE` when the hold is the reason), and the panel adds the stage the latest
+attempt is in or stopped at, a timeline since the last green run, and every
+attempt in order, cancelled ones included. A step that runs past every green run
+of its kind turns amber. Greenfield stays where it is, so a green fresh deploy
+beside a red in-place run points at the upgrade path rather than the release.
 
-Below the table, the template ladder has one bar per step of osdu-spi history
-that a fork still sits behind, newest first. A step is the changes between two
-fork positions; its bar shows how many forks have adopted it, then those whose
-template-sync PR waits, fails, or is missing, in the table's colors. The step
-says what its changes reach in a fork (images, actions, workflows, settings or
-fork resources), read from the paths each change touches against the template's
-`sync-config.json`; a change that touches nothing synced is `template only`.
-When osdu-spi main is past its last tag, the top step reads as the release its
-open release PR will tag, for example `v1.2.1` while the osdu-spi release PR for
-1.2.1 is open. The rows grow with template steps in flight, not with forks. A
-release PR reads as a version move in its column, `v1.3.1 → v1.3.2`.
+Under the tiles, 21 days of history are one cell per UTC day, grouped as
+greenfield (smoke), brownfield (behind latest, upgrade, refresh) and
+housekeeping (sweeper). A day's cell is its newest run: green, red, amber for
+cancelled, blue while running. A scheduled day with no run is an outlined red
+cell, and a day with nothing due is an empty outline. Green days are a faint
+tint, so color goes to exceptions. Behind latest is a column per day as tall as
+the number of releases the environment trailed at day end. Sweeper folds to one
+line while every run in the window is green. Times are local, the zone Keelson
+draws its timelines and clocks in; days are UTC because the schedules are.
+
+The Services panel opens with three gate tiles. Each shows the oldest item the
+gate holds now and the 21-day median wait: upstream (a sync PR opened to the
+integration PR merged after it), template (template-sync PRs) and release.
+
+The table is one row per fork, worst first, one column per station of the line
+(upstream, sync, cascade, main, release, lane) plus template. A clear station
+is a green dot. A station that waits or stops carries its position and age:
+blue ◷ where it waits, amber or red ✕ where it failed, and the stations a
+stopped sync starves are hollow. Release and template always show their
+version, `v1.3.1 → v1.3.2 · #175` while a release PR waits. The last column is
+21 days of the line, the worse of its upstream and template tracks each day.
+The header turns red only for a red main, since a halt or a failing PR is work
+to do while the service still builds. Once four or more forks are current on
+every station, they fold into one row.
+
+Below the table, two fleet lanes, upstream and template, give a column per day
+as tall as the forks not caught up, so the history keeps its height as forks are
+added. They share the Environment history's columns, so one day reads down the
+whole tab. A template release shows as a band across the template lane, and its
+width is the review wait.
 
 ## Services
 
