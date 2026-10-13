@@ -357,6 +357,7 @@
               "head": "template-sync/20261008-081000",
               "base": "main",
               "headSha": "106530c99367ee065def80132c4ba17eb97fc103",
+              "headMarker": "bb49a034a3dcdaa922a1905e708ec66bde930888",
               "mergeState": "BLOCKED",
               "reviewDecision": "REVIEW_REQUIRED",
               "author": "osdu-spi-automation",
@@ -1381,6 +1382,7 @@
               "head": "template-sync/20261008-082544",
               "base": "main",
               "headSha": "83ba02695699cf9846d0f0a597e2c40ee14dc823",
+              "headMarker": "bb49a034a3dcdaa922a1905e708ec66bde930888",
               "mergeState": "BLOCKED",
               "reviewDecision": "REVIEW_REQUIRED",
               "author": "osdu-spi-automation",
@@ -2004,6 +2006,7 @@
               "head": "template-sync/20261008-082248",
               "base": "main",
               "headSha": "65231bb10c8f2d3789c101e806332431a65937d5",
+              "headMarker": "bb49a034a3dcdaa922a1905e708ec66bde930888",
               "mergeState": "BLOCKED",
               "reviewDecision": "REVIEW_REQUIRED",
               "author": "osdu-spi-automation",
@@ -2664,6 +2667,7 @@
               "head": "template-sync/20261008-082554",
               "base": "main",
               "headSha": "073b6511b5b5a328ca5d7d4d9ae77aabba5adac6",
+              "headMarker": "bb49a034a3dcdaa922a1905e708ec66bde930888",
               "mergeState": "BLOCKED",
               "reviewDecision": "REVIEW_REQUIRED",
               "author": "osdu-spi-automation",
@@ -3273,6 +3277,7 @@
               "head": "template-sync/20261008-082109",
               "base": "main",
               "headSha": "da1e35efa81a6aead1b28b93bf272ebec3d72452",
+              "headMarker": "bb49a034a3dcdaa922a1905e708ec66bde930888",
               "mergeState": "BLOCKED",
               "reviewDecision": "REVIEW_REQUIRED",
               "author": "osdu-spi-automation",
@@ -18615,7 +18620,8 @@
           ]
         }
       },
-      "mainAhead": 14
+      "mainAhead": 14,
+      "targets": { "bb49a034a3dcdaa922a1905e708ec66bde930888": "v1.2.0 +14" }
     }
   },
   "auth": {

@@ -17,7 +17,7 @@ describe("the fleet on 12 October", () => {
   test("one stack incident folds the earlier attempts and every fork lane it turned red", () => {
     const stack = model.queue.items.find((i) => i.scope === "Shared stack" && i.rung === 0);
     expect(stack?.text).toBe(
-      "not deployable; env-upgrade v0.28.2 in verify › Azure login (OIDC) now",
+      "maintenance mode; env-upgrade v0.28.2 in verify › Azure login (OIDC) now",
     );
     expect(stack?.since).toStartWith("2026-10-11T22:44");
     const effects = stack?.effects.map((e) => e.text) ?? [];
@@ -64,15 +64,16 @@ describe("the fleet on 12 October", () => {
     expect(set?.text).toContain("once the stack is deployable");
   });
 
-  test("each line wears its own state; the stack fault does not change a current line's pill", () => {
+  test("each line wears its own state: upstream stops first, then the template-sync PR", () => {
     const pill = Object.fromEntries(model.lines.map((l) => [l.fork.id, l.pill.label]));
     expect(pill).toEqual({
-      partition: "current",
+      partition: "template waiting",
       entitlements: "sync halted",
       legal: "sync blocked",
-      schema: "current",
-      file: "current",
+      schema: "template waiting",
+      file: "template waiting",
     });
+    expect(model.lines.filter((l) => l.current)).toHaveLength(0);
     const partition = model.lines.find((l) => l.fork.id === "partition");
     expect(partition?.stations.find((s) => s.id === "lane")?.state).toBe("stopped");
     expect(model.lines.find((l) => l.fork.id === "legal")?.upstream?.lag).toBe(4);
@@ -86,6 +87,46 @@ describe("the fleet on 12 October", () => {
     expect(schema?.behind).toBe(12);
     const prewarm = model.template.changes.find((c) => c.pr === 247);
     expect(prewarm?.forks).toBe(4);
+    expect(prewarm?.missing).not.toContain("schema");
+  });
+
+  test("a template-sync PR names the version it moves the fork to", () => {
+    const template = (svc: string) => model.lines.find((l) => l.fork.id === svc)?.template;
+    expect(template("partition")).toMatchObject({ label: "v1.2.0", target: "v1.2.0 +14" });
+    expect(template("schema")).toMatchObject({ label: "v1.2.0 +2", target: "v1.2.0 +14" });
+  });
+
+  test("a failed Sync Template run stops the template line", () => {
+    const f = fixtureFacts();
+    const runs = f.runs.data?.["Azure/osdu-spi-partition"];
+    if (!runs?.template[0]) throw new Error("fixture has partition template runs");
+    runs.template[0] = { ...runs.template[0], conclusion: "failure" };
+    const line = buildModel(f, FIXTURE_NOW).lines.find((l) => l.fork.id === "partition");
+    expect(line?.pill).toEqual({ label: "template blocked", tone: "error" });
+    expect(line?.why).toBe("Sync Template failed; template changes stop reaching this fork");
+  });
+
+  test("a fork behind the template with no template-sync PR is stopped, not waiting", () => {
+    const f = fixtureFacts();
+    const repo = f.github.data?.repos["Azure/osdu-spi-file"];
+    if (!repo) throw new Error("fixture has the file fork");
+    repo.prs = repo.prs.filter((p) => !p.head.startsWith("template-sync/"));
+    const line = buildModel(f, FIXTURE_NOW).lines.find((l) => l.fork.id === "file");
+    expect(line?.pill.label).toBe("template blocked");
+    expect(line?.why).toBe("14 template commits behind and no template-sync PR open");
+  });
+
+  test("a template change newer than the last Sync Template run waits for the next run", () => {
+    const f = fixtureFacts();
+    const repos = f.github.data?.repos;
+    const file = repos?.["Azure/osdu-spi-file"];
+    const template = repos?.["Azure/osdu-spi"];
+    if (!file || !template?.head) throw new Error("fixture has the file fork and the template");
+    file.prs = file.prs.filter((p) => !p.head.startsWith("template-sync/"));
+    template.head = { ...template.head, at: "2026-10-12T20:00:00Z" };
+    const line = buildModel(f, FIXTURE_NOW).lines.find((l) => l.fork.id === "file");
+    expect(line?.pill).toEqual({ label: "template behind", tone: "warn" });
+    expect(line?.template.awaitingRun).toBe(true);
   });
 
   test("remote mode reads maintenance and the running version from lifecycle runs", () => {

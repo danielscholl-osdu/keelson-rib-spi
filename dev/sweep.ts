@@ -11,8 +11,7 @@ import { attentionBoard, badge } from "../src/boards/attention.ts";
 import { doctorBoard } from "../src/boards/doctor.ts";
 import { linesBoard } from "../src/boards/lines.ts";
 import { stackBoard } from "../src/boards/stack.ts";
-import { templateBoard } from "../src/boards/template.ts";
-import { ATTENTION_KEY, DOCTOR_KEY, LINES_KEY, STACK_KEY, TEMPLATE_KEY } from "../src/keys.ts";
+import { ATTENTION_KEY, DOCTOR_KEY, LINES_KEY, STACK_KEY } from "../src/keys.ts";
 import { attemptText, overdue, usualText } from "../src/model/stack.ts";
 import { Store } from "../src/store.ts";
 import { Sweeper } from "../src/sweep.ts";
@@ -66,7 +65,7 @@ for (const l of m.lines) {
     `  ${l.fork.id.padEnd(13)} ${l.pill.label.padEnd(16)} ${l.stations.map((x) => `${x.id}:${x.state}`).join(" ")}`,
   );
   console.log(
-    `  ${"".padEnd(13)} lag ${l.upstream?.lag} · release ${l.release?.tag} · template ${l.template.label} -${l.template.behind} · lane ${l.lane.ok}/${l.lane.failed}${l.why ? ` · why ${l.why}` : ""}`,
+    `  ${"".padEnd(13)} lag ${l.upstream?.lag} · release ${l.release?.tag} · template ${l.template.label} -${l.template.behind}${l.template.target ? ` → ${l.template.target}` : ""} · lane ${l.lane.ok}/${l.lane.failed}${l.why ? ` · why ${l.why}` : ""}`,
   );
 }
 console.log(
@@ -78,7 +77,6 @@ const boards = {
   [ATTENTION_KEY]: attentionBoard(m, sweeper.facts, now),
   [STACK_KEY]: stackBoard(m, now),
   [LINES_KEY]: linesBoard(m, now),
-  [TEMPLATE_KEY]: templateBoard(m, now),
   [DOCTOR_KEY]: doctorBoard(sweeper.facts, now),
 };
 let bad = 0;

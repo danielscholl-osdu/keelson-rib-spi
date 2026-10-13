@@ -150,7 +150,7 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
     ),
     tool(
       "spi_line",
-      "One service line from upstream GitLab to the shared stack: the six stations, upstream lag and the commits behind it, the open gate PRs with failure classes, a sync halt, the release, template currency and the 21-day lane ledger.",
+      "One service line from upstream GitLab to the shared stack: the six stations, upstream lag and the commits behind it, the open gate PRs with failure classes, a sync halt, the release, the template version with the one its template-sync PR moves it to, and the 21-day lane ledger.",
       z.object({ service: z.enum(FORKS.map((f) => f.id) as [string, ...string[]]) }),
       ({ service }) => {
         const m = sweeper.model;

@@ -4,9 +4,8 @@ import { attentionBoard, badge } from "../src/boards/attention";
 import { doctorBoard } from "../src/boards/doctor";
 import { linesBoard } from "../src/boards/lines";
 import { stackBoard } from "../src/boards/stack";
-import { templateBoard } from "../src/boards/template";
 import { emptyFacts } from "../src/facts";
-import { ATTENTION_KEY, DOCTOR_KEY, LINES_KEY, STACK_KEY, TEMPLATE_KEY } from "../src/keys";
+import { ATTENTION_KEY, DOCTOR_KEY, LINES_KEY, STACK_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
 import { FIXTURE_NOW, fixtureFacts } from "./harness";
 
@@ -18,7 +17,6 @@ function boards(m = model, f = facts) {
     [ATTENTION_KEY]: attentionBoard(m, f, FIXTURE_NOW),
     [STACK_KEY]: stackBoard(m, FIXTURE_NOW),
     [LINES_KEY]: linesBoard(m, FIXTURE_NOW),
-    [TEMPLATE_KEY]: templateBoard(m, FIXTURE_NOW),
     [DOCTOR_KEY]: doctorBoard(f, FIXTURE_NOW),
   };
 }
@@ -57,7 +55,7 @@ describe("what the boards say", () => {
     if (rows?.kind !== "rows") return;
     expect(rows.items[0]?.chip).toEqual({ label: "P0", tone: "error" });
     expect(rows.items[0]?.text).toStartWith(
-      "Shared stack · not deployable; env-upgrade v0.28.2 in verify",
+      "Shared stack · maintenance mode; env-upgrade v0.28.2 in verify",
     );
     expect(rows.items[0]?.detail).toContain("partition template-sync PR #174");
   });
@@ -67,35 +65,49 @@ describe("what the boards say", () => {
     expect(badge(model).count).toBe(p0 + p1);
   });
 
-  test("five line cards with a six-station strip, then three empty seats", () => {
+  test("one row per fork with its stations in flow order, then the template changes", () => {
     const b = linesBoard(model, FIXTURE_NOW);
-    const cards = b.sections[0];
-    expect(cards?.kind).toBe("cards");
-    if (cards?.kind !== "cards") return;
-    expect(cards.items.map((c) => c.title)).toEqual([
-      "partition",
-      "entitlements",
-      "legal",
-      "schema",
-      "file",
-      "storage",
-      "indexer",
-      "search",
+    expect(b.header?.status).toEqual({ label: "2 STOPPED · 3 WAITING", tone: "error" });
+    const table = b.sections[0];
+    if (table?.kind !== "table") throw new Error("table first");
+    expect(table.columns.map((c) => c.label)).toEqual([
+      "service",
+      "state",
+      "upstream",
+      "template",
+      "release",
+      "notes",
     ]);
-    const legal = cards.items[2];
-    expect(legal?.bar && "segments" in legal.bar ? legal.bar.segments.length : 0).toBe(6);
-    expect(legal?.reason?.text).toContain("upstream requires Java 25");
-    expect(cards.items.slice(5).every((c) => c.ghost)).toBe(true);
-    expect(b.header?.status?.label).toBe("3 OF 5 CURRENT");
+    expect(table.caption).toBe("storage, indexer and search have no fork yet");
+    const text = (cell: unknown) =>
+      typeof cell === "object" && cell !== null && "value" in cell
+        ? String(cell.value).replaceAll("\u00a0", " ")
+        : cell;
+    const row = (svc: string) => table.rows.find((r) => text(r.service) === svc);
+    expect(text(row("partition")?.template)).toBe("◷ PR #174 · v1.2.0 → v1.2.0 +14");
+    expect(text(row("schema")?.template)).toBe("◷ PR #37 · v1.2.0 +2 → v1.2.0 +14");
+    expect(text(row("entitlements")?.upstream)).toBe("✕ halted · 2 behind");
+    expect(text(row("legal")?.upstream)).toBe("✕ PR #31 red · 4 behind");
+    expect(text(row("partition")?.release)).toBe("✓ v1.3.1 · 6d");
+    expect(row("legal")?.notes).toContain("upstream requires Java 25");
+    expect(row("partition")?.notes).toBe("");
+    const changes = b.sections[1];
+    if (changes?.kind !== "rows") throw new Error("change list second");
+    expect(changes.title).toStartWith(
+      "Template changes not on every fork · osdu-spi main, 14 commits past v1.2.0",
+    );
+    expect(changes.items.find((i) => i.text.endsWith("(#247)"))?.trailing).toStartWith(
+      "all but schema",
+    );
   });
 
   test("the stack panel answers whether forks can deploy, then shows how the outage unfolded", () => {
     const b = stackBoard(model, FIXTURE_NOW);
-    expect(b.header?.status).toEqual({ label: "NOT DEPLOYABLE", tone: "error" });
+    expect(b.header?.status).toEqual({ label: "MAINTENANCE MODE", tone: "error" });
     const stats = b.sections[0];
     if (stats?.kind !== "stats") throw new Error("stats first");
     expect(stats.items.map((i) => i.label)).toEqual([
-      "Not deployable since",
+      "In maintenance since",
       "Running",
       "In verify since",
     ]);

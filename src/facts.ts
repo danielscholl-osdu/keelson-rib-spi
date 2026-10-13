@@ -34,6 +34,8 @@ export interface PrFact {
   head: string;
   base: string;
   headSha: string;
+  // The template marker at the PR head: where a template-sync PR takes the fork.
+  headMarker?: string;
   mergeState?: string;
   reviewDecision?: string;
   author?: string;
@@ -170,6 +172,7 @@ export interface TemplateFacts {
   latestTag?: string;
   mainAhead?: number;
   compares: Record<string, TemplateCompare>;
+  targets?: Record<string, string>;
 }
 
 export interface AuthFacts {
