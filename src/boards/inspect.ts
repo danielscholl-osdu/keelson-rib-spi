@@ -9,6 +9,7 @@
 import type { CanvasBoardView, CanvasTone } from "@keelson/shared";
 import { approveAction } from "../act/approve.ts";
 import type { ActionEntry } from "../act/log.ts";
+import { writeBlocked } from "../act/verbs.ts";
 import type { EntryState, ForkEntry } from "../collect/filters.ts";
 import type { Model } from "../model/index.ts";
 import { diffText, type ItemKind, type QueueItem, type Rung } from "../model/queue.ts";
@@ -97,14 +98,6 @@ export interface InspectOptions {
   scopes?: string[];
 }
 
-function writeBlocked(model: Model, opts: InspectOptions): string | undefined {
-  if (!model.sweptAt) return "no sweep has read GitHub yet";
-  if (opts.scopes && !opts.scopes.includes("repo")) {
-    return "gh's token lacks the repo scope; run gh auth refresh -s repo";
-  }
-  return undefined;
-}
-
 function approvalSections(item: QueueItem, model: Model, opts: InspectOptions): Section[] {
   const approve = item.approve ?? [];
   if (approve.length === 0) return [];
@@ -122,7 +115,7 @@ function approvalSections(item: QueueItem, model: Model, opts: InspectOptions): 
       href: a.pr.url,
     };
   });
-  const disabled = writeBlocked(model, opts);
+  const disabled = writeBlocked(model.sweptAt, opts.scopes);
   const swept = model.sweptAt ?? "";
   return [
     { kind: "rows", title: `Outside PRs · ${approve.length}`, items: rows },
@@ -139,7 +132,7 @@ function evidence(item: QueueItem): Section | undefined {
   return items.length > 0 ? { kind: "rows", title: "Evidence", items } : undefined;
 }
 
-function lastAction(entry: ActionEntry | undefined, now: Date): Section {
+export function lastAction(entry: ActionEntry | undefined, now: Date): Section {
   if (!entry) {
     return {
       kind: "rows",

@@ -7,11 +7,15 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import type { CanvasBoardView, CanvasTone } from "@keelson/shared";
+import type { ActionEntry } from "../act/log.ts";
+import { heldText, rolloutActions, rolloutTargets } from "../act/rollout.ts";
+import { writeBlocked } from "../act/verbs.ts";
 import { FORKS, githubUrl, TEMPLATE_REPO } from "../config.ts";
 import type { Model } from "../model/index.ts";
 import { ownFailure, type TemplateRow, type TemplateStep } from "../model/template.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
 import { clip, plural, since, span, stamp, zoned } from "../util.ts";
+import { lastAction } from "./inspect.ts";
 
 type Section = CanvasBoardView["sections"][number];
 type TableSection = Extract<Section, { kind: "table" }>;
@@ -289,9 +293,11 @@ function rollout(model: Model, now: Date): Section {
 function links(model: Model): Section | undefined {
   const open = model.template.rows.filter((r) => r.pr).length;
   if (open === 0) return undefined;
+  const held = heldText(rolloutTargets(model.template).held);
   return {
     kind: "rows",
     items: [
+      ...(held ? [{ glyph: "neutral" as const, text: `Held back from Roll out: ${held}` }] : []),
       {
         icon: "↗",
         text: `Review on GitHub · ${plural(open, "template-sync PR")} in one list`,
@@ -327,10 +333,16 @@ function status(model: Model): { label: string; tone: CanvasTone } {
   return { label: parts.join(" · "), tone };
 }
 
+export interface EngineeringOptions {
+  selected?: string;
+  scopes?: string[];
+  last?: ActionEntry;
+}
+
 export function engineeringBoard(
   model: Model,
   now: Date,
-  opts: { selected?: string } = {},
+  opts: EngineeringOptions = {},
 ): CanvasBoardView {
   if (!model.measured) {
     return {
@@ -348,8 +360,19 @@ export function engineeringBoard(
   const steps = ladder(model, opts.selected);
   if (steps) sections.push(steps);
   sections.push(rollout(model, now));
+  sections.push({
+    kind: "actions",
+    wrap: true,
+    items: rolloutActions(
+      model.template,
+      { swept: model.sweptAt ?? "" },
+      now,
+      writeBlocked(model.sweptAt, opts.scopes),
+    ),
+  });
   const link = links(model);
   if (link) sections.push(link);
+  if (opts.last) sections.push(lastAction(opts.last, now));
   return {
     view: "board",
     header: {

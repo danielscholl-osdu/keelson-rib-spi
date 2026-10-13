@@ -2,102 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { expectView } from "@keelson/shared";
 import { engineeringBoard } from "../src/boards/engineering";
 import { inspectBoard } from "../src/boards/inspect";
-import type { Facts, PrFact, TemplateChange } from "../src/facts";
+import type { Facts, PrFact } from "../src/facts";
 import { ENGINEERING_KEY, INSPECT_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
-import { FIXTURE_NOW, fixtureFacts } from "./harness";
-
-const NEW_HEAD = "c0de000000000000000000000000000000000130";
-
-function change(n: number, title: string): TemplateChange {
-  const sha = `c0de${String(n).padStart(36, "0")}`;
-  return {
-    sha,
-    parent: undefined,
-    title,
-    pr: 250 + n,
-    url: `https://github.com/Azure/osdu-spi/pull/${250 + n}`,
-    at: `2026-10-12T1${n}:00:00Z`,
-  };
-}
-
-// v1.3.0 cut four changes past the head the forks' PRs carry (v1.2.0 +14).
-function released(): Facts {
-  const f = fixtureFacts();
-  const repos = f.github.data?.repos;
-  const repo = repos?.["Azure/osdu-spi"];
-  const t = f.template.data;
-  if (!repos || !repo || !t) throw new Error("template facts");
-  const fresh = [
-    change(4, "chore(release): release 1.3.0"),
-    change(3, "feat(java): resolve the Java release from the root pom (#255)"),
-    change(2, "build(deps): bump actions/setup-java from 4 to 5 (#254)"),
-    change(1, "fix(maven): pin the Maven version (#247)"),
-  ];
-  repo.head = { sha: NEW_HEAD, at: "2026-10-12T20:55:00Z" };
-  repo.release = {
-    tag: "v1.3.0",
-    at: "2026-10-12T21:00:00Z",
-    url: "https://github.com/Azure/osdu-spi/releases/tag/v1.3.0",
-  };
-  repo.releases = [
-    { tag: "v1.3.0", at: "2026-10-12T21:00:00Z", url: repo.release.url },
-    { tag: "v1.2.0", at: "2026-10-05T22:43:47Z", url: "" },
-  ];
-  repo.pastPrs = [
-    {
-      number: 248,
-      title: "chore: release 1.3.0",
-      url: "",
-      head: "release-please--branches--main",
-      base: "main",
-      createdAt: "2026-10-06T00:00:00Z",
-      mergedAt: "2026-10-12T20:55:00Z",
-    },
-    {
-      number: 255,
-      title: "feat(java): resolve the Java release",
-      url: "",
-      head: "feat/java",
-      base: "main",
-      createdAt: "2026-10-12T00:00:00Z",
-      mergedAt: "2026-10-12T13:00:00Z",
-    },
-    {
-      number: 254,
-      title: "build(deps): bump setup-java",
-      url: "",
-      head: "dependabot/github_actions/setup-java-5",
-      base: "main",
-      createdAt: "2026-10-11T00:00:00Z",
-      mergedAt: "2026-10-12T12:00:00Z",
-      author: "dependabot",
-    },
-    {
-      number: 240,
-      title: "older",
-      url: "",
-      head: "feat/old",
-      base: "main",
-      createdAt: "2026-10-01T00:00:00Z",
-      mergedAt: "2026-10-02T00:00:00Z",
-    },
-  ];
-  repo.prs = [];
-  t.latestTag = "v1.3.0";
-  t.mainAhead = 0;
-  for (const c of Object.values(t.compares)) {
-    c.head = NEW_HEAD;
-    c.aheadBy += fresh.length;
-    c.shas = [...fresh.map((x) => x.sha), ...c.shas];
-    c.changes = [...fresh, ...c.changes];
-  }
-  for (const fork of Object.values(repos)) {
-    if (fork.repo.startsWith("Azure/osdu-spi-") && fork.repo !== "Azure/osdu-spi-stack")
-      fork.syncCrons = ["0 8 * * *"];
-  }
-  return f;
-}
+import { FIXTURE_NOW, NEW_HEAD, releasedFacts as released } from "./harness";
 
 function dependabotPr(repo: string, number: number): PrFact {
   return {
@@ -197,8 +105,11 @@ describe("the engineering system panel", () => {
     expect(text(row("file")?.sync)).toMatch(/^● \d\d:\d\d$/);
     const review = b.sections.at(-1);
     if (review?.kind !== "rows") throw new Error("review link last");
-    expect(review.items[0]?.text).toBe("Review on GitHub · 5 template-sync PRs in one list");
-    expect(review.items[0]?.href).toContain("label%3Atemplate-sync");
+    expect(review.items[0]?.text).toBe(
+      "Held back from Roll out: partition #174, entitlements #48, legal #33, schema #37 and file #51 are red on the stack",
+    );
+    expect(review.items[1]?.text).toBe("Review on GitHub · 5 template-sync PRs in one list");
+    expect(review.items[1]?.href).toContain("label%3Atemplate-sync");
   });
 
   test("a template-sync PR failing on its own counts as failing; one red on the stack does not", () => {

@@ -19,7 +19,7 @@ export const ACT_ACTION = "act";
 export const targetSchema = z
   .object({
     repo: z.string().regex(/^[\w.-]+\/[\w.-]+$/),
-    kind: z.enum(["pr", "run", "issue", "repo"]),
+    kind: z.enum(["pr", "run", "issue", "repo", "workflow"]),
     number: z.number().int().positive().optional(),
     pr: z.number().int().positive().optional(),
     sha: z.string().optional(),
@@ -44,6 +44,15 @@ export interface Verb {
   label: string;
   // The gh arguments that write to one target, shown verbatim in the confirmation.
   command(target: Target): string[];
+}
+
+// Why no verb can write now, before any one verb's own reason.
+export function writeBlocked(sweptAt: string | undefined, scopes: string[] | undefined) {
+  if (!sweptAt) return "no sweep has read GitHub yet";
+  if (scopes && !scopes.includes("repo")) {
+    return "gh's token lacks the repo scope; run gh auth refresh -s repo";
+  }
+  return undefined;
 }
 
 const VERBS = new Map<string, Verb>();

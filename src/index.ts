@@ -22,6 +22,7 @@ import { APPROVE_RUNS } from "./act/approve.ts";
 import { ActionLog } from "./act/log.ts";
 import { act } from "./act/path.ts";
 import { type Readiness, readReadiness } from "./act/readiness.ts";
+import { ROLL_OUT, ROLLOUT_ITEM, SYNC_FORKS } from "./act/rollout.ts";
 import { ACT_ACTION, registerVerb } from "./act/verbs.ts";
 import { AGENTS, resolveAgent } from "./agent.ts";
 import { attentionBoard, badge } from "./boards/attention.ts";
@@ -64,7 +65,12 @@ const COMPOSERS: Record<(typeof VIEW_KEYS)[number], Composer> = {
   [ATTENTION_KEY]: (s, now) =>
     attentionBoard(s.model, s.facts, now, { selected: inspect.selected, act: readiness }),
   [STACK_KEY]: (s, now) => stackBoard(s.model, now),
-  [ENGINEERING_KEY]: (s, now) => engineeringBoard(s.model, now, { selected: inspect.selected }),
+  [ENGINEERING_KEY]: (s, now) =>
+    engineeringBoard(s.model, now, {
+      selected: inspect.selected,
+      scopes: s.facts.auth.data?.gh.scopes,
+      last: actionLog.lastFor(ROLLOUT_ITEM),
+    }),
   [LINES_KEY]: (s, now) => linesBoard(s.model, now),
   [INSPECT_KEY]: (s, now) =>
     inspectBoard(s.model, inspect, now, actionLog.lastFor(inspect.selected), {
@@ -103,7 +109,7 @@ function bind(ctx: RibContext): Sweeper {
     onChange: recomposeAll,
   });
   sweeper = s;
-  unregisters.push(registerVerb(APPROVE_RUNS));
+  unregisters.push(registerVerb(APPROVE_RUNS), registerVerb(SYNC_FORKS), registerVerb(ROLL_OUT));
   const sm = snapshots;
   if (sm) {
     for (const key of VIEW_KEYS) {
@@ -230,6 +236,7 @@ const rib: Rib = {
         now: s.now,
       });
       snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
+      snapshots?.recompose(ENGINEERING_KEY).catch(() => undefined);
       return result;
     }
     if (action.type === INSPECT_ACTION) {

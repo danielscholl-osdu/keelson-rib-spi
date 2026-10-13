@@ -102,6 +102,17 @@ checks (a failure the environment caused reads as red on the stack), review,
 the last Sync Template run, and open Dependabot PRs. A link opens every open
 template-sync PR in one GitHub list for review.
 
+Two buttons roll a release out. **Sync all forks** runs `gh workflow run
+sync-template.yml` on each fork behind `osdu-spi` main whose PR does not already
+carry it, so the PRs move to the release now instead of at the next scheduled
+run; a fork with Sync Template already running is skipped, and one that starts
+running after the board drew it is refused. **Roll out** merges every
+template-sync PR that is approved, green and unchanged since the draw, with a
+merge commit as those PRs have always landed, and its confirmation asks for the
+number of PRs it merges. Each PR merges on its own, and the panel names each PR
+held back and why (needs review, fails a check, red on the stack, a draft,
+conflicts). Review stays on GitHub: the rib never approves a PR.
+
 The Services panel opens with two tiles. **Upstream** and **Release** show
 the oldest item their gate holds now and the 21-day median wait: upstream (a
 sync PR opened to the integration PR merged after it) and release.
