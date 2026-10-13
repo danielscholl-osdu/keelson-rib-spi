@@ -54,8 +54,8 @@ export function filterSection(text: string, section: string): Map<string, string
 }
 
 async function readFilter(gh: Gh, repo: string): Promise<string> {
-  const b64 = await gh.rest<string>(`repos/${repo}/contents/${FILTER_PATH}`, ".content");
-  return Buffer.from(b64.replace(/\s/g, ""), "base64").toString("utf8");
+  const file = await gh.rest<{ content: string }>(`repos/${repo}/contents/${FILTER_PATH}`);
+  return Buffer.from(file.content.replace(/\s/g, ""), "base64").toString("utf8");
 }
 
 async function readTree(glab: Glab, project: string, path?: string): Promise<Set<string>> {

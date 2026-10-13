@@ -163,7 +163,10 @@ describe("filter reads", () => {
           const body = path.includes("osdu-spi-legal")
             ? FILTER
             : `top_level:\n  schemathesis-tests: strip\n`;
-          return { ok: true as const, data: Buffer.from(body).toString("base64") as never };
+          return {
+            ok: true as const,
+            data: { content: Buffer.from(body).toString("base64") } as never,
+          };
         }
         const names = path.includes("partition") ? ["docs"] : ["docs", "schemathesis-tests"];
         return { ok: true as const, data: names.map((name) => ({ name })) as never };
