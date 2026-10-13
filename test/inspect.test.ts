@@ -58,15 +58,22 @@ describe("the inspector", () => {
     expect(labels).toContain("held");
   });
 
-  test("a halt shows the other forks' filters once they are read", () => {
+  test("a halt says it is reading the other forks, then shows each one's state", () => {
     const halt = item("halt:entitlements");
     expect(halt.halt).toEqual({
       fork: "entitlements",
       code: "UNKNOWN_TOP_LEVEL",
       entries: ["schemathesis-tests"],
     });
-    const bare = inspectBoard(model, { selected: halt.id, item: halt }, FIXTURE_NOW);
-    expect(bare.sections.some((s) => s.kind === "grid")).toBe(false);
+    const same = (b: Board) => section(b, "Same entry in other forks");
+    expect(
+      same(inspectBoard(model, { selected: halt.id, item: halt }, FIXTURE_NOW)),
+    ).toBeUndefined();
+    const reading = same(
+      inspectBoard(model, { selected: halt.id, item: halt, reading: halt.id }, FIXTURE_NOW),
+    );
+    if (reading?.kind !== "rows") throw new Error("reading is a row");
+    expect(reading.items[0]?.text).toBe("reading each fork's filter and upstream tree");
     const read = inspectBoard(
       model,
       {
@@ -84,12 +91,12 @@ describe("the inspector", () => {
       FIXTURE_NOW,
     );
     expect(() => gate(read)).not.toThrow();
-    const grid = read.sections.find((s) => s.kind === "grid");
-    if (grid?.kind !== "grid") throw new Error("grid");
-    expect(grid.cells.map((c) => [c.label, c.badge?.text])).toEqual([
-      ["legal", "unlisted"],
-      ["partition", "absent"],
-      ["file", "listed · strip"],
+    const rows = same(read);
+    if (rows?.kind !== "rows") throw new Error("one row per fork");
+    expect(rows.items.map((r) => [r.text, r.chip?.label, r.trailing])).toEqual([
+      ["legal", "unlisted", undefined],
+      ["partition", "absent", undefined],
+      ["file", "listed", "strip"],
     ]);
   });
 

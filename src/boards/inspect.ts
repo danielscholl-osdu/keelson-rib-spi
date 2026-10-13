@@ -52,6 +52,8 @@ export interface InspectState {
   // The item as it was when opened, so a cleared item still says what it was.
   item?: QueueItem;
   others?: { id: string; entries: ForkEntry[] };
+  // The item whose other forks are being read now.
+  reading?: string;
 }
 
 export function inspectTitle(item: QueueItem): string {
@@ -64,18 +66,28 @@ function statusOf(item: QueueItem): { label: string; tone: CanvasTone } {
 }
 
 function sameEntry(item: QueueItem, state: InspectState): Section | undefined {
-  if (!item.halt || state.others?.id !== item.id) return undefined;
+  const title = "Same entry in other forks";
+  if (!item.halt) return undefined;
+  if (state.others?.id !== item.id) {
+    return state.reading === item.id
+      ? {
+          kind: "rows",
+          title,
+          items: [{ glyph: "neutral", text: "reading each fork's filter and upstream tree" }],
+        }
+      : undefined;
+  }
   const several = item.halt.entries.length > 1;
-  const cells = state.others.entries.map((e) => {
+  const items: Row[] = state.others.entries.map((e) => {
     const badge = ENTRY_BADGE[e.state];
     return {
-      label: several ? `${e.fork} · ${e.entry}` : e.fork,
+      chip: { label: badge.text, tone: badge.tone },
+      text: several ? `${e.fork} · ${e.entry}` : e.fork,
+      ...(e.verdict ? { trailing: e.verdict } : {}),
       ...(e.url ? { href: e.url } : {}),
-      badge: { text: e.verdict ? `${badge.text} · ${e.verdict}` : badge.text, tone: badge.tone },
     };
   });
-  if (cells.length === 0) return undefined;
-  return { kind: "grid", title: "Same entry in other forks", cells };
+  return items.length > 0 ? { kind: "rows", title, items } : undefined;
 }
 
 function evidence(item: QueueItem): Section | undefined {
@@ -149,7 +161,6 @@ export function inspectBoard(
     const ev = evidence(item);
     return {
       view: "board",
-      title: inspectTitle(item),
       header: { status: { label: "CLEARED", tone: "ok" } },
       sections: [{ kind: "rows", items: rows }, ...(ev ? [ev] : [])],
     };
@@ -189,7 +200,6 @@ export function inspectBoard(
   if (ev) sections.push(ev);
   return {
     view: "board",
-    title: inspectTitle(item),
     header: { status: statusOf(item), chip },
     sections,
   };

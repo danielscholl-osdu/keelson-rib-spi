@@ -139,21 +139,32 @@ describe("inspect", () => {
         placement: "side",
       },
     });
-    const frame = snapshots.latest(INSPECT_KEY)?.data as { title?: string };
-    expect(frame.title).toBe("legal · sync PR");
+    const frame = snapshots.latest(INSPECT_KEY)?.data as {
+      header?: { status?: { label: string } };
+    };
+    expect(frame.header?.status?.label).toBe("TOOLCHAIN");
   });
 
-  test("a halt reads other forks, and an unreachable forge reads as unknown, not clear", async () => {
+  test("a halt opens at once, then fills in each fork; an unreachable forge reads as unknown", async () => {
     const { ctx, snapshots } = stored();
     rib.registerTools?.(ctx);
-    await rib.onAction?.({ type: "inspect", payload: { id: "halt:entitlements" } }, ctx);
-    const frame = snapshots.latest(INSPECT_KEY)?.data as {
-      sections: { kind: string; title?: string; cells?: { badge?: { text: string } }[] }[];
+    type Frame = {
+      sections: { title?: string; items?: { text: string; chip?: { label: string } }[] }[];
     };
-    const grid = frame.sections.find((s) => s.kind === "grid");
-    expect(grid?.title).toBe("Same entry in other forks");
-    expect(grid?.cells).toHaveLength(4);
-    expect(grid?.cells?.every((c) => c.badge?.text === "?")).toBe(true);
+    const same = () =>
+      (snapshots.latest(INSPECT_KEY)?.data as Frame).sections.find(
+        (s) => s.title === "Same entry in other forks",
+      );
+    const res = await rib.onAction?.(
+      { type: "inspect", payload: { id: "halt:entitlements" } },
+      ctx,
+    );
+    expect(res?.ok).toBe(true);
+    expect(same()?.items?.[0]?.text).toBe("reading each fork's filter and upstream tree");
+    for (let i = 0; i < 50 && same()?.items?.length !== 4; i++) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    expect(same()?.items?.map((r) => r.chip?.label)).toEqual(["?", "?", "?", "?"]);
   });
 
   test("a verb whose target cannot be read again is refused, logged and shown in the inspector", async () => {

@@ -56,20 +56,36 @@ export class Gh {
   }
 
   // A repository that does not exist comes back as a NOT_FOUND error beside the
-  // data for the others, and gh exits non-zero, so partial data is kept.
+  // data for the others, and gh exits non-zero, so partial data is kept. GitHub
+  // sometimes cuts the response short; gh then exits 1 with nothing on stdout,
+  // and one retry nearly always reads it whole.
   async graphql<T>(query: string): Promise<{ data: T; errors: GqlError[] }> {
-    this.counter.calls++;
-    const res = await this.exec.runJSON<{ data?: T; errors?: GqlError[] }>(
-      "gh",
-      ["api", "graphql", "-f", `query=${query}`],
-      { timeoutMs: 60_000, acceptNonZeroExit: true },
-    );
-    if (!res.ok) throw new ForgeError(`gh api graphql: ${res.error}`, res.code);
-    const errors = res.data.errors ?? [];
-    if (!res.data.data) {
-      throw new ForgeError(`gh api graphql: ${errors[0]?.message ?? "no data"}`, null);
+    let exitCode: number | null = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      this.counter.calls++;
+      const res = await this.exec.runText("gh", ["api", "graphql", "-f", `query=${query}`], {
+        timeoutMs: 60_000,
+        acceptNonZeroExit: true,
+      });
+      if (!res.ok) throw new ForgeError(`gh api graphql: ${res.error}`, res.code);
+      exitCode = res.exitCode ?? null;
+      if (!res.data.trim()) continue;
+      let body: { data?: T; errors?: GqlError[] };
+      try {
+        body = JSON.parse(res.data);
+      } catch {
+        throw new ForgeError(`gh api graphql: response was not JSON (exit ${res.exitCode})`, null);
+      }
+      const errors = body.errors ?? [];
+      if (!body.data) {
+        throw new ForgeError(`gh api graphql: ${errors[0]?.message ?? "no data"}`, null);
+      }
+      return { data: body.data, errors };
     }
-    return { data: res.data.data, errors };
+    throw new ForgeError(
+      `gh api graphql: GitHub cut the response short twice (exit ${exitCode}, empty response)`,
+      exitCode,
+    );
   }
 
   async status(): Promise<{ ok: boolean; detail: string; scopes?: string[] }> {

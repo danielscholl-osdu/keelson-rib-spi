@@ -158,14 +158,35 @@ function resweep(s: Sweeper): void {
   })();
 }
 
-async function readOthers(item: QueueItem, now: number): Promise<ForkEntry[] | undefined> {
-  if (!checkable(item.halt) || !exec) return undefined;
-  const key = `${item.halt.fork}:${item.halt.code}:${item.halt.entries.join(",")}`;
-  const hit = othersCache.get(key);
-  if (hit && now - hit.at < OTHERS_TTL_MS) return hit.entries;
-  const entries = await entryAcrossForks(new Gh(exec), new Glab(exec), item.halt);
-  othersCache.set(key, { at: now, entries });
-  return entries;
+function othersKey(item: QueueItem): string | undefined {
+  if (!checkable(item.halt)) return undefined;
+  return `${item.halt.fork}:${item.halt.code}:${item.halt.entries.join(",")}`;
+}
+
+function cachedOthers(item: QueueItem, now: number): ForkEntry[] | undefined {
+  const key = othersKey(item);
+  const hit = key ? othersCache.get(key) : undefined;
+  return hit && now - hit.at < OTHERS_TTL_MS ? hit.entries : undefined;
+}
+
+// Reads the other forks after the drawer is open, and fills them in only if the
+// operator is still looking at the same item.
+function readOthers(item: QueueItem): void {
+  const key = othersKey(item);
+  const run = exec;
+  if (!key || !run || !checkable(item.halt)) return;
+  entryAcrossForks(new Gh(run), new Glab(run), item.halt)
+    .then((entries) => {
+      othersCache.set(key, { at: Date.now(), entries });
+      if (inspect.selected !== item.id) return;
+      inspect = { ...inspect, reading: undefined, others: { id: item.id, entries } };
+    })
+    .catch(() => {
+      if (inspect.selected === item.id) inspect = { ...inspect, reading: undefined };
+    })
+    .finally(() => {
+      if (inspect.selected === item.id) snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
+    });
 }
 
 const rib: Rib = {
@@ -211,15 +232,18 @@ const rib: Rib = {
       }
       const item = s.model.queue.items.find((i) => i.id === id);
       if (!item) return { ok: false, error: `${id} has left the queue; the board redraws` };
-      const entries = await readOthers(item, Date.now()).catch(() => undefined);
+      const entries = cachedOthers(item, Date.now());
+      const read = !entries && !!othersKey(item);
       inspect = {
         selected: id,
         item,
         ...(entries ? { others: { id, entries } } : {}),
+        ...(read ? { reading: id } : {}),
       };
       // The drawer opens on this snapshot, so it must hold the item just clicked.
       await snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
       snapshots?.recompose(ATTENTION_KEY).catch(() => undefined);
+      if (read) readOthers(item);
       return {
         ok: true,
         data: {

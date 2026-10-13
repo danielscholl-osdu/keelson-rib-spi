@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { RibExec } from "@keelson/shared";
 import {
   buildQuery,
   parseCrons,
@@ -9,6 +10,7 @@ import {
 } from "../src/collect/github";
 import { changeOf, firstParentChanges } from "../src/collect/template";
 import { FORKS, PLANNED, STACK_REPO, TEMPLATE_REPO } from "../src/config";
+import { Gh } from "../src/forge";
 
 describe("GraphQL query", () => {
   test("reads the template, the stack, every fork and probes each planned repository", () => {
@@ -186,5 +188,57 @@ describe("template changes", () => {
       commit("dep1", ["marker"], "chore(deps): bump openjdk"),
     ];
     expect(firstParentChanges("m2", commits).map((c) => c.pr)).toEqual([252, 251]);
+  });
+});
+
+describe("GraphQL reads", () => {
+  function scripted(replies: { data: string; exitCode: number }[]) {
+    const calls: string[][] = [];
+    const exec: RibExec = {
+      runJSON: async () => ({ ok: false as const, error: "unused", code: 1 }),
+      runText: async (_cmd: string, args: string[]) => {
+        calls.push(args);
+        const r = replies.shift() ?? { data: "", exitCode: 1 };
+        return { ok: true as const, data: r.data, exitCode: r.exitCode };
+      },
+    };
+    return { exec, calls };
+  }
+
+  test("a response GitHub cut short is read again once", async () => {
+    const { exec, calls } = scripted([
+      { data: "", exitCode: 1 },
+      { data: JSON.stringify({ data: { viewer: { login: "operator" } } }), exitCode: 0 },
+    ]);
+    const counter = { calls: 0 };
+    const res = await new Gh(exec, counter).graphql<{ viewer: { login: string } }>(
+      "{viewer{login}}",
+    );
+    expect(res.data.viewer.login).toBe("operator");
+    expect(calls).toHaveLength(2);
+    expect(counter.calls).toBe(2);
+  });
+
+  test("cut short twice names what happened instead of a parse error", async () => {
+    const { exec } = scripted([]);
+    await expect(new Gh(exec).graphql("{viewer{login}}")).rejects.toThrow(
+      "gh api graphql: GitHub cut the response short twice (exit 1, empty response)",
+    );
+  });
+
+  test("a missing repository's error comes back beside the others' data", async () => {
+    const { exec, calls } = scripted([
+      {
+        data: JSON.stringify({
+          data: { a: { name: "x" }, b: null },
+          errors: [{ type: "NOT_FOUND", path: ["b"], message: "Could not resolve" }],
+        }),
+        exitCode: 1,
+      },
+    ]);
+    const res = await new Gh(exec).graphql<{ a: { name: string } }>("{a:repository{name}}");
+    expect(res.data.a.name).toBe("x");
+    expect(res.errors[0]?.type).toBe("NOT_FOUND");
+    expect(calls).toHaveLength(1);
   });
 });
