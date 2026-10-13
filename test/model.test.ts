@@ -57,10 +57,44 @@ describe("the fleet on 12 October", () => {
   test("the entitlements halt is its own incident with its code", () => {
     const halt = model.queue.items.find((i) => i.id === "halt:entitlements");
     expect(halt?.rung).toBe(0);
-    expect(halt?.text).toBe(
-      "sync halted: UNKNOWN_TOP_LEVEL: unclassified top-level entries: schemathesis-tests",
-    );
+    expect(halt?.text).toBe("sync halted on schemathesis-tests, an unclassified top-level entry");
+    expect(halt?.cause.find((c) => c.label === "halt")?.value).toBe("UNKNOWN_TOP_LEVEL");
     expect(halt?.note).toBe("2 commits behind");
+  });
+
+  test("a red release build reads as one clause; the inspector keeps the surefire line", () => {
+    const f = fixtureFacts();
+    const pr = f.github.data?.repos["Azure/osdu-spi"]?.prs.find((p) => p.number === 248);
+    const details = f.details.data;
+    if (!pr || !details) throw new Error("fixture has the osdu-spi release PR");
+    const raw =
+      "Tests run: 24, Failures: 0, Errors: 24, Skipped: 0, Time elapsed: 0.793 s <<< FAILURE! -- in org.opengroup.osdu.crs.converter.CompoundWGS84TransformTests";
+    pr.checks.push({
+      id: 1,
+      name: "Java Build",
+      workflow: "Build",
+      runId: 1,
+      status: "COMPLETED",
+      conclusion: "FAILURE",
+      startedAt: "2026-10-12T21:00:00Z",
+      completedAt: "2026-10-12T21:05:00Z",
+      url: "https://github.com/Azure/osdu-spi/actions/runs/1/job/1",
+    });
+    details["Azure/osdu-spi#1"] = {
+      id: 1,
+      name: "Java Build",
+      status: "completed",
+      conclusion: "failure",
+      url: "https://github.com/Azure/osdu-spi/actions/runs/1/job/1",
+      steps: [],
+      failedStep: "Run Java Build",
+      reason: raw,
+    };
+    const item = buildModel(f, FIXTURE_NOW).queue.items.find((i) => i.kind === "release-red");
+    expect(item?.text).toBe(
+      "release PR #248 fails Java Build: 24 errors in CompoundWGS84TransformTests",
+    );
+    expect(item?.cause.find((c) => c.label === "reason")?.value).toBe(raw);
   });
 
   test("the legal sync PR reads as a toolchain move, not a code failure", () => {

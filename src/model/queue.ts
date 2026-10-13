@@ -8,7 +8,7 @@
 
 import { forkOf, githubUrl, shortRepo, TEMPLATE_REPO } from "../config.ts";
 import type { OutsidePr, PrFact, RepoFact, WaitingRun } from "../facts.ts";
-import { plural, releaseTag, short, stamp } from "../util.ts";
+import { clip, plural, releaseTag, short, stamp } from "../util.ts";
 import {
   CLASS_LABEL,
   type Failure,
@@ -18,6 +18,7 @@ import {
 } from "./attribution.ts";
 import { prReady, prVerdict } from "./checks.ts";
 import type { LineModel, LinePr } from "./lines.ts";
+import { summarizeReason } from "./reason.ts";
 import {
   attemptText,
   overdue,
@@ -30,6 +31,8 @@ import {
 import { predates, type TemplateModel } from "./template.ts";
 
 export type Rung = 0 | 1 | 2;
+
+const FACT_MAX = 200;
 export type Verdict = "BLOCKED" | "ATTENTION" | "MOVING" | "CONVERGED";
 
 export interface Effect {
@@ -127,7 +130,8 @@ function prFacts(p: LinePr, now: Date): Fact[] {
   const f = p.failures.find((x) => x.cls !== "POLICY" && x.cls !== "ENV") ?? p.failures[0];
   if (f) {
     facts.push({ label: "check", value: f.step ? `${f.check} › ${f.step}` : f.check, url: f.url });
-    if (f.reason) facts.push({ label: "reason", value: f.reason });
+    const raw = f.raw ?? f.reason;
+    if (raw) facts.push({ label: "reason", value: clip(raw, FACT_MAX) });
   }
   facts.push({ label: "head", value: short(p.pr.headSha) });
   if (p.pr.reviewDecision) {
@@ -147,6 +151,11 @@ export function haltEntries(detail: string): string[] {
     .split(",")
     .map((e) => e.trim())
     .filter(Boolean);
+}
+
+function haltText(code: string, detail: string): string {
+  const said = summarizeReason(`${code}: ${detail}`) ?? code;
+  return said.startsWith("sync halted") ? said : `sync halted: ${said}`;
 }
 
 function stackItems(
@@ -287,7 +296,8 @@ function stackItems(
 function gateText(p: LinePr): string {
   const failure = p.failures.find((f) => f.cls !== "POLICY" && f.cls !== "ENV");
   if (!failure) return "";
-  const tool = failure.cls === "TOOLCHAIN" ? toolchainText(failure.reason) : undefined;
+  const tool =
+    failure.cls === "TOOLCHAIN" ? toolchainText(failure.raw ?? failure.reason) : undefined;
   return ` fails ${failure.check}${tool ? `: ${tool}` : failure.reason ? `: ${failure.reason}` : ""}`;
 }
 
@@ -329,7 +339,7 @@ function lineItems(line: LineModel, now: Date): QueueItem[] {
       kind: "halt",
       rung: 0,
       scope: svc,
-      text: `sync halted: ${h.code}: ${h.detail}`,
+      text: haltText(h.code, h.detail),
       since: h.issue.createdAt,
       url: h.issue.url,
       note: lag ? `${plural(lag, "commit")} behind` : undefined,
@@ -412,7 +422,7 @@ function lineItems(line: LineModel, now: Date): QueueItem[] {
       kind: "main",
       rung: 0,
       scope: svc,
-      text: `main red: ${m.job?.name ?? "Validation"}${m.job?.failedStep ? ` › ${m.job.failedStep}` : ""} failed on ${short(m.run.sha)}${m.job?.reason ? ` (${m.job.reason})` : ""}`,
+      text: `main red: ${m.job?.name ?? "Validation"}${m.job?.failedStep ? ` › ${m.job.failedStep}` : ""} failed on ${short(m.run.sha)}${m.job?.reason ? ` (${summarizeReason(m.job.reason)})` : ""}`,
       since: m.run.createdAt,
       url: m.job?.url ?? m.run.url,
       effects: [],
@@ -431,7 +441,7 @@ function lineItems(line: LineModel, now: Date): QueueItem[] {
               },
             ]
           : []),
-        ...(m.job?.reason ? [{ label: "reason", value: m.job.reason }] : []),
+        ...(m.job?.reason ? [{ label: "reason", value: clip(m.job.reason, FACT_MAX) }] : []),
       ],
       cls: m.cls,
       incident: true,
@@ -658,7 +668,7 @@ function releaseItems(
           kind: "release-red",
           rung: 1,
           scope: repoName(pr.repo),
-          text: `release PR ${tag} fails ${real[0]?.check}${real[0]?.reason ? `: ${real[0].reason}` : ""}`,
+          text: `release PR #${pr.number} fails ${real[0]?.check}${real[0]?.reason ? `: ${real[0].reason}` : ""}`,
           since: pr.createdAt,
           url: pr.url,
           effects: [],

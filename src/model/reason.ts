@@ -6,7 +6,7 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-import { clip } from "../util.ts";
+import { clip, plural } from "../util.ts";
 
 export interface Annotation {
   level: string;
@@ -106,10 +106,53 @@ export function reasonFromLog(text: string): string | undefined {
   return undefined;
 }
 
-// "GitLab API unreachable after 3 attempts: <urlopen error ...>" reads as the
-// outage it is; the rest stay verbatim.
-export function summarizeReason(reason: string | undefined): string | undefined {
-  if (!reason) return undefined;
+const CLAUSE = 90;
+
+function list(items: readonly string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+// "Tests run: 24, Failures: 0, Errors: 24, ... -- in a.b.CTests" → "24 errors in CTests".
+function surefire(reason: string): string | undefined {
+  const m =
+    /Tests run: \d+, Failures: (\d+), Errors: (\d+)(?:, Skipped: \d+)?.*?(?:-{1,2} in (\S+))?$/.exec(
+      reason,
+    );
+  if (!m) return undefined;
+  const counts = [
+    [Number(m[1]), "failure"],
+    [Number(m[2]), "error"],
+  ] as const;
+  const named = counts.filter(([n]) => n > 0).map(([n, w]) => plural(n, w));
+  if (named.length === 0) return undefined;
+  const cls = m[3]?.split(".").pop();
+  return `${named.join(", ")}${cls ? ` in ${cls}` : ""}`;
+}
+
+function halted(reason: string): string | undefined {
+  const m = /^UNKNOWN_TOP_LEVEL: unclassified top-level entr(?:y|ies): (.+)$/.exec(reason);
+  if (!m) return undefined;
+  const entries = (m[1] ?? "")
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
+  return entries.length === 1
+    ? `sync halted on ${entries[0]}, an unclassified top-level entry`
+    : `sync halted on ${list(entries)}, unclassified top-level entries`;
+}
+
+function suites(reason: string): string | undefined {
+  const m = /^failed suites?: (.+)$/i.exec(reason);
+  if (!m) return undefined;
+  const names = (m[1] ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return `the ${list(names)} suite${names.length === 1 ? "" : "s"}`;
+}
+
+function rewrite(reason: string): string {
   if (/GitLab API unreachable/i.test(reason))
     return "GitLab API unreachable while resolving images";
   const aad = /AADSTS(\d+): ([^.]+)/.exec(reason);
@@ -122,5 +165,26 @@ export function summarizeReason(reason: string | undefined): string | undefined 
   if (notDeployable) return `not deployable: ${notDeployable[1]}`;
   const waiting = /^waiting for the environment: (.*)$/i.exec(reason);
   if (waiting) return `waiting: ${waiting[1]}`;
-  return reason;
+  return surefire(reason) ?? halted(reason) ?? suites(reason) ?? reason;
+}
+
+// One clause for a queue row: cut at the last sentence or clause boundary that
+// fits, else at the last whole word.
+export function clause(text: string, max = CLAUSE): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  if (flat.length <= max) return flat;
+  const head = flat.slice(0, max + 1);
+  let cut = -1;
+  for (const m of head.matchAll(/[.;:,](?= )| [·—-](?= )/g)) {
+    if (m.index !== undefined && m.index <= max && m.index >= max / 3) cut = m.index;
+  }
+  if (cut > 0) return flat.slice(0, cut).trimEnd();
+  const space = flat.lastIndexOf(" ", max - 1);
+  return `${flat.slice(0, space > 0 ? space : max - 1).trimEnd()}…`;
+}
+
+// A failure reason as one row clause; the raw text stays with the inspector.
+export function summarizeReason(reason: string | undefined): string | undefined {
+  if (!reason) return undefined;
+  return clause(rewrite(reason.trim()));
 }

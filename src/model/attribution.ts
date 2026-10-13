@@ -75,6 +75,7 @@ export interface Failure {
   check: string;
   step?: string;
   reason?: string;
+  raw?: string;
   at: string;
   url?: string;
   hidden: boolean;
@@ -112,6 +113,7 @@ export function attributeCheck(
     check: check.name,
     step,
     reason,
+    raw: detail?.reason,
     at: check.completedAt ?? pr.updatedAt,
     url: check.url,
     hidden: false,

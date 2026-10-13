@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { reasonFromAnnotations, reasonFromLog, summarizeReason } from "../src/model/reason";
+import { clause, reasonFromAnnotations, reasonFromLog, summarizeReason } from "../src/model/reason";
 
 describe("reasons from annotations", () => {
   test("skips the runner's exit-code line and keeps the real failure", () => {
@@ -88,5 +88,49 @@ describe("summaries", () => {
     ).toBe(
       "Azure sign-in failed: AADSTS700024 Client assertion is not within its valid time range",
     );
+  });
+});
+
+describe("row clauses", () => {
+  test("a surefire summary names its non-zero counts and the simple class", () => {
+    expect(
+      summarizeReason(
+        "Tests run: 24, Failures: 0, Errors: 24, Skipped: 0, Time elapsed: 0.793 s <<< FAILURE! -- in org.opengroup.osdu.crs.converter.CompoundWGS84TransformTests",
+      ),
+    ).toBe("24 errors in CompoundWGS84TransformTests");
+    expect(
+      summarizeReason(
+        "Tests run: 9, Failures: 1, Errors: 2, Skipped: 0 <<< FAILURE! - in a.b.CTest",
+      ),
+    ).toBe("1 failure, 2 errors in CTest");
+  });
+
+  test("a halt code reads as a sentence", () => {
+    expect(
+      summarizeReason("UNKNOWN_TOP_LEVEL: unclassified top-level entries: schemathesis-tests"),
+    ).toBe("sync halted on schemathesis-tests, an unclassified top-level entry");
+    expect(summarizeReason("UNKNOWN_TOP_LEVEL: unclassified top-level entries: a, b")).toBe(
+      "sync halted on a and b, unclassified top-level entries",
+    );
+  });
+
+  test("failed suites name the suite", () => {
+    expect(summarizeReason("failed suites: acceptance")).toBe("the acceptance suite");
+    expect(summarizeReason("failed suites: acceptance, smoke")).toBe(
+      "the acceptance and smoke suites",
+    );
+  });
+
+  test("a long reason is cut at the last clause boundary under 90, never mid-token", () => {
+    const long =
+      "Could not resolve dependencies for project org.opengroup.osdu:os-storage: the following artifacts could not be resolved: x";
+    const cut = clause(long);
+    expect(cut).toBe("Could not resolve dependencies for project org.opengroup.osdu:os-storage");
+    expect(cut.length).toBeLessThanOrEqual(90);
+    const words = "word ".repeat(30).trim();
+    const clipped = clause(words);
+    expect(clipped.length).toBeLessThanOrEqual(90);
+    expect(clipped).toEndWith("word…");
+    expect(clause("short reason")).toBe("short reason");
   });
 });

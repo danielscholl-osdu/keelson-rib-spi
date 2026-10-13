@@ -208,7 +208,7 @@ export function prRed(p: LinePr | undefined): boolean {
 
 function failureText(f: Failure | undefined): string {
   if (!f) return "red";
-  const tool = f.cls === "TOOLCHAIN" ? toolchainText(f.reason) : undefined;
+  const tool = f.cls === "TOOLCHAIN" ? toolchainText(f.raw ?? f.reason) : undefined;
   return `${f.check}${tool ? `: ${tool}` : f.reason ? `: ${f.reason}` : ""}`;
 }
 
