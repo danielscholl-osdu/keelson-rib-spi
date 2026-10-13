@@ -14,7 +14,7 @@ sign-ins; it makes no GitHub or GitLab change and does not touch the cluster.
 |---|---|---|
 | Needs attention (banner) | What needs a person, ranked by what it blocks? | the incidents and gates the sweep finds |
 | Shared stack | Can forks deploy? If not, since when and what has been tried? Is the stack on its declared version? | `shared.yaml`, releases, and every env-refresh, env-upgrade, smoke and sweeper run with its jobs and steps |
-| Service lines | Where is each fork with upstream, the osdu-spi template and its release, and which template changes has it not taken? | PRs, checks, issues, `Upstream-Sha` trailers, GitLab master, `.github/.template-sync-commit` on main and at each template-sync PR head, template compares, Sync Template runs |
+| Service lines | Where is each fork with upstream, the osdu-spi template and its release, and how far has each template change spread? | PRs, checks, issues, `Upstream-Sha` trailers, GitLab master, `.github/.template-sync-commit` on main and at each template-sync PR head, template compares and `.github/sync-config.json`, Sync Template runs |
 
 The banner's pill is the tab's verdict (`BLOCKED`, `ATTENTION`, `MOVING`,
 `CONVERGED`) and the nav badge counts P0 and P1 items. P0 broke unattended, P1
@@ -37,7 +37,7 @@ version, the last refresh and the smoke streak; a refresh that failed before a
 later green upgrade reads amber, since the upgrade proved the stack after it.
 Times are local, the zone Keelson draws its timelines and clocks in.
 
-Service lines is one row per fork, and its state is the line's worst. Red means
+Service lines is one row per fork, worst first, and its state is the line's worst. Red means
 main is red, or the line stopped with nothing open to act on: a sync halt, a
 failed Sync Template run, or no template-sync PR. Amber means an open PR fails
 on a real failure. Blue means an update waits on review or the stack, and
@@ -45,18 +45,23 @@ on a real failure. Blue means an update waits on review or the stack, and
 waiting on a current line shows in its release column, not its state. Each
 station cell wears the same colors: green ✓ where the station is current, blue ◷
 where it waits, amber or red ✕ where it failed. A cell reads position first and
-handle last (`4 behind · PR #31 failing`, `v1.2.0 → v1.2.1 · PR #48`), so each
+handle last (`4 behind · PR #31 failing`, `v1.2.0 · PR #48`), so each
 column's versions line up under its ✓ cells. Notes give the reason and its age in
 the same `5d` form as the release column. The header turns red only for a red
 main, since a halt or a failing PR is work to do while the service still builds.
+Once four or more forks are current on every station, they fold into one row.
 
-A template-sync PR shows the version the fork is on and the one the PR moves it
-to, so a jump across several releases is visible before anyone merges it. When
-osdu-spi main is past its last tag, the target reads as the release its open
-release PR will tag, for example `v1.2.0 → v1.2.1` while the osdu-spi release PR
-for 1.2.1 is open. A release PR reads the same way, `v1.3.1 → v1.3.2`. Below the
-table, template changes are listed under the forks still missing them, one list
-per set of forks.
+Below the table, the template ladder has one bar per step of osdu-spi history
+that a fork still sits behind, newest first. A step is the changes between two
+fork positions; its bar shows how many forks have adopted it, then those whose
+template-sync PR waits, fails, or is missing, in the table's colors. The step
+says what its changes reach in a fork (images, actions, workflows, settings or
+fork resources), read from the paths each change touches against the template's
+`sync-config.json`; a change that touches nothing synced is `template only`.
+When osdu-spi main is past its last tag, the top step reads as the release its
+open release PR will tag, for example `v1.2.1` while the osdu-spi release PR for
+1.2.1 is open. The rows grow with template steps in flight, not with forks. A
+release PR reads as a version move in its column, `v1.3.1 → v1.3.2`.
 
 ## Services
 

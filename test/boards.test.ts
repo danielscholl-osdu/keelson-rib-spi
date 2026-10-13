@@ -6,6 +6,7 @@ import { stackBoard } from "../src/boards/stack";
 import { emptyFacts } from "../src/facts";
 import { ATTENTION_KEY, LINES_KEY, STACK_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
+import { buildTemplate } from "../src/model/template";
 import { FIXTURE_NOW, fixtureFacts } from "./harness";
 
 const facts = fixtureFacts();
@@ -100,7 +101,7 @@ describe("what the boards say", () => {
     expect(badge(model).count).toBe(p0 + p1);
   });
 
-  test("one row per fork with its stations in flow order, then the template changes", () => {
+  test("one row per fork, worst first, then the template ladder", () => {
     const b = linesBoard(model, FIXTURE_NOW);
     expect(b.header?.status).toEqual({
       label: "1 HALTED · 1 BLOCKED · 3 UPDATES WAITING",
@@ -123,8 +124,9 @@ describe("what the boards say", () => {
         ? String(cell.value).replaceAll("\u00a0", " ")
         : cell;
     const row = (svc: string) => table.rows.find((r) => text(r.service) === svc);
-    expect(text(row("partition")?.template)).toBe("◷ v1.2.0 → v1.2.1 · PR #174");
-    expect(text(row("schema")?.template)).toBe("◷ v1.2.0 +2 → v1.2.1 · PR #37");
+    expect(table.rows.map((r) => text(r.service)).slice(0, 2)).toEqual(["entitlements", "legal"]);
+    expect(text(row("partition")?.template)).toBe("◷ v1.2.0 · PR #174");
+    expect(text(row("schema")?.template)).toBe("◷ v1.2.0 +2 · PR #37");
     expect(text(row("partition")?.upstream)).toBe("✓ current");
     expect(text(row("entitlements")?.upstream)).toBe("✕ 2 behind · halted");
     expect(text(row("legal")?.upstream)).toBe("✕ 4 behind · PR #31 failing");
@@ -141,25 +143,27 @@ describe("what the boards say", () => {
       "Java Build: upstream requires Java 25, the fork builds on 17 · 4d",
     );
     expect(row("partition")?.notes).toBe("");
-    const [all, some] = b.sections.slice(1);
-    if (all?.kind !== "rows" || some?.kind !== "rows") throw new Error("change lists follow");
-    expect(all.title).toBe(
-      "Template changes missing on all 5 forks · v1.2.1, 14 commits past v1.2.0",
+    const ladder = b.sections[1];
+    if (ladder?.kind !== "bars") throw new Error("ladder second");
+    expect(b.sections).toHaveLength(2);
+    expect(ladder.title).toBe("Template · osdu-spi main is v1.2.1, 5 changes past v1.2.0");
+    expect(ladder.items.map((i) => [i.label, i.value, i.total, i.trailing])).toEqual([
+      [
+        "v1.2.1 · 4 changes: images, actions, workflows, 1 template only",
+        0,
+        5,
+        "0 of 5 · 5 waiting",
+      ],
+      ["v1.2.0 +2 · 1 change: images, actions, workflows", 1, 5, "1 of 5 · 4 waiting"],
+      ["v1.2.0", 5, 5, "5 of 5 · every fork"],
+    ]);
+    expect(ladder.items[0]?.href).toBe(
+      "https://github.com/Azure/osdu-spi/compare/ddfd9ff376b1f49a2f41b7a9f55e9541796cba45...bb49a034a3dcdaa922a1905e708ec66bde930888",
     );
-    expect(all.items.map((i) => i.text.match(/\(#(\d+)\)$/)?.[1])).toEqual([
-      "252",
-      "251",
-      "243",
-      "244",
+    expect(ladder.items[1]?.segments).toEqual([
+      { label: "adopted", n: 1, tone: "ok" },
+      { label: "PR waiting", n: 4, tone: "info" },
     ]);
-    expect(some.title).toBe("Missing on partition, entitlements, legal and file");
-    expect(some.items).toEqual([
-      expect.objectContaining({
-        text: "fix(acceptance): prewarm with dependency:resolve, not go-offline (#247)",
-        trailing: "5d",
-      }),
-    ]);
-    expect([...all.items, ...some.items].some((i) => i.glyph)).toBe(false);
   });
 
   test("a fork that took the template reads current, with its release PR as a version move", () => {
@@ -197,11 +201,45 @@ describe("what the boards say", () => {
     expect(text(row?.template)).toBe("✓ v1.2.1");
     expect(text(row?.release)).toStartWith("◷ v1.2.0 → v1.2.1 · PR #60");
     expect(b.header?.chip).toStartWith("main green on all 5 forks · 1 current · ");
-    const changes = b.sections[1];
-    if (changes?.kind !== "rows") throw new Error("change list second");
-    expect(changes.title).toStartWith(
-      "Template changes missing on partition, entitlements, legal and schema · ",
+    const ladder = b.sections[1];
+    if (ladder?.kind !== "bars") throw new Error("ladder second");
+    expect(ladder.items[0]).toMatchObject({ value: 1 });
+    expect(ladder.items[0]?.label).toStartWith("v1.2.1 · ");
+  });
+
+  test("at twenty forks the ladder keeps one row per template step and current forks fold", () => {
+    const f = fixtureFacts();
+    const base = buildModel(f, FIXTURE_NOW);
+    const lines = [0, 1, 2, 3].flatMap((k) =>
+      base.lines.map((line, i) => {
+        const fork = { ...line.fork, id: `${line.fork.id}-${k}` };
+        if (k === 0 || (k === 1 && i === 0)) return { ...line, fork };
+        return {
+          ...line,
+          fork,
+          pill: { label: "current", kind: "current" as const, tone: "ok" as const },
+          releasePr: undefined,
+        };
+      }),
     );
+    const templateRepo = f.github.data?.repos["Azure/osdu-spi"];
+    const model = {
+      ...base,
+      lines,
+      template: buildTemplate(templateRepo, f.template.data, lines),
+    };
+    const b = linesBoard(model, FIXTURE_NOW);
+    const table = b.sections[0];
+    const ladder = b.sections[1];
+    if (table?.kind !== "table" || ladder?.kind !== "bars") throw new Error("table, then ladder");
+    expect(ladder.items).toHaveLength(3);
+    expect(ladder.items.every((i) => i.total === 20)).toBe(true);
+    const folded = table.rows.at(-1);
+    expect(folded?.service).toBe("14 current");
+    expect(table.rows).toHaveLength(7);
+    expect(table.rows[0]?.state).toEqual({
+      badges: [{ text: "sync\u00a0halted", tone: "error" }],
+    });
   });
 
   test("the header is red only for a red main, and calm when only updates wait", () => {

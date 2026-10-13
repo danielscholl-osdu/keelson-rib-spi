@@ -18537,35 +18537,40 @@
               "title": "chore(deps): bump openjdk/jdk from `df29dac` to `fe3dae3` in /build in the docker group",
               "pr": 252,
               "url": "https://github.com/Azure/osdu-spi/pull/252",
-              "at": "2026-10-10T16:17:16Z"
+              "at": "2026-10-10T16:17:16Z",
+              "parent": "4175ec88d05069166a5b1f43774e6b32a747e941"
             },
             {
               "sha": "4175ec88d05069166a5b1f43774e6b32a747e941",
               "title": "Pin Maven in java-build and other template mvn steps",
               "pr": 251,
               "url": "https://github.com/Azure/osdu-spi/pull/251",
-              "at": "2026-10-10T16:12:46Z"
+              "at": "2026-10-10T16:12:46Z",
+              "parent": "ab84d2a74cece663666452bc61b27e43273b99ca"
             },
             {
               "sha": "ab84d2a74cece663666452bc61b27e43273b99ca",
               "title": "chore(deps): bump urllib3 from 2.7.0 to 2.8.0 in /doc",
               "pr": 243,
               "url": "https://github.com/Azure/osdu-spi/pull/243",
-              "at": "2026-10-07T19:25:00Z"
+              "at": "2026-10-07T19:25:00Z",
+              "parent": "7382f9522e5654e0cdb6419b2d7a6745fda32ede"
             },
             {
               "sha": "7382f9522e5654e0cdb6419b2d7a6745fda32ede",
               "title": "chore(deps): bump openjdk/jdk from `ab77e25` to `df29dac` in /build in the docker group",
               "pr": 244,
               "url": "https://github.com/Azure/osdu-spi/pull/244",
-              "at": "2026-10-07T19:18:31Z"
+              "at": "2026-10-07T19:18:31Z",
+              "parent": "ddfd9ff376b1f49a2f41b7a9f55e9541796cba45"
             },
             {
               "sha": "ddfd9ff376b1f49a2f41b7a9f55e9541796cba45",
               "title": "fix(acceptance): prewarm with dependency:resolve, not go-offline",
               "pr": 247,
               "url": "https://github.com/Azure/osdu-spi/pull/247",
-              "at": "2026-10-07T18:47:09Z"
+              "at": "2026-10-07T18:47:09Z",
+              "parent": "ea9a2e1975c3e62588a85b2947ba77a32d6fcfb9"
             }
           ]
         },
@@ -18621,7 +18626,56 @@
         }
       },
       "mainAhead": 14,
-      "targets": { "bb49a034a3dcdaa922a1905e708ec66bde930888": "v1.2.0 +14" }
+      "targets": { "bb49a034a3dcdaa922a1905e708ec66bde930888": "v1.2.0 +14" },
+      "files": {
+        "bb49a034a3dcdaa922a1905e708ec66bde930888": ["build/Dockerfile"],
+        "4175ec88d05069166a5b1f43774e6b32a747e941": [
+          ".github/actions/java-build/action.yml",
+          ".github/actions/setup-maven/action.yml",
+          ".github/template-workflows/build.yml",
+          ".github/template-workflows/cascade.yml",
+          ".github/template-workflows/copilot-setup-steps.yml"
+        ],
+        "ab84d2a74cece663666452bc61b27e43273b99ca": ["doc/requirements.txt"],
+        "7382f9522e5654e0cdb6419b2d7a6745fda32ede": ["build/Dockerfile"],
+        "ddfd9ff376b1f49a2f41b7a9f55e9541796cba45": [
+          ".github/actions/acceptance-image/README.md",
+          ".github/local-actions/acceptance-image-tests/run-tests.sh",
+          ".github/template-workflows/validate.yml",
+          "build/acceptance.Dockerfile",
+          "doc/src/architecture/deploy_test.md"
+        ]
+      },
+      "synced": {
+        "dirs": [
+          ".github/actions",
+          ".github/fork-resources",
+          "build",
+          ".github/rulesets",
+          ".github/scripts/settings-apply"
+        ],
+        "files": [
+          ".release-please-config.json",
+          ".github/labels.json",
+          ".github/branch-protection.json",
+          ".github/security-on.json",
+          ".github/security-patterns.txt",
+          ".github/template-workflows/sync.yml",
+          ".github/template-workflows/validate.yml",
+          ".github/template-workflows/build.yml",
+          ".github/template-workflows/release.yml",
+          ".github/template-workflows/sync-template.yml",
+          ".github/template-workflows/dependabot-validation.yml",
+          ".github/template-workflows/cascade.yml",
+          ".github/template-workflows/cascade-monitor.yml",
+          ".github/template-workflows/codeql.yml",
+          ".github/template-workflows/integration-cleanup.yml",
+          ".github/template-workflows/ghcr-retention.yml",
+          ".github/template-workflows/settings-apply.yml",
+          ".github/template-workflows/adopt-fork.yml",
+          ".github/template-workflows/copilot-setup-steps.yml"
+        ]
+      }
     }
   },
   "auth": {

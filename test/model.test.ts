@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { emptyFacts } from "../src/facts";
 import { buildModel } from "../src/model/index";
+import { consequenceOf } from "../src/model/template";
 import { FIXTURE_NOW, fixtureFacts } from "./harness";
 
 // The fixture is a real sweep from 12 October: the v0.28.1 upgrade failed on a
@@ -123,6 +124,34 @@ describe("the fleet on 12 October", () => {
     const prewarm = model.template.changes.find((c) => c.pr === 247);
     expect(prewarm?.forks).toBe(4);
     expect(prewarm?.missing).not.toContain("schema");
+  });
+
+  test("the template ladder: one step per fork position, its changes read by what reaches a fork", () => {
+    const steps = model.template.steps;
+    expect(steps.map((s) => [s.label, s.head, s.adopted.length, s.changes.length])).toEqual([
+      ["v1.2.1", true, 0, 4],
+      ["v1.2.0 +2", false, 1, 1],
+      ["v1.2.0", false, 5, 0],
+    ]);
+    expect(steps[0]?.consequences).toEqual(["images", "actions", "workflows"]);
+    expect(steps[0]?.templateOnly).toBe(1);
+    expect(steps[1]?.adopted).toEqual(["schema"]);
+    expect(steps[1]?.changes.map((c) => c.pr)).toEqual([247]);
+  });
+
+  test("a template path counts only when sync-config copies it into the forks", () => {
+    const synced = {
+      dirs: [".github/actions", "build", ".github/rulesets"],
+      files: [".github/labels.json", ".github/template-workflows/build.yml"],
+    };
+    expect(consequenceOf("build/Dockerfile", synced)).toBe("images");
+    expect(consequenceOf(".github/actions/java-build/action.yml", synced)).toBe("actions");
+    expect(consequenceOf(".github/template-workflows/build.yml", synced)).toBe("workflows");
+    expect(consequenceOf(".github/labels.json", synced)).toBe("settings");
+    expect(consequenceOf(".github/rulesets/main.json", synced)).toBe("settings");
+    expect(consequenceOf("doc/requirements.txt", synced)).toBeNull();
+    expect(consequenceOf(".github/local-actions/x/run.sh", synced)).toBeNull();
+    expect(consequenceOf(".github/workflows/dev-ci.yml", synced)).toBeNull();
   });
 
   test("a template-sync PR to main past the tag names the release main will become", () => {

@@ -260,7 +260,7 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
     ),
     tool(
       "spi_template",
-      "Template currency: the osdu-spi commit each fork last adopted (.github/.template-sync-commit) and the version its template-sync PR moves it to, how far behind main it is, what blocks the PR, the last Sync Template delivery, and the unadopted changes by title. Main past the last tag reads as the version its open release PR will tag, for example v1.2.1 while the osdu-spi release PR for 1.2.1 is open.",
+      "Template currency: the osdu-spi commit each fork last adopted (.github/.template-sync-commit) and the version its template-sync PR moves it to, how far behind main it is, what blocks the PR, the last Sync Template delivery, the unadopted changes by title, and the ladder: one step per fork position on template history, newest first, with the step's changes, what they reach in a fork (images, actions, workflows, settings, fork resources, or template only per sync-config.json) and which forks have adopted it. Main past the last tag reads as the version its open release PR will tag, for example v1.2.1 while the osdu-spi release PR for 1.2.1 is open.",
       z.object({}),
       () => {
         const m = sweeper.model;
@@ -299,6 +299,17 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
               pr: c.pr,
               forks: c.forks,
               url: c.url,
+            })),
+            ladder: tm.steps.map((st) => ({
+              step: st.label,
+              compare: st.url,
+              changes: st.changes.map((c) => ({ title: c.title, pr: c.pr, url: c.url })),
+              reaches: st.consequences,
+              templateOnly: st.templateOnly,
+              adopted: st.adopted,
+              waiting: st.waiting,
+              failing: st.failing,
+              noPr: st.noPr,
             })),
           }
         );

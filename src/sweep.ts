@@ -77,6 +77,13 @@ const cacheFileSchema = z.object({
     compares: z.record(z.string(), z.unknown()),
     labels: z.record(z.string(), z.string()),
     aheads: z.record(z.string(), z.number()),
+    files: z.record(z.string(), z.array(z.string())).optional(),
+    synced: z
+      .object({
+        head: z.string(),
+        paths: z.object({ dirs: z.array(z.string()), files: z.array(z.string()) }),
+      })
+      .optional(),
   }),
   upstream: z.record(z.string(), z.unknown()),
 });

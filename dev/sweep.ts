@@ -70,7 +70,13 @@ for (const l of m.lines) {
 console.log(
   `\nTEMPLATE ${m.template.latestTag} main +${m.template.mainAhead} · current ${m.template.current} waiting ${m.template.waiting}`,
 );
-for (const c of m.template.changes) console.log(`  ${c.title} (#${c.pr}) · ${c.forks} forks`);
+for (const st of m.template.steps) {
+  const reach = [...st.consequences, st.templateOnly ? `${st.templateOnly} template only` : ""];
+  console.log(
+    `  ${st.label.padEnd(10)} adopted ${st.adopted.length}/${m.lines.length} · waiting ${st.waiting.length} failing ${st.failing.length} no PR ${st.noPr.length} · ${reach.filter(Boolean).join(", ") || "-"}`,
+  );
+  for (const c of st.changes) console.log(`      ${c.title}${c.pr ? ` (#${c.pr})` : ""}`);
+}
 
 const boards = {
   [ATTENTION_KEY]: attentionBoard(m, sweeper.facts, now),

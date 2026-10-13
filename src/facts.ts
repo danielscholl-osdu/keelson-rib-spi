@@ -153,6 +153,7 @@ export interface UpstreamFact {
 
 export interface TemplateChange {
   sha: string;
+  parent?: string;
   title: string;
   pr?: number;
   url: string;
@@ -168,11 +169,19 @@ export interface TemplateCompare {
   changes: TemplateChange[];
 }
 
+// The template paths .github/sync-config.json copies into every fork.
+export interface SyncedPaths {
+  dirs: string[];
+  files: string[];
+}
+
 export interface TemplateFacts {
   latestTag?: string;
   mainAhead?: number;
   compares: Record<string, TemplateCompare>;
   targets?: Record<string, string>;
+  synced?: SyncedPaths;
+  files?: Record<string, string[]>;
 }
 
 export interface AuthFacts {

@@ -7,7 +7,13 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import { FORKS, githubUrl, TEMPLATE_REPO } from "../config.ts";
-import type { RepoFact, TemplateChange, TemplateCompare, TemplateFacts } from "../facts.ts";
+import type {
+  RepoFact,
+  SyncedPaths,
+  TemplateChange,
+  TemplateCompare,
+  TemplateFacts,
+} from "../facts.ts";
 import type { Gh } from "../forge.ts";
 import { short } from "../util.ts";
 
@@ -26,6 +32,9 @@ interface RawCompare {
   commits: RawCommit[];
 }
 
+const SYNC_CONFIG_JQ =
+  '.content | gsub("\\n"; "") | @base64d | fromjson | .sync_rules | {dirs: [.directories[]?.path], files: ([.files[]?.path] + [.workflows.template_workflows[]?.path])}';
+
 const COMPARE_JQ =
   "{status, ahead_by, behind_by, commits: [.commits[] | {sha, parents: [.parents[].sha], message: .commit.message, date: .commit.committer.date, url: .html_url}]}";
 
@@ -33,6 +42,7 @@ const COMPARE_JQ =
 // its subject with "(#N)".
 export function changeOf(c: RawCommit): TemplateChange {
   const lines = c.message.split(/\r?\n/);
+  const parent = c.parents[0];
   const merge = /^Merge pull request #(\d+) from \S+/.exec(lines[0] ?? "");
   if (merge) {
     const title =
@@ -43,12 +53,20 @@ export function changeOf(c: RawCommit): TemplateChange {
       lines[0] ??
       "";
     const pr = Number(merge[1]);
-    return { sha: c.sha, title, pr, url: githubUrl(TEMPLATE_REPO, `/pull/${pr}`), at: c.date };
+    return {
+      sha: c.sha,
+      parent,
+      title,
+      pr,
+      url: githubUrl(TEMPLATE_REPO, `/pull/${pr}`),
+      at: c.date,
+    };
   }
   const subject = (lines[0] ?? "").trim();
   const squash = /\(#(\d+)\)$/.exec(subject);
   return {
     sha: c.sha,
+    parent,
     title: subject,
     pr: squash ? Number(squash[1]) : undefined,
     url: squash ? githubUrl(TEMPLATE_REPO, `/pull/${squash[1]}`) : c.url,
@@ -97,6 +115,44 @@ export interface TemplateState {
   compares: Record<string, TemplateCompare>;
   labels: Record<string, string>;
   aheads: Record<string, number>;
+  files?: Record<string, string[]>;
+  synced?: { head: string; paths: SyncedPaths };
+}
+
+// A change's files never change, so each is read once; a failed read stays unread.
+async function changeFiles(
+  gh: Gh,
+  changes: readonly TemplateChange[],
+  known: Record<string, string[]>,
+): Promise<Record<string, string[]>> {
+  const out: Record<string, string[]> = {};
+  for (const c of changes) {
+    if (!known[c.sha] && c.parent) {
+      try {
+        known[c.sha] = await gh.rest<string[]>(
+          `repos/${TEMPLATE_REPO}/compare/${c.parent}...${c.sha}`,
+          "[.files[]?.filename]",
+        );
+      } catch {}
+    }
+    const files = known[c.sha];
+    if (files) out[c.sha] = files;
+  }
+  return out;
+}
+
+async function syncedPaths(gh: Gh, head: string, state: TemplateState) {
+  if (state.synced?.head === head) return state.synced.paths;
+  try {
+    const paths = await gh.rest<SyncedPaths>(
+      `repos/${TEMPLATE_REPO}/contents/.github/sync-config.json?ref=${head}`,
+      SYNC_CONFIG_JQ,
+    );
+    state.synced = { head, paths };
+    return paths;
+  } catch {
+    return state.synced?.paths;
+  }
 }
 
 export async function readTemplate(
@@ -124,7 +180,7 @@ export async function readTemplate(
     ...new Set(FORKS.map((f) => repos[f.repo]?.marker).filter((m): m is string => !!m)),
   ];
   for (const marker of markers) {
-    const key = `${marker}...${head}@${latestTag ?? ""}`;
+    const key = `${marker}...${head}@${latestTag ?? ""}#parents`;
     let entry = state.compares[key];
     if (!entry) {
       const cmp = await gh.rest<RawCompare>(
@@ -143,6 +199,11 @@ export async function readTemplate(
     }
     facts.compares[marker] = entry;
   }
+  state.files ??= {};
+  const changes = Object.values(facts.compares).flatMap((c) => c.changes);
+  facts.files = await changeFiles(gh, changes, state.files);
+  const synced = await syncedPaths(gh, head, state);
+  if (synced) facts.synced = synced;
   const moved = new Set(
     FORKS.flatMap((f) =>
       (repos[f.repo]?.prs ?? [])
