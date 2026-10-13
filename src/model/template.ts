@@ -16,6 +16,7 @@ export interface TemplateRow {
   repo: string;
   marker?: string;
   label?: string;
+  target?: string;
   behind?: number;
   pr?: PrFact;
   verdict?: PrVerdict;
@@ -28,6 +29,7 @@ export interface TemplateModel {
   latestTag?: string;
   mainAhead?: number;
   releasePr?: PrFact;
+  next?: string;
   rows: TemplateRow[];
   current: number;
   waiting: number;
@@ -37,12 +39,27 @@ export interface TemplateModel {
   commits: number;
 }
 
+export function templateReleasePr(templateRepo: RepoFact | undefined): PrFact | undefined {
+  return templateRepo?.prs.find(
+    (p) => p.head.startsWith("release-please--") || p.labels.includes("autorelease: pending"),
+  );
+}
+
+// "chore: release 1.2.1" with tags like v1.2.0 names the next tag v1.2.1.
+export function nextTag(templateRepo: RepoFact | undefined, latestTag: string | undefined) {
+  const pr = templateReleasePr(templateRepo);
+  const version = pr ? /release\s+v?(\S+)/i.exec(pr.title)?.[1] : undefined;
+  if (!version) return undefined;
+  return `${latestTag?.startsWith("v") ? "v" : ""}${version}`;
+}
+
 export function buildTemplate(
   templateRepo: RepoFact | undefined,
   facts: TemplateFacts | undefined,
   lines: readonly LineModel[],
 ): TemplateModel {
   const compares = facts?.compares ?? {};
+  const latestTag = facts?.latestTag ?? templateRepo?.release?.tag;
   const rows: TemplateRow[] = lines.map((line) => {
     const marker = line.template.marker;
     const compare = marker ? compares[marker] : undefined;
@@ -50,7 +67,8 @@ export function buildTemplate(
       service: line.fork.id,
       repo: line.fork.repo,
       marker,
-      label: compare?.label,
+      label: line.template.label,
+      target: line.template.target,
       behind: compare?.aheadBy,
       pr: line.templatePr?.pr,
       verdict: line.templatePr ? prVerdict(line.templatePr.pr) : undefined,
@@ -81,14 +99,12 @@ export function buildTemplate(
     })
     .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
 
-  const prs = templateRepo?.prs ?? [];
   return {
     head: templateRepo?.head,
-    latestTag: facts?.latestTag ?? templateRepo?.release?.tag,
+    latestTag,
     mainAhead: facts?.mainAhead,
-    releasePr: prs.find(
-      (p) => p.head.startsWith("release-please--") || p.labels.includes("autorelease: pending"),
-    ),
+    releasePr: templateReleasePr(templateRepo),
+    next: nextTag(templateRepo, latestTag),
     rows,
     current: rows.filter((r) => r.behind === 0).length,
     waiting: rows.filter((r) => (r.behind ?? 0) > 0 && r.pr).length,

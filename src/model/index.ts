@@ -11,7 +11,7 @@ import type { Facts } from "../facts.ts";
 import { buildLine, type LineModel } from "./lines.ts";
 import { buildQueue, type Queue } from "./queue.ts";
 import { buildStack, type StackModel } from "./stack.ts";
-import { buildTemplate, type TemplateModel } from "./template.ts";
+import { buildTemplate, nextTag, type TemplateModel } from "./template.ts";
 
 export interface Model {
   measured: boolean;
@@ -29,6 +29,11 @@ export function buildModel(facts: Facts, now: Date): Model {
   const repos = facts.github.data?.repos ?? {};
   const details = facts.details.data ?? {};
   const stack = buildStack(repos[STACK_REPO], facts.lifecycle.data, now);
+  const templateRepo = repos[TEMPLATE_REPO];
+  const templateNext = nextTag(
+    templateRepo,
+    facts.template.data?.latestTag ?? templateRepo?.release?.tag,
+  );
   const lines = FORKS.map((fork) =>
     buildLine({
       fork,
@@ -37,13 +42,14 @@ export function buildModel(facts: Facts, now: Date): Model {
       upstream: facts.upstream.data?.[fork.id],
       compares: facts.template.data?.compares ?? {},
       targets: facts.template.data?.targets ?? {},
-      templateHead: repos[TEMPLATE_REPO]?.head,
+      templateHead: templateRepo?.head,
+      templateNext,
       details,
       stack,
       now,
     }),
   );
-  const template = buildTemplate(repos[TEMPLATE_REPO], facts.template.data, lines);
+  const template = buildTemplate(templateRepo, facts.template.data, lines);
   const queue = buildQueue({
     stack,
     lines,

@@ -116,7 +116,7 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
   return [
     tool(
       "spi_watchstand",
-      "One-word SPI verdict (BLOCKED, ATTENTION, MOVING or CONVERGED) with the ranked needs-a-person queue behind it. Start here for 'is the SPI fleet healthy'. P0 broke unattended, P1 is a gate or decision, P2 is ready work.",
+      "One-word SPI verdict (BLOCKED, ATTENTION, MOVING or CONVERGED) with the ranked needs-a-person queue behind it. Start here for 'is the SPI fleet healthy'. P0 broke unattended, P1 is a gate or decision, P2 is ready work. Each line's kind is broken (main red), halted (automation stopped, no PR open), blocked (an open PR fails on a real failure), stale, waiting (an update waits on review or the stack), unmeasured or current.",
       z.object({}),
       () => {
         const m = sweeper.model;
@@ -134,7 +134,12 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
               maintenance: m.stack.maintenance.state,
               inflight: runView(m.stack.inflight, t),
             },
-            lines: m.lines.map((l) => ({ service: l.fork.id, state: l.pill.label, why: l.why })),
+            lines: m.lines.map((l) => ({
+              service: l.fork.id,
+              state: l.pill.label,
+              kind: l.pill.kind,
+              why: l.why,
+            })),
             queue: m.queue.items.map((i) => ({
               rung: `P${i.rung}`,
               scope: i.scope,
@@ -163,6 +168,7 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
             repo: line.fork.repo,
             upstreamProject: line.fork.upstream,
             state: line.pill.label,
+            kind: line.pill.kind,
             why: line.why,
             stations: line.stations,
             upstream: {
@@ -250,7 +256,7 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
     ),
     tool(
       "spi_template",
-      "Template currency: the osdu-spi commit each fork last adopted (.github/.template-sync-commit), how far behind main it is, the open template-sync PR and what blocks it, the last Sync Template delivery, and the unadopted changes by title.",
+      "Template currency: the osdu-spi commit each fork last adopted (.github/.template-sync-commit) and the version its template-sync PR moves it to, how far behind main it is, what blocks the PR, the last Sync Template delivery, and the unadopted changes by title. Main past the last tag reads as the release its open release PR will tag, for example v1.2.1 (unreleased).",
       z.object({}),
       () => {
         const m = sweeper.model;
@@ -259,6 +265,7 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
         return (
           notMeasured(m) ?? {
             latestTag: tm.latestTag,
+            next: tm.next,
             head: tm.head,
             mainAhead: tm.mainAhead,
             releasePr: tm.releasePr?.url,
@@ -266,6 +273,7 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
             forks: tm.rows.map((r) => ({
               service: r.service,
               on: r.label,
+              to: r.target,
               behind: r.behind,
               pr: r.pr
                 ? {

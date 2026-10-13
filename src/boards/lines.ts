@@ -10,7 +10,7 @@ import type { CanvasBoardView, CanvasTone } from "@keelson/shared";
 import { TEMPLATE_REPO } from "../config.ts";
 import { prVerdict } from "../model/checks.ts";
 import type { Model } from "../model/index.ts";
-import type { LineModel, LinePr } from "../model/lines.ts";
+import type { LineModel, LinePr, PillKind } from "../model/lines.ts";
 import type { TemplateModel } from "../model/template.ts";
 import { age, days, plural, stamp, zoned } from "../util.ts";
 
@@ -20,6 +20,23 @@ type RowsSection = Extract<Section, { kind: "rows" }>;
 type Cell = TableSection["rows"][number][string];
 
 const CHANGES_SHOWN = 8;
+
+// The header goes red only for a red main; a halt or a failing PR is work, so amber.
+const HEADER_WORDS: [Exclude<PillKind, "current">, string, string][] = [
+  ["broken", "MAIN RED", "MAIN RED"],
+  ["halted", "HALTED", "HALTED"],
+  ["blocked", "BLOCKED", "BLOCKED"],
+  ["stale", "STALE", "STALE"],
+  ["waiting", "UPDATE WAITING", "UPDATES WAITING"],
+  ["unmeasured", "UNMEASURED", "UNMEASURED"],
+];
+
+function mainText(lines: readonly LineModel[]): string {
+  const n = lines.length;
+  if (!lines.every((l) => l.runsRead)) return plural(n, "fork");
+  const green = lines.filter((l) => l.mainRun?.conclusion === "success").length;
+  return green === n ? `main green on all ${n} forks` : `main green on ${green} of ${n} forks`;
+}
 
 // Station cells never wrap, so the table gives the spare width to the notes.
 function one(text: string): string {
@@ -36,11 +53,11 @@ function since(at: string, now: Date): string {
   return d ? `${d}d` : (age(at, now) ?? "?");
 }
 
-// An open PR as a station: stopped on a real failure, ready to merge, or waiting.
+// An open PR as a station: failing on a real failure, ready to merge, or waiting.
 function prStation(p: LinePr, text: string): Cell {
   const shown = p.failures.filter((f) => !f.hidden);
   if (shown.some((f) => f.cls !== "ENV" && f.cls !== "POLICY")) {
-    return station(`✕ ${text}`, "error", p.pr.url);
+    return station(`✕ ${text}`, "warn", p.pr.url);
   }
   const ready =
     shown.length === 0 &&
@@ -48,9 +65,7 @@ function prStation(p: LinePr, text: string): Cell {
     !p.pr.draft &&
     p.pr.reviewDecision !== "REVIEW_REQUIRED" &&
     p.pr.reviewDecision !== "CHANGES_REQUESTED";
-  return ready
-    ? station(`◷ ${text} · ready`, "info", p.pr.url)
-    : station(`◷ ${text}`, "warn", p.pr.url);
+  return station(`◷ ${text}${ready ? " · ready" : ""}`, "info", p.pr.url);
 }
 
 function upstreamCell(line: LineModel): Cell {
@@ -59,14 +74,14 @@ function upstreamCell(line: LineModel): Cell {
   if (line.halt) return station(`✕ halted${behind}`, "error", line.halt.issue.url);
   const pr = line.syncPr;
   if (pr && prVerdict(pr.pr) === "red") {
-    return station(`✕ PR #${pr.pr.number} red${behind}`, "error", pr.pr.url);
+    return station(`✕ PR #${pr.pr.number} failing${behind}`, "warn", pr.pr.url);
   }
   if (pr) return prStation(pr, `PR #${pr.pr.number}${behind}`);
   if (line.syncRun?.conclusion === "failure") {
     return station("✕ sync run failed", "error", line.syncRun.url);
   }
   if (lag === undefined) return "?";
-  if (lag > 0) return station(`◷ ${lag} behind`, "warn");
+  if (lag > 0) return station(`◷ ${lag} behind`, "info");
   return station("✓ caught up");
 }
 
@@ -83,7 +98,7 @@ function templateCell(line: LineModel, now: Date): Cell {
   if (behind === undefined) return "?";
   if (behind === 0) return station(`✓ ${label ?? "current"}`);
   const pr = line.templatePr;
-  if (awaitingRun) return station(`◷ ${label ?? "?"} · ${behind} behind`, "warn");
+  if (awaitingRun) return station(`◷ ${label ?? "?"} · ${behind} behind`, "info");
   if (!pr) return station(`✕ ${label ?? "?"} · ${behind} behind, no PR`, "error");
   return prStation(pr, `PR #${pr.pr.number} · ${label ?? "?"} → ${target ?? "?"}`);
 }
@@ -92,12 +107,12 @@ function releaseCell(line: LineModel, now: Date): Cell {
   if (line.cascadeStop) {
     const conflict = line.conflicts[0];
     return conflict
-      ? station("✕ cascade conflict", "error", conflict.url)
-      : station("✕ cascade blocked", "error", line.tracking?.url);
+      ? station("✕ cascade conflict", "warn", conflict.url)
+      : station("✕ cascade blocked", "warn", line.tracking?.url);
   }
   const cascade = line.cascadePr;
   if (cascade && prVerdict(cascade.pr) === "red") {
-    return station(`✕ cascade PR #${cascade.pr.number} red`, "error", cascade.pr.url);
+    return station(`✕ cascade PR #${cascade.pr.number} failing`, "warn", cascade.pr.url);
   }
   if (cascade) return prStation(cascade, `cascade PR #${cascade.pr.number}`);
   if (line.cascadeRunning) return station("↻ cascade running", "info");
@@ -145,15 +160,8 @@ function missingText(missing: readonly string[], forks: readonly string[]): stri
 }
 
 function changesSection(t: TemplateModel, forks: readonly string[], now: Date): RowsSection {
-  const release = t.releasePr ? /release\s+v?(\S+)/i.exec(t.releasePr.title)?.[1] : undefined;
-  const ahead = t.mainAhead ?? t.commits;
-  const title = [
-    "Template changes not on every fork",
-    `osdu-spi main, ${plural(ahead, "commit")} past ${t.latestTag ?? "the last tag"}`,
-    release ? `release ${release} pending` : undefined,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const ahead = `${plural(t.mainAhead ?? t.commits, "commit")} past ${t.latestTag ?? "the last tag"}`;
+  const title = `Template changes not on every fork · ${t.next ? `${t.next} (unreleased)` : "osdu-spi main"}, ${ahead}`;
   const shown = t.changes.slice(0, CHANGES_SHOWN);
   const rest = t.changes.length - shown.length;
   return {
@@ -187,16 +195,24 @@ export function linesBoard(model: Model, now: Date): CanvasBoardView {
     };
   }
   const n = model.lines.length;
-  const stopped = model.lines.filter((l) => l.pill.tone === "error").length;
-  const waiting = model.lines.filter((l) => l.pill.tone === "warn").length;
-  const current = model.lines.filter((l) => l.current).length;
+  const count = (kind: PillKind) => model.lines.filter((l) => l.pill.kind === kind).length;
+  const current = count("current");
   const label =
     current === n
       ? `${n} OF ${n} CURRENT`
-      : [stopped ? `${stopped} STOPPED` : "", waiting ? `${waiting} WAITING` : ""]
-          .filter(Boolean)
-          .join(" · ") || `${current} OF ${n} CURRENT`;
-  const tone: CanvasTone = current === n ? "ok" : stopped ? "error" : "warn";
+      : HEADER_WORDS.filter(([kind]) => count(kind) > 0)
+          .map(([kind, singular, many]) => `${count(kind)} ${count(kind) === 1 ? singular : many}`)
+          .join(" · ");
+  const tone: CanvasTone =
+    current === n
+      ? "ok"
+      : count("broken")
+        ? "error"
+        : count("halted") || count("blocked") || count("stale")
+          ? "warn"
+          : count("waiting")
+            ? "info"
+            : "neutral";
   const caption = plannedText(model);
   const sections: Section[] = [
     {
@@ -233,7 +249,7 @@ export function linesBoard(model: Model, now: Date): CanvasBoardView {
     view: "board",
     header: {
       status: { label, tone },
-      chip: `${n} forks · ${current} current · ${zoned(model.sweptAt, now) ?? "not swept"}`,
+      chip: `${mainText(model.lines)} · ${current} current · ${zoned(model.sweptAt, now) ?? "not swept"}`,
     },
     sections,
   };

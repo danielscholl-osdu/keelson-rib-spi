@@ -343,11 +343,16 @@ function templateSetItem(
   ]
     .filter(Boolean)
     .join(" · ");
+  const targets = [...new Set(open.map((l) => l.template.target))];
+  const to =
+    targets.length === 1 && targets[0]
+      ? `to ${targets[0]}`
+      : `at template ${short(template.head?.sha)}`;
   return {
     id: "template-set",
     rung: 2,
     scope: "fleet",
-    text: `${plural(open.length, "template-sync PR")} at template ${short(template.head?.sha)} · ${suffix}`,
+    text: `${plural(open.length, "template-sync PR")} ${to} · ${suffix}`,
     since: oldest.templatePr?.pr.createdAt,
     url: oldest.templatePr?.pr.url,
     effects: open.map((l) => ({

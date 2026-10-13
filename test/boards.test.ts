@@ -67,7 +67,11 @@ describe("what the boards say", () => {
 
   test("one row per fork with its stations in flow order, then the template changes", () => {
     const b = linesBoard(model, FIXTURE_NOW);
-    expect(b.header?.status).toEqual({ label: "2 STOPPED · 3 WAITING", tone: "error" });
+    expect(b.header?.status).toEqual({
+      label: "1 HALTED · 1 BLOCKED · 3 UPDATES WAITING",
+      tone: "warn",
+    });
+    expect(b.header?.chip).toStartWith("main green on all 5 forks · 0 current · ");
     const table = b.sections[0];
     if (table?.kind !== "table") throw new Error("table first");
     expect(table.columns.map((c) => c.label)).toEqual([
@@ -84,21 +88,49 @@ describe("what the boards say", () => {
         ? String(cell.value).replaceAll("\u00a0", " ")
         : cell;
     const row = (svc: string) => table.rows.find((r) => text(r.service) === svc);
-    expect(text(row("partition")?.template)).toBe("◷ PR #174 · v1.2.0 → v1.2.0 +14");
-    expect(text(row("schema")?.template)).toBe("◷ PR #37 · v1.2.0 +2 → v1.2.0 +14");
+    expect(text(row("partition")?.template)).toBe("◷ PR #174 · v1.2.0 → v1.2.1 (unreleased)");
+    expect(text(row("schema")?.template)).toBe("◷ PR #37 · v1.2.0 +2 → v1.2.1 (unreleased)");
     expect(text(row("entitlements")?.upstream)).toBe("✕ halted · 2 behind");
-    expect(text(row("legal")?.upstream)).toBe("✕ PR #31 red · 4 behind");
+    expect(text(row("legal")?.upstream)).toBe("✕ PR #31 failing · 4 behind");
+    const tone = (cell: unknown) =>
+      typeof cell === "object" && cell !== null && "tone" in cell ? cell.tone : undefined;
+    expect(tone(row("entitlements")?.upstream)).toBe("error");
+    expect(tone(row("legal")?.upstream)).toBe("warn");
+    expect(tone(row("partition")?.template)).toBe("info");
     expect(text(row("partition")?.release)).toBe("✓ v1.3.1 · 6d");
     expect(row("legal")?.notes).toContain("upstream requires Java 25");
     expect(row("partition")?.notes).toBe("");
     const changes = b.sections[1];
     if (changes?.kind !== "rows") throw new Error("change list second");
-    expect(changes.title).toStartWith(
-      "Template changes not on every fork · osdu-spi main, 14 commits past v1.2.0",
+    expect(changes.title).toBe(
+      "Template changes not on every fork · v1.2.1 (unreleased), 14 commits past v1.2.0",
     );
     expect(changes.items.find((i) => i.text.endsWith("(#247)"))?.trailing).toStartWith(
       "all but schema",
     );
+  });
+
+  test("the header is red only for a red main, and calm when only updates wait", () => {
+    const red = fixtureFacts();
+    const runs = red.runs.data?.["Azure/osdu-spi-partition"];
+    if (!runs?.main[0]) throw new Error("fixture has partition main runs");
+    runs.main[0] = { ...runs.main[0], status: "completed", conclusion: "failure" };
+    const redBoard = linesBoard(buildModel(red, FIXTURE_NOW), FIXTURE_NOW);
+    expect(redBoard.header?.status).toEqual({
+      label: "1 MAIN RED · 1 HALTED · 1 BLOCKED · 2 UPDATES WAITING",
+      tone: "error",
+    });
+    expect(redBoard.header?.chip).toStartWith("main green on 4 of 5 forks");
+
+    const calm = fixtureFacts();
+    const repos = calm.github.data?.repos;
+    const entitlements = repos?.["Azure/osdu-spi-entitlements"];
+    const legal = repos?.["Azure/osdu-spi-legal"];
+    if (!entitlements || !legal) throw new Error("fixture has entitlements and legal");
+    entitlements.issues = entitlements.issues.filter((i) => !i.labels.includes("sync-failed"));
+    legal.prs = legal.prs.filter((p) => p.number !== 31);
+    const calmBoard = linesBoard(buildModel(calm, FIXTURE_NOW), FIXTURE_NOW);
+    expect(calmBoard.header?.status).toEqual({ label: "5 UPDATES WAITING", tone: "info" });
   });
 
   test("the stack panel answers whether forks can deploy, then shows how the outage unfolded", () => {

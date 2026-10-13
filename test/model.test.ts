@@ -60,18 +60,18 @@ describe("the fleet on 12 October", () => {
   test("template-sync PRs blocked only by the stack wait as one set", () => {
     const set = model.queue.items.find((i) => i.id === "template-set");
     expect(set?.rung).toBe(2);
-    expect(set?.text).toContain("5 template-sync PRs");
+    expect(set?.text).toContain("5 template-sync PRs to v1.2.1 (unreleased)");
     expect(set?.text).toContain("once the stack is deployable");
   });
 
-  test("each line wears its own state: upstream stops first, then the template-sync PR", () => {
-    const pill = Object.fromEntries(model.lines.map((l) => [l.fork.id, l.pill.label]));
+  test("each line wears its worst state: a halt is red, a failing PR amber, an update calm", () => {
+    const pill = Object.fromEntries(model.lines.map((l) => [l.fork.id, l.pill]));
     expect(pill).toEqual({
-      partition: "template waiting",
-      entitlements: "sync halted",
-      legal: "sync blocked",
-      schema: "template waiting",
-      file: "template waiting",
+      partition: { label: "template update", kind: "waiting", tone: "info" },
+      entitlements: { label: "sync halted", kind: "halted", tone: "error" },
+      legal: { label: "sync blocked", kind: "blocked", tone: "warn" },
+      schema: { label: "template update", kind: "waiting", tone: "info" },
+      file: { label: "template update", kind: "waiting", tone: "info" },
     });
     expect(model.lines.filter((l) => l.current)).toHaveLength(0);
     const partition = model.lines.find((l) => l.fork.id === "partition");
@@ -90,10 +90,40 @@ describe("the fleet on 12 October", () => {
     expect(prewarm?.missing).not.toContain("schema");
   });
 
-  test("a template-sync PR names the version it moves the fork to", () => {
+  test("a template-sync PR to main past the tag names the release main will become", () => {
     const template = (svc: string) => model.lines.find((l) => l.fork.id === svc)?.template;
-    expect(template("partition")).toMatchObject({ label: "v1.2.0", target: "v1.2.0 +14" });
-    expect(template("schema")).toMatchObject({ label: "v1.2.0 +2", target: "v1.2.0 +14" });
+    expect(model.template.next).toBe("v1.2.1");
+    expect(template("partition")).toMatchObject({
+      label: "v1.2.0",
+      target: "v1.2.1 (unreleased)",
+    });
+    expect(template("schema")).toMatchObject({
+      label: "v1.2.0 +2",
+      target: "v1.2.1 (unreleased)",
+    });
+  });
+
+  test("with no release PR open, main past the tag reads as main", () => {
+    const f = fixtureFacts();
+    const template = f.github.data?.repos["Azure/osdu-spi"];
+    if (!template) throw new Error("fixture has the template");
+    template.prs = template.prs.filter((p) => !p.head.startsWith("release-please--"));
+    const line = buildModel(f, FIXTURE_NOW).lines.find((l) => l.fork.id === "partition");
+    expect(line?.template).toMatchObject({ label: "v1.2.0", target: "main" });
+  });
+
+  test("a fork already on main past the tag is on the unreleased release", () => {
+    const f = fixtureFacts();
+    const repo = f.github.data?.repos["Azure/osdu-spi-file"];
+    const head = f.github.data?.repos["Azure/osdu-spi"]?.head?.sha;
+    const compares = f.template.data?.compares;
+    if (!repo || !head || !compares) throw new Error("fixture has the file fork and template");
+    repo.marker = head;
+    repo.prs = repo.prs.filter((p) => !p.head.startsWith("template-sync/"));
+    compares[head] = { marker: head, head, label: "v1.2.0 +14", aheadBy: 0, shas: [], changes: [] };
+    const line = buildModel(f, FIXTURE_NOW).lines.find((l) => l.fork.id === "file");
+    expect(line?.template.label).toBe("v1.2.1 (unreleased)");
+    expect(line?.pill.kind).toBe("current");
   });
 
   test("a failed Sync Template run stops the template line", () => {
@@ -102,17 +132,17 @@ describe("the fleet on 12 October", () => {
     if (!runs?.template[0]) throw new Error("fixture has partition template runs");
     runs.template[0] = { ...runs.template[0], conclusion: "failure" };
     const line = buildModel(f, FIXTURE_NOW).lines.find((l) => l.fork.id === "partition");
-    expect(line?.pill).toEqual({ label: "template blocked", tone: "error" });
+    expect(line?.pill).toEqual({ label: "template halted", kind: "halted", tone: "error" });
     expect(line?.why).toBe("Sync Template failed; template changes stop reaching this fork");
   });
 
-  test("a fork behind the template with no template-sync PR is stopped, not waiting", () => {
+  test("a fork behind the template with no template-sync PR is halted, not waiting", () => {
     const f = fixtureFacts();
     const repo = f.github.data?.repos["Azure/osdu-spi-file"];
     if (!repo) throw new Error("fixture has the file fork");
     repo.prs = repo.prs.filter((p) => !p.head.startsWith("template-sync/"));
     const line = buildModel(f, FIXTURE_NOW).lines.find((l) => l.fork.id === "file");
-    expect(line?.pill.label).toBe("template blocked");
+    expect(line?.pill.label).toBe("template halted");
     expect(line?.why).toBe("14 template commits behind and no template-sync PR open");
   });
 
@@ -125,8 +155,17 @@ describe("the fleet on 12 October", () => {
     file.prs = file.prs.filter((p) => !p.head.startsWith("template-sync/"));
     template.head = { ...template.head, at: "2026-10-12T20:00:00Z" };
     const line = buildModel(f, FIXTURE_NOW).lines.find((l) => l.fork.id === "file");
-    expect(line?.pill).toEqual({ label: "template behind", tone: "warn" });
+    expect(line?.pill).toEqual({ label: "template behind", kind: "waiting", tone: "info" });
     expect(line?.template.awaitingRun).toBe(true);
+  });
+
+  test("a red main outranks every other state on its line", () => {
+    const f = fixtureFacts();
+    const runs = f.runs.data?.["Azure/osdu-spi-entitlements"];
+    if (!runs?.main[0]) throw new Error("fixture has entitlements main runs");
+    runs.main[0] = { ...runs.main[0], status: "completed", conclusion: "failure" };
+    const line = buildModel(f, FIXTURE_NOW).lines.find((l) => l.fork.id === "entitlements");
+    expect(line?.pill).toEqual({ label: "main red", kind: "broken", tone: "error" });
   });
 
   test("remote mode reads maintenance and the running version from lifecycle runs", () => {

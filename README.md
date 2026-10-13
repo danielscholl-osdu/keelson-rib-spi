@@ -30,11 +30,18 @@ and every attempt in order, cancelled ones included. A step that runs past every
 green run of its kind turns amber. Times are local, the zone Keelson draws its
 timelines and clocks in.
 
-Service lines is one row per fork. Its state puts upstream problems first, then
-template problems, then anything waiting, so `current` means caught up with
-upstream and on the latest template. A template-sync PR shows the version the
-fork is on and the one the PR moves it to, so a jump across several releases is
-visible before anyone merges it.
+Service lines is one row per fork, and its state is the line's worst. Red means
+main is red, or the line stopped with nothing open to act on: a sync halt, a
+failed Sync Template run, or no template-sync PR. Amber means an open PR fails
+on a real failure. Blue means an update waits on review or the stack, and
+`current` means caught up with upstream and on the latest template. The header
+turns red only for a red main, since a halt or a failing PR is work to do while
+the service still builds.
+
+A template-sync PR shows the version the fork is on and the one the PR moves it
+to, so a jump across several releases is visible before anyone merges it. When
+osdu-spi main is past its last tag, the target reads as the release its open
+release PR will tag, for example `v1.2.0 → v1.2.1 (unreleased)`.
 
 ## Services
 

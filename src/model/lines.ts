@@ -58,6 +58,35 @@ export interface Delivery {
   state: "ok" | "failed" | "stale" | "unknown";
 }
 
+export type PillKind =
+  | "broken"
+  | "halted"
+  | "blocked"
+  | "stale"
+  | "waiting"
+  | "unmeasured"
+  | "current";
+
+export interface Pill {
+  label: string;
+  kind: PillKind;
+  tone: CanvasTone;
+}
+
+const TONE: Record<PillKind, CanvasTone> = {
+  broken: "error",
+  halted: "error",
+  blocked: "warn",
+  stale: "warn",
+  waiting: "info",
+  unmeasured: "neutral",
+  current: "ok",
+};
+
+function pillOf(label: string, kind: PillKind, tone: CanvasTone = TONE[kind]): Pill {
+  return { label, kind, tone };
+}
+
 export interface MainFailure {
   run: RunFact;
   job?: JobDetail;
@@ -68,7 +97,7 @@ export interface LineModel {
   fork: ForkDef;
   url: string;
   stations: Station[];
-  pill: { label: string; tone: CanvasTone };
+  pill: Pill;
   current: boolean;
   upstream?: UpstreamFact;
   release?: RepoFact["release"];
@@ -112,6 +141,18 @@ export function deliveryOf(run: RunFact | undefined, now: Date): Delivery {
   if (!run) return { state: "unknown" };
   if (run.conclusion !== "success") return { run, state: "failed" };
   return { run, state: now.getTime() - Date.parse(run.createdAt) > STALE_MS ? "stale" : "ok" };
+}
+
+// Labels read "v1.2.0" on a tag and "v1.2.0 +14" past it.
+function pastTag(label: string | undefined): boolean {
+  return !!label && / \+\d+$/.test(label);
+}
+
+// Template main past its last tag reads as the release its open release PR will cut.
+function unreleased(label: string | undefined, next: string | undefined, atHead: boolean) {
+  if (!pastTag(label)) return label;
+  if (next) return `${next} (unreleased)`;
+  return atHead ? "main" : label;
 }
 
 export function parseHaltCode(issue: IssueFact, now: Date): Halt | undefined {
@@ -178,12 +219,24 @@ export function buildLine(input: {
   compares: Record<string, TemplateCompare>;
   targets: Record<string, string>;
   templateHead?: { sha: string; at: string };
+  templateNext?: string;
   details: Record<string, JobDetail>;
   stack: StackModel;
   now: Date;
 }): LineModel {
-  const { fork, repo, runs, upstream, compares, targets, templateHead, details, stack, now } =
-    input;
+  const {
+    fork,
+    repo,
+    runs,
+    upstream,
+    compares,
+    targets,
+    templateHead,
+    templateNext,
+    details,
+    stack,
+    now,
+  } = input;
   const prs: LinePr[] = (repo?.prs ?? []).map((pr) => ({ pr, ...prFailures(pr, details) }));
   const pick = (cls: PrClass) => prs.find((p) => p.prClass === cls);
   const syncPr = pick("sync");
@@ -291,59 +344,60 @@ export function buildLine(input: {
   else if (lane.last) stations.push({ id: "lane", state: "idle", text: "last run ok" });
   else stations.push({ id: "lane", state: "unknown", text: "no run yet" });
 
-  let pill: LineModel["pill"];
+  let pill: Pill;
   let why: string | undefined;
   const syncFailure = syncPr?.failures.find((f) => f.cls !== "POLICY") ?? syncPr?.failures[0];
-  if (halt) {
-    pill = { label: "sync halted", tone: "error" };
+  if (mainRed && mainRed.cls !== "ENV") {
+    pill = pillOf("main red", "broken");
+    why = `${mainRed.job?.name ?? "Validation"} failed on main${mainRed.job?.failedStep ? ` › ${mainRed.job.failedStep}` : ""}`;
+  } else if (halt) {
+    pill = pillOf("sync halted", "halted");
     why = `${halt.code} ${haltSubject(halt.detail)} · halted ${plural(halt.days, "day")}`;
+  } else if (templateDelivery.state === "failed") {
+    pill = pillOf("template halted", "halted");
+    why = "Sync Template failed; template changes stop reaching this fork";
+  } else if (templateBehind && !templatePr && !awaitingRun) {
+    pill = pillOf("template halted", "halted");
+    why = `${plural(templateBehind, "template commit")} behind and no template-sync PR open`;
   } else if (cascadeStop) {
-    pill = { label: "cascade blocked", tone: "error" };
+    pill = pillOf("cascade blocked", "blocked");
     why = conflicts[0]
       ? `${conflicts[0].title}`
       : `tracking issue labeled ${cascadeLabels.join(", ")}`;
   } else if (syncPr && prRed(syncPr)) {
-    pill = { label: "sync blocked", tone: "error" };
+    pill = pillOf("sync blocked", "blocked");
     why = `${failureText(syncFailure)} · ${plural(days(syncPr.pr.createdAt, now) ?? 0, "day")}`;
-  } else if (mainRed && mainRed.cls !== "ENV") {
-    pill = { label: "main red", tone: "error" };
-    why = `${mainRed.job?.name ?? "Validation"} failed on main${mainRed.job?.failedStep ? ` › ${mainRed.job.failedStep}` : ""}`;
-  } else if (templateDelivery.state === "failed") {
-    pill = { label: "template blocked", tone: "error" };
-    why = "Sync Template failed; template changes stop reaching this fork";
-  } else if (templateBehind && !templatePr && !awaitingRun) {
-    pill = { label: "template blocked", tone: "error" };
-    why = `${plural(templateBehind, "template commit")} behind and no template-sync PR open`;
   } else if (templatePr && templateFailure) {
-    pill = { label: "template blocked", tone: "error" };
+    pill = pillOf("template blocked", "blocked");
     why = `template-sync PR #${templatePr.pr.number} fails ${failureText(templateFailure)}`;
-  } else if (syncPr) {
-    pill = { label: "gate 1 waiting", tone: "warn" };
-  } else if (cascadePr) {
-    pill = { label: "gate 2 waiting", tone: "warn" };
-  } else if (lag !== undefined && lag > 0) {
-    pill = { label: "behind", tone: "warn" };
-    why = `${plural(lag, "upstream commit")} not yet synced; the next daily sync runs at 00:00Z`;
   } else if (templateDelivery.state === "stale" && templateDelivery.run) {
-    pill = { label: "template stale", tone: "warn" };
+    pill = pillOf("template stale", "stale");
     why = `Sync Template last ran ${stamp(templateDelivery.run.createdAt, now)}; it runs daily`;
+  } else if (syncPr) {
+    pill = pillOf("gate 1 waiting", "waiting");
+  } else if (cascadePr) {
+    pill = pillOf("gate 2 waiting", "waiting");
+  } else if (lag !== undefined && lag > 0) {
+    pill = pillOf("behind", "waiting");
+    why = `${plural(lag, "upstream commit")} not yet synced; the next daily sync runs at 00:00Z`;
   } else if (templatePr && templateBehind) {
-    pill = { label: "template waiting", tone: "warn" };
+    pill = pillOf("template update", "waiting");
   } else if (awaitingRun) {
-    pill = { label: "template behind", tone: "warn" };
+    pill = pillOf("template behind", "waiting");
     why = templateRun
       ? "osdu-spi main moved after the last Sync Template run; the next daily run opens the PR"
       : "no Sync Template run read for this fork";
   } else if (lag === undefined) {
-    pill = { label: "lag unmeasured", tone: "neutral" };
+    pill = pillOf("lag unmeasured", "unmeasured");
   } else if (templateBehind === undefined) {
-    pill = { label: "template unmeasured", tone: "neutral" };
+    pill = pillOf("template unmeasured", "unmeasured");
   } else if (releasePr) {
-    pill = { label: "release ready", tone: "info" };
+    pill = pillOf("release ready", "current", "info");
   } else {
-    pill = { label: "current", tone: "ok" };
+    pill = pillOf("current", "current");
   }
-  const current = pill.label === "current" || pill.label === "release ready";
+  const current = pill.kind === "current";
+  const atHead = !!marker && marker === templateHead?.sha;
 
   return {
     fork,
@@ -374,9 +428,12 @@ export function buildLine(input: {
     lane,
     template: {
       marker,
-      label: compare?.label,
+      label: atHead ? unreleased(compare?.label, templateNext, true) : compare?.label,
       behind: templateBehind,
-      target: targetSha && targetSha !== marker ? targets[targetSha] : undefined,
+      target:
+        targetSha && targetSha !== marker
+          ? unreleased(targets[targetSha], templateNext, targetSha === templateHead?.sha)
+          : undefined,
       awaitingRun,
     },
     autoMerge: repo?.autoMergeAllowed,
