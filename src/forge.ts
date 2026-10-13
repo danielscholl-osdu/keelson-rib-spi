@@ -57,10 +57,11 @@ export class Gh {
 
   // A repository that does not exist comes back as a NOT_FOUND error beside the
   // data for the others, and gh exits non-zero, so partial data is kept. GitHub
-  // sometimes cuts the response short; gh then exits 1 with nothing on stdout,
-  // and one retry nearly always reads it whole.
+  // sometimes cuts the response short, leaving gh nothing or half a body; one
+  // retry nearly always reads it whole.
   async graphql<T>(query: string): Promise<{ data: T; errors: GqlError[] }> {
     let exitCode: number | null = null;
+    let cut = "empty response";
     for (let attempt = 0; attempt < 2; attempt++) {
       this.counter.calls++;
       const res = await this.exec.runText("gh", ["api", "graphql", "-f", `query=${query}`], {
@@ -69,12 +70,16 @@ export class Gh {
       });
       if (!res.ok) throw new ForgeError(`gh api graphql: ${res.error}`, res.code);
       exitCode = res.exitCode ?? null;
-      if (!res.data.trim()) continue;
+      if (!res.data.trim()) {
+        cut = "empty response";
+        continue;
+      }
       let body: { data?: T; errors?: GqlError[] };
       try {
         body = JSON.parse(res.data);
       } catch {
-        throw new ForgeError(`gh api graphql: response was not JSON (exit ${res.exitCode})`, null);
+        cut = `${res.data.length} bytes that were not JSON`;
+        continue;
       }
       const errors = body.errors ?? [];
       if (!body.data) {
@@ -83,7 +88,7 @@ export class Gh {
       return { data: body.data, errors };
     }
     throw new ForgeError(
-      `gh api graphql: GitHub cut the response short twice (exit ${exitCode}, empty response)`,
+      `gh api graphql: GitHub cut the response short twice (exit ${exitCode}, ${cut})`,
       exitCode,
     );
   }

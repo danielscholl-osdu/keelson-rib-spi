@@ -219,6 +219,23 @@ describe("GraphQL reads", () => {
     expect(counter.calls).toBe(2);
   });
 
+  test("half a body is read again too", async () => {
+    const { exec, calls } = scripted([
+      { data: '{"data":{"viewer":{"lo', exitCode: 1 },
+      { data: JSON.stringify({ data: { viewer: { login: "operator" } } }), exitCode: 0 },
+    ]);
+    const res = await new Gh(exec).graphql<{ viewer: { login: string } }>("{viewer{login}}");
+    expect(res.data.viewer.login).toBe("operator");
+    expect(calls).toHaveLength(2);
+    const twice = scripted([
+      { data: "", exitCode: 1 },
+      { data: '{"data":', exitCode: 1 },
+    ]);
+    await expect(new Gh(twice.exec).graphql("{viewer{login}}")).rejects.toThrow(
+      "GitHub cut the response short twice (exit 1, 8 bytes that were not JSON)",
+    );
+  });
+
   test("cut short twice names what happened instead of a parse error", async () => {
     const { exec } = scripted([]);
     await expect(new Gh(exec).graphql("{viewer{login}}")).rejects.toThrow(
