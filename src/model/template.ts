@@ -34,6 +34,7 @@ export interface TemplateRow {
   awaitingRun?: boolean;
   delivery: { run?: RunFact; state: "ok" | "failed" | "stale" | "unknown" };
   syncing?: RunFact;
+  dispatched?: string;
   // Approved, green and not a draft: what Roll out would merge.
   ready: boolean;
   dependabot: PrFact[];
@@ -290,6 +291,7 @@ export function buildTemplate(
       awaitingRun: line.template.awaitingRun,
       delivery: line.templateDelivery,
       ...(line.templateSyncing ? { syncing: line.templateSyncing } : {}),
+      ...(line.templateDispatched ? { dispatched: line.templateDispatched } : {}),
       ready: !!line.templatePr && prReady(line.templatePr.pr, line.templatePr.failures),
       dependabot: line.prs.filter((p) => p.prClass === "dependabot").map((p) => p.pr),
     };

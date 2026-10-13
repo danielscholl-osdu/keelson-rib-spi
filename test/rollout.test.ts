@@ -112,6 +112,7 @@ describe("Roll out", () => {
     });
     const [, roll] = rolloutActions(m.template, SWEPT, FIXTURE_NOW);
     expect(roll?.label).toBe("Roll out · 2 ready");
+    expect(roll?.pendingLabel).toBe("Merging 2…");
     expect(roll?.confirm?.irreversible).toBe(true);
     expect(roll?.confirm?.subject).toBe("2");
     expect(roll?.confirm?.body).toContain(
@@ -139,6 +140,7 @@ describe("the panel's buttons", () => {
     const actions = b.sections.find((s) => s.kind === "actions");
     if (actions?.kind !== "actions") throw new Error("actions");
     expect(actions.items.map((i) => i.label)).toEqual(["Sync all forks · 5", "Roll out · 0 ready"]);
+    expect(actions.items[0]?.pendingLabel).toBe("Dispatching 5…");
     expect(actions.items[0]?.confirm?.body).toStartWith(
       "Dispatches Sync Template on partition, entitlements, legal, schema and file, so each template-sync PR moves to v1.3.0 now instead of at 10-13 08:00.",
     );

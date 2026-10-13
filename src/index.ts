@@ -31,7 +31,7 @@ import { type InspectState, inspectBoard, inspectTitle, stepTitle } from "./boar
 import { linesBoard } from "./boards/lines.ts";
 import { stackBoard } from "./boards/stack.ts";
 import { checkable, entryAcrossForks, type ForkEntry } from "./collect/filters.ts";
-import { INFLIGHT_POLL_MS, SWEEP_MS } from "./config.ts";
+import { FORKS, INFLIGHT_POLL_MS, SWEEP_MS } from "./config.ts";
 import { Gh, Glab } from "./forge.ts";
 import {
   ATTENTION_KEY,
@@ -229,12 +229,23 @@ const rib: Rib = {
     }
     if (action.type === ACT_ACTION) {
       if (!exec) return { ok: false, error: "spi is not bound yet" };
+      const started = s.now().toISOString();
       const result = await act(action.payload, {
         exec,
         log: actionLog,
         resweep: () => resweep(s),
         now: s.now,
       });
+      const entry = actionLog.lastFor(ROLLOUT_ITEM);
+      if (entry?.verb === SYNC_FORKS.id && entry.at >= started) {
+        const done = new Set(
+          entry.results.filter((r) => r.outcome === "done").map((r) => r.target),
+        );
+        s.expectTemplateRuns(
+          FORKS.filter((f) => done.has(f.id)).map((f) => f.repo),
+          entry.at,
+        );
+      }
       snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
       snapshots?.recompose(ENGINEERING_KEY).catch(() => undefined);
       return result;

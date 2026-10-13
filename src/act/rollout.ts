@@ -40,8 +40,8 @@ export function syncTargets(t: TemplateModel): { targets: Target[]; skipped: str
   for (const row of t.rows) {
     if (!head || !row.behind) continue;
     if (row.pr?.headMarker === head) continue;
-    if (row.syncing) {
-      skipped.push(`${row.service} (Sync Template running)`);
+    if (row.syncing || row.dispatched) {
+      skipped.push(`${row.service} (Sync Template ${row.syncing ? "running" : "dispatched"})`);
       continue;
     }
     targets.push({ repo: row.repo, kind: "workflow", state: "idle", label: row.service });
@@ -149,6 +149,7 @@ export function rolloutActions(
       { item, swept: binding.swept, targets: sync.targets.length ? sync.targets : [placeholder] },
       {
         label: `Sync all forks · ${sync.targets.length}`,
+        pending: `Dispatching ${sync.targets.length}…`,
         title: `Sync all forks · ${plural(sync.targets.length, "fork")}`,
         detail: [
           `Dispatches Sync Template on ${names(sync.targets.map((x) => x.label))}, so each template-sync PR moves to ${head} now${next}.`,
@@ -163,6 +164,7 @@ export function rolloutActions(
       { item, swept: binding.swept, targets: roll.targets.length ? roll.targets : [placeholder] },
       {
         label: `Roll out · ${roll.targets.length} ready`,
+        pending: `Merging ${roll.targets.length}…`,
         title: `Roll out · ${plural(roll.targets.length, "template-sync PR")}`,
         detail: [
           `Merges ${names(roll.targets.map((x) => x.label))} into main with a merge commit${carried.length === 1 ? `, taking each fork to ${carried[0]}` : ""}.`,

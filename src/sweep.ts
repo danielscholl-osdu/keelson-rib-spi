@@ -19,6 +19,7 @@ import {
   readJob,
   readLifecycle,
   readRunJobs,
+  readTemplateRuns,
 } from "./collect/runs.ts";
 import { readTemplate, type TemplateState } from "./collect/template.ts";
 import { readUpstream, type UpstreamCompares } from "./collect/upstream.ts";
@@ -40,6 +41,9 @@ import type { Store } from "./store.ts";
 import { errorText, pool } from "./util.ts";
 
 const FACTS_FILE = "facts.json";
+// GitHub stamps a dispatched run a little before or after the call returns.
+const DISPATCH_SKEW_MS = 30_000;
+const DISPATCH_WAIT_MS = 3 * 60_000;
 const CACHE_FILE = "cache.json";
 
 const measuredSchema = z.object({
@@ -132,6 +136,9 @@ export class Sweeper {
   private readonly detailCache: DetailCache;
   private running: Promise<void> | undefined;
   private gitlabAt = 0;
+  // Sync Template dispatches this rib made, by fork, until a run for each appears.
+  // Kept in memory only, so a restart drops the wait.
+  private dispatched: Record<string, string> = {};
 
   constructor(private readonly opts: SweeperOptions) {
     this.now = opts.now ?? (() => new Date());
@@ -160,8 +167,38 @@ export class Sweeper {
 
   hasInflight(): boolean {
     const lc = this.facts.lifecycle.data;
-    return (
-      !!lc && [...(lc.refresh ?? []), ...(lc.upgrade ?? [])].some((r) => r.status !== "completed")
+    const stack =
+      !!lc && [...(lc.refresh ?? []), ...(lc.upgrade ?? [])].some((r) => r.status !== "completed");
+    return stack || this.syncingForks().length > 0;
+  }
+
+  expectTemplateRuns(repos: readonly string[], at: string): void {
+    for (const repo of repos) this.dispatched[repo] = at;
+    this.rebuild();
+  }
+
+  // A dispatch is answered by a run created after it; one that never shows stops waiting.
+  private pendingDispatch(repo: string): string | undefined {
+    const at = this.dispatched[repo];
+    if (!at) return undefined;
+    const since = Date.parse(at);
+    const runs = this.facts.runs.data?.[repo]?.template ?? [];
+    if (
+      runs.some((r) => Date.parse(r.createdAt) >= since - DISPATCH_SKEW_MS) ||
+      this.now().getTime() - since > DISPATCH_WAIT_MS
+    ) {
+      delete this.dispatched[repo];
+      return undefined;
+    }
+    return at;
+  }
+
+  private syncingForks(): string[] {
+    const runs = this.facts.runs.data ?? {};
+    return FORKS.map((f) => f.repo).filter(
+      (repo) =>
+        !!this.pendingDispatch(repo) ||
+        (runs[repo]?.template ?? []).some((r) => r.status !== "completed"),
     );
   }
 
@@ -170,11 +207,26 @@ export class Sweeper {
   async pollInflight(): Promise<void> {
     if (this.running) return;
     const lc = this.facts.lifecycle.data;
-    if (!lc) return;
     const gh = new Gh(this.opts.exec);
     let settled = false;
     let changed = false;
+    // A Sync Template run moves its fork's PR when it ends, so a settled one asks for a sweep.
+    const forkRuns = this.facts.runs.data;
+    for (const repo of this.syncingForks()) {
+      const entry = forkRuns?.[repo];
+      if (!entry) continue;
+      try {
+        const fresh = await readTemplateRuns(gh, repo);
+        const before = entry.template.map((r) => `${r.id}:${r.status}`).join();
+        entry.template = fresh;
+        if (fresh.map((r) => `${r.id}:${r.status}`).join() !== before) changed = true;
+        if (!this.syncingForks().includes(repo)) settled = true;
+      } catch {
+        // The next full sweep retries.
+      }
+    }
     for (const kind of ["refresh", "upgrade"] as LifecycleKind[]) {
+      if (!lc) break;
       const runs = lc[kind] ?? [];
       for (let i = 0; i < runs.length; i++) {
         const run = runs[i];
@@ -350,7 +402,12 @@ export class Sweeper {
   }
 
   rebuild(): void {
-    this.model = buildModel(this.facts, this.now());
+    const dispatched: Record<string, string> = {};
+    for (const repo of Object.keys(this.dispatched)) {
+      const at = this.pendingDispatch(repo);
+      if (at) dispatched[repo] = at;
+    }
+    this.model = buildModel(this.facts, this.now(), { dispatched });
     this.opts.onChange();
   }
 }

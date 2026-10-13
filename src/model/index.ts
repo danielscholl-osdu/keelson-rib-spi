@@ -29,7 +29,11 @@ export interface Model {
 
 // Pure: the same facts and clock always give the same model, so every region
 // and every tool counts the same things.
-export function buildModel(facts: Facts, now: Date): Model {
+export function buildModel(
+  facts: Facts,
+  now: Date,
+  opts: { dispatched?: Record<string, string> } = {},
+): Model {
   const repos = facts.github.data?.repos ?? {};
   const details = facts.details.data ?? {};
   const stack = buildStack(repos[STACK_REPO], facts.lifecycle.data, now);
@@ -49,6 +53,7 @@ export function buildModel(facts: Facts, now: Date): Model {
       templateHead: templateRepo?.head,
       templateNext,
       templateLatest: facts.template.data?.latestTag ?? templateRepo?.release?.tag,
+      dispatchedAt: opts.dispatched?.[fork.repo],
       details,
       stack,
       now,

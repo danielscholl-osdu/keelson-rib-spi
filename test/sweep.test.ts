@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { RibExec } from "@keelson/shared";
+import { engineeringBoard } from "../src/boards/engineering";
 import { emptyFacts, type LifecycleRun } from "../src/facts";
 import { Store } from "../src/store";
 import { Sweeper } from "../src/sweep";
-import { FIXTURE_NOW, failingExec } from "./harness";
+import { FIXTURE_NOW, failingExec, fixtureFacts } from "./harness";
 
 const RUN_ID = 900;
 
@@ -130,6 +131,77 @@ describe("the in-flight poll", () => {
     expect(changes).toBeGreaterThanOrEqual(1);
     expect(sweeper.hasInflight()).toBe(false);
     expect(sweeper.model.stack.maintenance.state).toBe("clear");
+  });
+
+  test("a Sync Template dispatch reads starting, then queued, then settles into a sweep", async () => {
+    const LEGAL = "Azure/osdu-spi-legal";
+    const store = new Store(undefined);
+    const facts = fixtureFacts();
+    facts.lifecycle = emptyFacts().lifecycle;
+    store.write("facts.json", facts);
+    const state: { run?: { status: string; conclusion: string | null } } = {};
+    const fail = failingExec();
+    const reads: string[] = [];
+    const exec: RibExec = {
+      runJSON: async <T>(cmd: string, args: string[]) => {
+        const path = args[1] ?? "";
+        if (path.startsWith(`repos/${LEGAL}/actions/workflows/sync-template.yml/runs`)) {
+          reads.push(path);
+          const runs = state.run
+            ? [
+                {
+                  id: 77,
+                  name: "Sync Template",
+                  path: ".github/workflows/sync-template.yml",
+                  event: "workflow_dispatch",
+                  ...state.run,
+                  created_at: "2026-10-12T21:58:33Z",
+                  updated_at: "2026-10-12T21:58:40Z",
+                  head_branch: "main",
+                  head_sha: "abc",
+                  display_title: "Sync Template",
+                  html_url: `https://github.com/${LEGAL}/actions/runs/77`,
+                  run_attempt: 1,
+                },
+              ]
+            : [];
+          return { ok: true as const, data: runs as T };
+        }
+        return fail.runJSON<T>(cmd, args);
+      },
+      runText: fail.runText,
+    };
+    const sweeper = new Sweeper({ exec, store, onChange: () => {}, now: () => FIXTURE_NOW });
+    expect(sweeper.hasInflight()).toBe(false);
+
+    sweeper.expectTemplateRuns([LEGAL], FIXTURE_NOW.toISOString());
+    expect(sweeper.hasInflight()).toBe(true);
+    const cell = () => {
+      const table = engineeringBoard(sweeper.model, FIXTURE_NOW).sections.find(
+        (x) => x.kind === "table",
+      );
+      if (table?.kind !== "table") throw new Error("rollout table");
+      const row = table.rows.find((r) => (r.fork as { value: string }).value === "legal");
+      return String((row?.sync as { value: string } | undefined)?.value).replaceAll("\u00a0", " ");
+    };
+    expect(cell()).toMatch(/^↻ starting · \d\d:\d\d$/);
+
+    await sweeper.pollInflight();
+    expect(reads).toHaveLength(1);
+    expect(cell()).toStartWith("↻ starting");
+
+    state.run = { status: "queued", conclusion: null };
+    await sweeper.pollInflight();
+    expect(cell()).toMatch(/^↻ queued · \d\d:\d\d$/);
+    expect(sweeper.model.template.rows.find((r) => r.service === "legal")?.dispatched).toBe(
+      undefined,
+    );
+
+    state.run = { status: "completed", conclusion: "success" };
+    await sweeper.pollInflight();
+    expect(sweeper.hasInflight()).toBe(false);
+    expect(cell()).toMatch(/^● \d\d:\d\d$/);
+    expect(sweeper.facts.sweep?.at).toBe(FIXTURE_NOW.toISOString());
   });
 
   test("a sweep with gh and glab unreachable records errors and keeps rendering", async () => {

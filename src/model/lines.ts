@@ -122,6 +122,8 @@ export interface LineModel {
   templateRun?: RunFact;
   // A Sync Template run queued or in progress now.
   templateSyncing?: RunFact;
+  // When this rib dispatched Sync Template, while no run for it has appeared yet.
+  templateDispatched?: string;
   templateDelivery: Delivery;
   lane: { ok: number; failed: number; last?: DeploymentFact };
   template: {
@@ -235,6 +237,7 @@ export function buildLine(input: {
   templateHead?: { sha: string; at: string };
   templateNext?: string;
   templateLatest?: string;
+  dispatchedAt?: string;
   details: Record<string, JobDetail>;
   stack: StackModel;
   now: Date;
@@ -249,6 +252,7 @@ export function buildLine(input: {
     templateHead,
     templateNext,
     templateLatest,
+    dispatchedAt,
     details,
     stack,
     now,
@@ -451,6 +455,7 @@ export function buildLine(input: {
     syncFailedSince,
     templateRun,
     templateSyncing: runs?.template.find((r) => r.status !== "completed"),
+    ...(dispatchedAt ? { templateDispatched: dispatchedAt } : {}),
     templateDelivery,
     lane,
     template: {

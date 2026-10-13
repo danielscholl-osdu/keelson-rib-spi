@@ -71,6 +71,10 @@ async function runs(gh: Gh, path: string): Promise<RunFact[]> {
   return (await gh.rest<RawRun[]>(path, RUN_JQ)).map(toRun);
 }
 
+export function readTemplateRuns(gh: Gh, repo: string): Promise<RunFact[]> {
+  return runs(gh, `repos/${repo}/actions/workflows/${SYNC_TEMPLATE_WORKFLOW}/runs?per_page=5`);
+}
+
 export async function readForkRuns(gh: Gh): Promise<Record<string, ForkRuns>> {
   const out: Record<string, ForkRuns> = {};
   await pool(FORKS, 3, async (f) => {

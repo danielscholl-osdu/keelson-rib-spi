@@ -216,6 +216,7 @@ function prCell(row: TemplateRow): Cell {
   if (row.behind === undefined) return "?";
   if (row.behind === 0) return cell("none · current", "neutral");
   if (row.syncing) return cell("none · Sync Template running", "info", row.syncing.url);
+  if (row.dispatched) return cell("none · Sync Template starting", "info");
   if (row.awaitingRun) return cell("none · next run opens it", "neutral");
   return cell("none", "error");
 }
@@ -250,7 +251,12 @@ function reviewCell(row: TemplateRow): Cell {
 }
 
 function syncCell(row: TemplateRow, now: Date): Cell {
-  if (row.syncing) return cell("↻ running", "info", row.syncing.url);
+  const active = row.syncing;
+  if (active) {
+    const word = active.status === "in_progress" ? "running" : "queued";
+    return cell(`↻ ${word} · ${stamp(active.createdAt, now) ?? ""}`, "info", active.url);
+  }
+  if (row.dispatched) return cell(`↻ starting · ${stamp(row.dispatched, now) ?? ""}`, "info");
   const { run, state } = row.delivery;
   if (!run) return "?";
   const at = stamp(run.createdAt, now) ?? "";

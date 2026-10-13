@@ -8,10 +8,12 @@
 
 import type { RibActionResult, RibExec } from "@keelson/shared";
 import { Gh } from "../forge.ts";
-import { clip, plural } from "../util.ts";
+import { clip, plural, pool } from "../util.ts";
 import type { ActionLog, ActionResult } from "./log.ts";
 import { changed, readTarget } from "./revalidate.ts";
 import { bindingSchema, verbOf } from "./verbs.ts";
+
+const TARGETS_AT_ONCE = 5;
 
 export interface ActDeps {
   exec: RibExec;
@@ -49,29 +51,23 @@ export async function act(payload: unknown, deps: ActDeps): Promise<RibActionRes
   if (!verb) return { ok: false, error: `spi has no verb '${binding.verb}'` };
 
   const gh = new Gh(deps.exec);
-  const results: ActionResult[] = [];
-  for (const target of binding.targets) {
+  // Targets are independent, so one slow or failing write does not hold the others.
+  const results: ActionResult[] = await pool(binding.targets, TARGETS_AT_ONCE, async (target) => {
     try {
       const why = changed(target, await readTarget(gh, target));
-      if (why) {
-        results.push({ target: target.label, outcome: "refused", detail: why });
-        continue;
-      }
+      if (why) return { target: target.label, outcome: "refused", detail: why };
     } catch (err) {
-      results.push({
+      return {
         target: target.label,
         outcome: "refused",
         detail: `could not read it again: ${clip(err instanceof Error ? err.message : String(err), 160)}`,
-      });
-      continue;
+      };
     }
     const res = await deps.exec.runText("gh", verb.command(target), { timeoutMs: 60_000 });
-    results.push(
-      res.ok
-        ? { target: target.label, outcome: "done" }
-        : { target: target.label, outcome: "failed", detail: clip(res.error, 200) },
-    );
-  }
+    return res.ok
+      ? { target: target.label, outcome: "done" }
+      : { target: target.label, outcome: "failed", detail: clip(res.error, 200) };
+  });
 
   deps.log.append({
     at: deps.now().toISOString(),

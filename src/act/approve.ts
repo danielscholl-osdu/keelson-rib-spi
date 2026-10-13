@@ -55,6 +55,7 @@ export function approveAction(
     { ...binding, targets: approveTargets(a) },
     {
       label: `Approve #${n} · ${plural(a.runs.length, "run")}`,
+      pending: "Approving…",
       title: `Approve runs · ${a.pr.author} #${n}`,
       detail,
       ...(a.workflowFiles.length > 0

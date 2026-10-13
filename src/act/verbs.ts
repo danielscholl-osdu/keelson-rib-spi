@@ -81,6 +81,8 @@ export interface ButtonOptions {
   primary?: boolean;
   disabled?: string;
   label?: string;
+  // Replaces the label while the writes run.
+  pending?: string;
   title?: string;
   // Sentences the operator weighs before the commands; the host collapses line breaks.
   detail?: string[];
@@ -101,6 +103,7 @@ export function verbAction(
   return {
     type: ACT_ACTION,
     label,
+    pendingLabel: opts.pending ?? `${verb.label}…`,
     ...(opts.primary ? { tone: "accent" as const } : {}),
     binding: { ...binding, verb: verb.id },
     ...(opts.disabled
