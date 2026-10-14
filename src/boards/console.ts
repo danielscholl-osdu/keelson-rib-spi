@@ -410,8 +410,6 @@ function tab(view: string, label: string, on: boolean): string {
 
 const STYLE = `
 .wrap { padding: 16px 18px 20px; }
-.meta { display: flex; flex-wrap: wrap; gap: 4px 16px; font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .04em; margin-bottom: 10px; }
-.meta .right { margin-left: auto; }
 h2 { margin: 0 0 4px; font-size: 21px; line-height: 1.25; font-weight: 600; color: var(--fg-strong); text-wrap: balance; max-width: 64ch; }
 .summary { margin: 0 0 14px; color: var(--fg); font-size: 14px; }
 .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-block: 1px solid var(--border); }
@@ -439,7 +437,9 @@ h2 { margin: 0 0 4px; font-size: 21px; line-height: 1.25; font-weight: 600; colo
 .ready b { color: var(--fg-strong); font-weight: 600; }
 .link { background: none; border: none; padding: 0; font: inherit; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .pane { min-width: 0; }
-.tabs { display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
+.tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
+.stamp { margin-left: auto; padding: 6px 0; font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .04em; }
+.link.alert { color: var(--warn); text-decoration-style: dotted; }
 .tab { font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; margin-bottom: -1px; background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted); cursor: pointer; }
 .tab.on { color: var(--fg-strong); border-bottom-color: var(--accent); }
 .trow { grid-template-columns: minmax(0, 1fr) auto; }
@@ -582,33 +582,39 @@ const SCRIPT = `(function () {
 // selection. The frame cannot open links; evidence and verbs live in the inspector.
 export function consoleHtml(b: Briefing, now: Date): string {
   const swept = zoned(b.sweptAt, now);
-  const read =
-    b.doctor.state === "clear"
-      ? "every source read"
-      : b.doctor.state === "partial"
-        ? "some sources unread"
-        : b.doctor.state === "dark"
-          ? "GitHub unread"
+  const unread =
+    b.doctor.state === "partial"
+      ? "some sources unread"
+      : b.doctor.state === "dark"
+        ? "GitHub unread"
+        : b.doctor.state === "clear"
+          ? undefined
           : "first sweep running";
-  const meta = `<div class="meta"><span>${swept ? `swept ${esc(swept)} · ` : ""}<button type="button" class="link quiet" data-inspect="${DOCTOR_ID}">${read}</button></span>${
-    b.nextSyncAt
-      ? `<span class="right">next Sync Upstream ${esc(zoned(b.nextSyncAt, now) ?? "")}</span>`
-      : ""
-  }</div>`;
+  const next = b.nextSyncAt ? zoned(b.nextSyncAt, now) : undefined;
+  const doctor = (text: string, cls: string) =>
+    `<button type="button" class="link ${cls}" data-inspect="${DOCTOR_ID}">${esc(text)}</button>`;
+  const stamp = [
+    unread ? doctor(unread, "alert") : undefined,
+    swept ? doctor(`swept ${swept}`, "quiet") : undefined,
+    next ? `next sync ${esc(next)}` : undefined,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const meta = stamp ? `<span class="stamp">${stamp}</span>` : "";
   const today = `<h2>${esc(b.headline)}</h2>
 ${b.summary ? `<p class="summary">${esc(b.summary)}</p>` : ""}
 ${b.facts.length > 0 ? todayHtml(b) : ""}`;
   const views =
     b.facts.length > 0
-      ? `<div class="tabs" role="tablist">${tab("today", "Today", true)}${tab("flow", "Flow", false)}${tab("horizon", "Horizon", false)}${tab("environment", "Environment", false)}${tab("repositories", "Repositories", false)}</div>
+      ? `<div class="tabs" role="tablist">${tab("today", "Today", true)}${tab("flow", "Flow", false)}${tab("horizon", "Horizon", false)}${tab("environment", "Environment", false)}${tab("repositories", "Repositories", false)}${meta}</div>
 <div data-view-pane="today">${today}</div>
 <div data-view-pane="flow" hidden>${flowHtml(b)}</div>
 <div data-view-pane="horizon" hidden>${horizonHtml(b)}</div>
 <div data-view-pane="environment" hidden>${environmentHtml(b, now)}</div>
 <div data-view-pane="repositories" hidden>${repositoriesHtml(b)}</div>`
-      : today;
+      : `${meta ? `<div class="tabs">${meta}</div>` : ""}${today}`;
   return `<style>${designTokenCssBlock()}${STYLE}</style>
-<div class="wrap">${meta}
+<div class="wrap">
 ${views}
 </div>
 <script>${SCRIPT}</script>`;

@@ -42,10 +42,20 @@ describe("the console frame", () => {
     expect(shown).toEqual([b.focus[0]?.id]);
   });
 
-  test("the read line opens the doctor", () => {
+  test("the sweep stamp sits at the end of the tab strip and opens the doctor", () => {
     expect(html).toMatch(
-      new RegExp(`<button type="button" class="link quiet" data-inspect="${DOCTOR_ID}">`),
+      new RegExp(
+        `<span class="stamp">(?:<button type="button" class="link alert" data-inspect="${DOCTOR_ID}">[^<]+</button> · )?<button type="button" class="link quiet" data-inspect="${DOCTOR_ID}">swept [^<]+</button>(?: · next sync [^<]+)?</span></div>`,
+      ),
     );
+    expect(html).not.toContain("every source read");
+  });
+
+  test("a clear read adds no words, a short one says what is unread", () => {
+    const clear = consoleHtml({ ...b, doctor: { ...b.doctor, state: "clear" } }, FIXTURE_NOW);
+    expect(clear).not.toContain('class="link alert"');
+    const dark = consoleHtml({ ...b, doctor: { ...b.doctor, state: "dark" } }, FIXTURE_NOW);
+    expect(dark).toContain(`class="link alert" data-inspect="${DOCTOR_ID}">GitHub unread</button>`);
   });
 
   test("focus past the cap folds into a details list whose rows still select a detail", () => {
