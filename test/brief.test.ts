@@ -356,8 +356,7 @@ describe("the flow", () => {
 
   test("columns every fork agrees on band once and leave the matrix", () => {
     expect(flow.bands.map((b) => [b.column, b.text])).toEqual([
-      ["Cascade", "idle in every fork"],
-      ["Main", "idle in every fork"],
+      ["Cascade and Main", "idle in every fork"],
       ["Lane", "blocked by the stack in every fork"],
     ]);
     expect(flow.columns).toEqual(["Upstream", "Sync", "Release", "Template"]);

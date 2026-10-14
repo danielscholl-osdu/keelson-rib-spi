@@ -1110,9 +1110,27 @@ function flowOf(
     environment: flowEnvironment(model, facts[0]),
     columns: keep(FLOW_COLUMNS.map(([, label]) => label)),
     rows: shown.sort((a, b) => a.stop - b.stop).map((s) => s.row),
-    bands: bands.filter((b): b is FlowBand => !!b),
+    bands: mergeQuiet(bands.filter((b): b is FlowBand => !!b)),
     ...(fold ? { fold } : {}),
   };
+}
+
+// Quiet columns that read the same fold into one band, so idle stations cost one line.
+function mergeQuiet(bands: readonly FlowBand[]): FlowBand[] {
+  const out: FlowBand[] = [];
+  for (const b of bands) {
+    const twin = out.find(
+      (o) =>
+        o.tone === "neutral" &&
+        b.tone === "neutral" &&
+        !o.inspect &&
+        !b.inspect &&
+        o.text === b.text,
+    );
+    if (twin) twin.column = `${twin.column.replace(/ and /, ", ")} and ${b.column}`;
+    else out.push({ ...b });
+  }
+  return out;
 }
 
 // Pure: the same model, doctor and clock always write the same briefing.
