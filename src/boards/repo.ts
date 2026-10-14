@@ -51,7 +51,7 @@ function row(line: RepoLine, href?: string, trailing?: string): Row {
 function fixMark(g: AlertGroup): string {
   if (g.source === "code") return g.tool || "code scanning";
   const fix = g.fix ? `fix ${g.fix}` : "no fix";
-  return g.pr ? `${fix} · PR #${g.pr}` : fix;
+  return g.pr ? `${fix} · bump #${g.pr}` : fix;
 }
 
 // One alert opens on itself; a group opens GitHub's list filtered to it.

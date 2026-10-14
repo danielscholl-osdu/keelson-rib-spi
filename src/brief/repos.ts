@@ -44,6 +44,8 @@ export interface RepoLine {
 export interface RepoSection {
   title: string;
   count: string;
+  // Upstream's share of the count, drawn faded after it.
+  upstream?: string;
   lines: RepoLine[];
   // Bumps sit a step below the work; alerts drain slowly, so they sit lowest.
   weight?: "minor" | "quiet";
@@ -176,7 +178,7 @@ function whereText(g: AlertGroup): string {
 export function fixText(g: AlertGroup): string {
   if (g.source === "code") return `found by ${g.tool || "code scanning"}`;
   const fix = g.fix ? `fixed in ${g.fix}` : "no fix published";
-  return g.pr ? `${fix} · Dependabot PR #${g.pr} open` : fix;
+  return g.pr ? `${fix} · Dependabot bump #${g.pr} open` : fix;
 }
 
 export function alertLine(g: AlertGroup): RepoLine {
@@ -405,13 +407,8 @@ function alertSection(r: RepoRow, source: AlertGroup["source"]): RepoSection | u
     (g) => g.source === source && g.owner === "upstream" && g.reach === "shipped",
   );
   const shown = [...mine, ...inherited];
-  const s = section(
-    KIND_LABEL[source],
-    shown.map(alertLine),
-    shown.length,
-    `${mine.length} ours · ${inherited.length} upstream`,
-  );
-  return s ? { ...s, weight: "quiet" } : undefined;
+  const s = section(KIND_LABEL[source], shown.map(alertLine), shown.length, `${mine.length} ours`);
+  return s ? { ...s, upstream: ` · ${inherited.length} upstream`, weight: "quiet" } : undefined;
 }
 
 const REACH_RANK: Record<DependencyPr["reach"], number> = { shipped: 0, tooling: 1, tests: 2 };

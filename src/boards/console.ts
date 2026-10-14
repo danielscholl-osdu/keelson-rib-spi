@@ -376,7 +376,7 @@ function lineHtml(l: RepoLine): string {
 
 function repoDetail(r: RepoEntry, selected: boolean): string {
   const block = (s: RepoSection) =>
-    `<p class="dl rsec"><span>${esc(s.title)}</span><span>${esc(s.count)}</span></p>${s.lines.map(lineHtml).join("")}`;
+    `<p class="dl rsec"><span>${esc(s.title)}</span><span>${esc(s.count)}${s.upstream ? `<span class="rup">${esc(s.upstream)}</span>` : ""}</span></p>${s.lines.map(lineHtml).join("")}`;
   const work = r.sections.filter((s) => s.weight !== "quiet");
   const alerts = r.sections.filter((s) => s.weight === "quiet");
   const sections = `${work.map((s) => (s.weight === "minor" ? `<div class="rminor">${block(s)}</div>` : block(s))).join("")}${
@@ -516,7 +516,7 @@ button.envband { cursor: pointer; }
 .rc .z { color: var(--muted); }
 .rc .t-bad { color: var(--crit); font-weight: 600; } .rc .t-warn { color: var(--warn); }
 .rc .rrest { color: var(--fg); }
-.rc .rup { color: var(--muted); opacity: .6; }
+.rc .rup, .rsec .rup { color: var(--muted); opacity: .6; }
 .rsec { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; }
 .rl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 1px 8px; padding: 5px 0; border-top: 1px solid var(--border); font-size: 13px; }
 .rsec + .rl { border-top: none; }

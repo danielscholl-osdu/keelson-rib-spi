@@ -80,7 +80,7 @@ describe("the Repositories briefing", () => {
     const partition = r.rows.find((x) => x.name === "partition");
     expect(partition?.cells.vulnerabilities).toMatchObject({ text: "0", rest: " · 3", fade: true });
     expect(partition?.sections.map((s) => s.title)).toEqual(["Vulnerabilities", "Code scanning"]);
-    expect(partition?.sections[0]?.count).toBe("0 ours · 1 upstream");
+    expect(partition?.sections[0]).toMatchObject({ count: "0 ours", upstream: " · 1 upstream" });
   });
 
   test("a critical alert in our shipped code leads the tab and opens first", () => {
