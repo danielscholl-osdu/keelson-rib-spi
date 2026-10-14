@@ -10,7 +10,7 @@ import {
 } from "@keelson/shared";
 import { registerVerb } from "../src/act/verbs";
 import rib from "../src/index";
-import { ATTENTION_KEY, BADGE_KEY, BOARD_KEYS, INSPECT_KEY } from "../src/keys";
+import { ATTENTION_KEY, BADGE_KEY, BOARD_KEYS, CONSOLE_KEY, INSPECT_KEY } from "../src/keys";
 import { failingExec, fakeContext, fixtureFacts } from "./harness";
 
 afterEach(async () => {
@@ -35,13 +35,16 @@ describe("rib contract shape", () => {
     for (const surface of rib.surfaces ?? []) ribSurfaceDescriptorSchema.parse(surface);
   });
 
-  test("one SPI tab: banner, stack, lines, badge", () => {
+  test("one SPI tab: the console banner over the collapsed board panels", () => {
     const surface = rib.surfaces?.[0];
     expect(rib.surfaces).toHaveLength(1);
     expect(surface?.title).toBe("SPI");
     expect(surface?.badgeKey).toBe(BADGE_KEY);
-    expect(surface?.layout.banner?.key).toBe(ATTENTION_KEY);
-    expect(regionKeys()).toEqual([...BOARD_KEYS]);
+    expect(surface?.layout.banner?.key).toBe(CONSOLE_KEY);
+    expect(regionKeys()).toEqual([CONSOLE_KEY, ...BOARD_KEYS]);
+    const rows = surface?.layout.rows.flatMap((r) => r.columns.flatMap((c) => columnRegions(c)));
+    expect(rows?.every((r) => r.collapsed === true)).toBe(true);
+    expect(rib.views?.find((v) => v.key === CONSOLE_KEY)?.canvasKind).toBe("html");
   });
 
   test("every key lives under the rib namespace and every region binds a declared view", () => {
@@ -64,9 +67,11 @@ describe("binding", () => {
   test("registers every board and the badge, and each resting frame passes its validator", async () => {
     const { ctx, snapshots } = fakeContext();
     const tools = rib.registerTools?.(ctx) ?? [];
-    expect(snapshots.keys().sort()).toEqual([...BOARD_KEYS, INSPECT_KEY, BADGE_KEY].sort());
+    expect(snapshots.keys().sort()).toEqual(
+      [...BOARD_KEYS, INSPECT_KEY, CONSOLE_KEY, BADGE_KEY].sort(),
+    );
     const frames = await snapshots.composeAll();
-    expect(frames.size).toBe(BOARD_KEYS.length + 2);
+    expect(frames.size).toBe(BOARD_KEYS.length + 3);
     expect(tools.map((t) => t.name).sort()).toEqual([
       "spi_brief",
       "spi_incidents",
@@ -119,6 +124,23 @@ describe("binding", () => {
     expect(refresh?.ok).toBe(true);
     const nope = await rib.onAction?.({ type: "merge-everything" }, fakeContext().ctx);
     expect(nope).toEqual({ ok: false, error: "spi does not handle 'merge-everything'" });
+  });
+
+  test("the console frame may open the inspector and nothing else", async () => {
+    const { ctx } = fakeContext();
+    rib.registerTools?.(ctx);
+    for (const type of ["act", "refresh", "rerun-when-deployable"]) {
+      const res = await rib.onAction?.({ type, payload: {}, origin: "canvas-html" }, ctx);
+      expect(res).toEqual({
+        ok: false,
+        error: "the console only opens the inspector; act from its buttons",
+      });
+    }
+    const open = await rib.onAction?.(
+      { type: "inspect", payload: { id: "halt:nope" }, origin: "canvas-html" },
+      ctx,
+    );
+    expect(open?.ok === false && open.error).not.toContain("console");
   });
 });
 

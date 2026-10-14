@@ -260,7 +260,10 @@ function stoppedFor(model: Model, lines: readonly LineModel[], now: Date): strin
 
 function environmentSentence(model: Model, now: Date): string | undefined {
   const { deployable, inflight, recent } = model.stack;
-  if (inflight) return `A ${inflight.run.kind} is running on the environment.`;
+  if (inflight) {
+    const kind = inflight.run.kind;
+    return `${/^[aeiou]/.test(kind) ? "An" : "A"} ${kind} is running on the environment.`;
+  }
   if (deployable.state === "no") return sentence(`The environment is held: ${deployable.reason}`);
   if (deployable.state !== "yes") return undefined;
   const failedToday = recent.some(
@@ -551,7 +554,7 @@ function readyOf(model: Model): ReadyLine[] {
     if (item.rung !== 2 || item.kind === "template-pr") continue;
     const count =
       item.kind === "releases" || item.kind === "template-set" ? item.effects.length : 1;
-    out.push({ id: item.id, text: item.text.split(" · ")[0] ?? item.text, count });
+    out.push({ id: item.id, text: item.text.split(/ · |: |; /)[0] ?? item.text, count });
   }
   const first = onTemplate[0];
   if (first) {

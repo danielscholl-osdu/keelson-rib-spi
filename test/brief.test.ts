@@ -220,3 +220,17 @@ describe("other days", () => {
     expect(b.facts).toEqual([]);
   });
 });
+
+describe("wording", () => {
+  test("ready lines keep the lead of a long PR text", () => {
+    const bump = item({
+      id: "bump",
+      kind: "bump",
+      rung: 2,
+      text: "env bump to v0.28.6 is open; merging it starts env-upgrade",
+    });
+    expect(buildBriefing(withQueue([bump]), CLEAR, FIXTURE_NOW).ready[0]?.text).toBe(
+      "env bump to v0.28.6 is open",
+    );
+  });
+});

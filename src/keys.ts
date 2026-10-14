@@ -9,6 +9,8 @@
 export const RIB_ID = "spi";
 export const SURFACE_ID = "spi";
 
+// The console is html, not a board: one region drawn from the briefing.
+export const CONSOLE_KEY = "rib:spi:console";
 export const ATTENTION_KEY = "rib:spi:attention";
 export const BADGE_KEY = "rib:spi:badge";
 export const STACK_KEY = "rib:spi:stack";

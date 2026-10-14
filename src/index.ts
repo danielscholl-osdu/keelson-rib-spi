@@ -34,12 +34,14 @@ import { ROLL_OUT, ROLLOUT_ITEM, SYNC_FORKS } from "./act/rollout.ts";
 import { ACT_ACTION, registerVerb } from "./act/verbs.ts";
 import { AGENTS, resolveAgent } from "./agent.ts";
 import { attentionBoard, badge } from "./boards/attention.ts";
-import { PANEL_SOURCES, staleText } from "./boards/doctor.ts";
+import { consoleHtml, expectHtml } from "./boards/console.ts";
+import { doctorStatus, PANEL_SOURCES, staleText } from "./boards/doctor.ts";
 import { engineeringBoard, STEP_PREFIX } from "./boards/engineering.ts";
 import { type InspectState, inspectBoard, inspectTitle, stepTitle } from "./boards/inspect.ts";
 import { linesBoard } from "./boards/lines.ts";
 import { MR_PREFIX, mrTitle, radarBoard } from "./boards/radar.ts";
 import { stackBoard } from "./boards/stack.ts";
+import { buildBriefing } from "./brief/index.ts";
 import { checkable, entryAcrossForks, type ForkEntry } from "./collect/filters.ts";
 import { FORKS, INFLIGHT_POLL_MS, SWEEP_MS } from "./config.ts";
 import { Gh, Glab } from "./forge.ts";
@@ -47,6 +49,7 @@ import {
   ATTENTION_KEY,
   BADGE_KEY,
   BOARD_KEYS,
+  CONSOLE_KEY,
   ENGINEERING_KEY,
   INSPECT_KEY,
   LINES_KEY,
@@ -118,7 +121,9 @@ let unregisters: Array<() => void> = [];
 let timers: Array<ReturnType<typeof setInterval>> = [];
 
 function recomposeAll(): void {
-  for (const key of [...VIEW_KEYS, BADGE_KEY]) snapshots?.recompose(key).catch(() => undefined);
+  for (const key of [...VIEW_KEYS, CONSOLE_KEY, BADGE_KEY]) {
+    snapshots?.recompose(key).catch(() => undefined);
+  }
 }
 
 function waitingFor(id: string | undefined): { waiting?: { id: string; at: string } } {
@@ -173,6 +178,16 @@ function bind(ctx: RibContext): Sweeper {
         sm.register(key, () => compose(s, s.now()), { validate: expectView(key, "board") }),
       );
     }
+    unregisters.push(
+      sm.register(
+        CONSOLE_KEY,
+        () => {
+          const now = s.now();
+          return consoleHtml(buildBriefing(s.model, doctorStatus(s.facts, now), now), now);
+        },
+        { validate: expectHtml },
+      ),
+    );
     unregisters.push(sm.register(BADGE_KEY, () => badge(s.model), { validate: badgeOf }));
   }
   recomposeAll();
@@ -304,13 +319,16 @@ const rib: Rib = {
   id: RIB_ID,
   displayName: "SPI",
 
-  views: VIEW_KEYS.map(
-    (key): RibViewDescriptor => ({
-      key,
-      canvasKind: "view",
-      title: `SPI: ${key.split(":").pop()}`,
-    }),
-  ),
+  views: [
+    { key: CONSOLE_KEY, canvasKind: "html", title: "SPI console" },
+    ...VIEW_KEYS.map(
+      (key): RibViewDescriptor => ({
+        key,
+        canvasKind: "view",
+        title: `SPI: ${key.split(":").pop()}`,
+      }),
+    ),
+  ],
 
   surfaces: SURFACES,
 
@@ -320,6 +338,10 @@ const rib: Rib = {
   onAction: async (action: RibAction): Promise<RibActionResult> => {
     const s = sweeper;
     if (!s) return { ok: false, error: "spi is not bound yet" };
+    // Console markup is untrusted by contract: it may select and open the inspector, never act.
+    if (action.origin === "canvas-html" && action.type !== INSPECT_ACTION) {
+      return { ok: false, error: "the console only opens the inspector; act from its buttons" };
+    }
     if (action.type === REFRESH_ACTION) {
       if (s.sweeping) return { ok: true, data: { message: "A sweep is already running" } };
       s.sweep({ force: true }).catch(() => undefined);

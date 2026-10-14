@@ -51,6 +51,9 @@ A change needs `bun run check`, `bun run typecheck` and `bun test` green.
   each target read again and refused if it changed, the outcome logged, then a
   resweep. Writes go to GitHub only, never GitLab or the cluster. No token is
   stored; the operator's sign-ins are used per call.
+- **The console frame never acts.** `rib:spi:console` is html in a sandboxed
+  frame, so its markup is untrusted: `onAction` accepts only `inspect` from a
+  `canvas-html` origin, and every verb stays a button in the inspector drawer.
 - **An item clears only when a sweep reads the change.** A verb never removes
   a queue item itself.
 - **Unmeasured is not zero.** A failed read keeps the last good data and its
