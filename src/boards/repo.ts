@@ -120,38 +120,28 @@ function alertsTab(r: RepoRow, source: AlertGroup["source"]): Tab {
   return { label: KIND_LABEL[source], badge: String(groups.length), sections };
 }
 
-function changesTab(r: RepoRow, now: Date): Tab {
-  const items = r.changes.map((c) => row(changeLine(c, now), c.pr.url, c.state));
-  const sections: TabSection[] = [];
-  const list = capped("Open", items, `${r.url}/pulls`);
-  if (list) sections.push(list);
-  if (r.pipeline > 0) {
-    sections.push({
-      kind: "rows",
-      items: [
-        {
-          glyph: "neutral",
-          text: `${plural(r.pipeline, "pipeline PR")} (sync, template, release), on Flow.`,
-        },
-      ],
-    });
-  }
-  if (sections.length === 0) {
-    sections.push({ kind: "rows", items: [{ glyph: "ok", text: "No change PRs open." }] });
-  }
-  return { label: "Change PRs", badge: String(r.changes.length), sections };
-}
-
-function dependabotTab(r: RepoRow): Tab {
-  const items = [...r.dependabot]
+function prsTab(r: RepoRow, now: Date): Tab {
+  const changes = r.changes.map((c) => row(changeLine(c, now), c.pr.url, c.state));
+  const bumps = [...r.dependabot]
     .sort((a, b) => b.closes - a.closes)
     .map((d) => row(dependencyLine(d), d.pr.url, d.state));
-  const list = capped("Open", items, `${r.url}/pulls/app%2Fdependabot`);
-  return {
-    label: "Dependabot PRs",
-    badge: String(r.dependabot.length),
-    sections: [list ?? { kind: "rows", items: [{ glyph: "ok", text: "No Dependabot PRs open." }] }],
-  };
+  const sections = [
+    capped("Change PRs", changes, `${r.url}/pulls`),
+    capped("Dependabot PRs", bumps, `${r.url}/pulls/app%2Fdependabot`),
+  ].filter((s): s is Rows => s !== undefined);
+  const notes: Row[] = [];
+  if (r.pipeline > 0) {
+    notes.push({
+      glyph: "neutral",
+      text: `${plural(r.pipeline, "pipeline PR")} (sync, template, release), on Flow.`,
+    });
+  }
+  if (sections.length === 0 && notes.length === 0) {
+    notes.push({ glyph: "ok", text: "No change or Dependabot PRs open." });
+  }
+  const all: TabSection[] = [...sections];
+  if (notes.length > 0) all.push({ kind: "rows", items: notes });
+  return { label: "PRs", badge: String(r.changes.length + r.dependabot.length), sections: all };
 }
 
 function issuesTab(r: RepoRow, now: Date): Tab {
@@ -219,13 +209,7 @@ export function repoBoard(model: Model, id: string, now: Date): CanvasBoardView 
       { kind: "rows", items: [{ glyph: "info", text: entry.sub }] },
       {
         kind: "tabs",
-        tabs: [
-          alertsTab(r, "dependabot"),
-          alertsTab(r, "code"),
-          changesTab(r, now),
-          dependabotTab(r),
-          issuesTab(r, now),
-        ],
+        tabs: [alertsTab(r, "dependabot"), alertsTab(r, "code"), prsTab(r, now), issuesTab(r, now)],
       },
       {
         kind: "rows",

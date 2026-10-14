@@ -106,8 +106,7 @@ describe("the repository inspector", () => {
     expect(tabs?.kind === "tabs" && tabs.tabs.map((t) => t.label)).toEqual([
       "Vulnerabilities",
       "Code scanning",
-      "Change PRs",
-      "Dependabot PRs",
+      "PRs",
       "Issues",
     ]);
   });

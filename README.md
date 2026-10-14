@@ -83,9 +83,9 @@ probes, the GitHub budget, each source's last read, and what the verbs need
 gate grants). A source that fails keeps its last good read until it reads again.
 
 A repository's inspector opens from **Open in inspector** on its row. Its
-tabs are Vulnerabilities, Code scanning, Change PRs, Dependabot PRs and
-Issues; each alert tab splits ours, upstream and tests, and every row links to
-GitHub. A list GitHub hides from the token, such as
+tabs are Vulnerabilities, Code scanning, PRs (change PRs and Dependabot PRs)
+and Issues; each alert tab splits ours, upstream and tests, and every row
+links to GitHub. A list GitHub hides from the token, such as
 code scanning that is off, says so instead of reading as zero. Secret scanning
 is not read.
 
