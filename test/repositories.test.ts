@@ -80,7 +80,7 @@ describe("the Repositories briefing", () => {
     const partition = r.rows.find((x) => x.name === "partition");
     expect(partition?.cells.vulnerabilities).toMatchObject({ text: "0", rest: " · 3", fade: true });
     expect(partition?.sections.map((s) => s.title)).toEqual(["Vulnerabilities", "Code scanning"]);
-    expect(partition?.sections[0]).toMatchObject({ count: "0 ours", upstream: " · 1 upstream" });
+    expect(partition?.sections[0]).toMatchObject({ count: "0 ours", rest: " · 1 upstream" });
   });
 
   test("a critical alert in our shipped code leads the tab and opens first", () => {
@@ -195,13 +195,19 @@ describe("human-required issues", () => {
   const entitlements = r.rows.find((x) => x.name === "entitlements");
 
   test("split out in the Issues cell, the tile, and lead the detail", () => {
-    expect(entitlements?.cells.issues).toMatchObject({ text: "1", tone: "bad", rest: " · 0" });
+    expect(entitlements?.cells.issues).toMatchObject({
+      text: "1",
+      tone: "bad",
+      rest: " · 0",
+      fade: true,
+    });
     expect(r.facts[0]).toMatchObject({ label: "Issues", tone: "bad" });
     expect(r.facts[0]?.sub).toStartWith("2 human-required");
     expect(entitlements?.title).toBe("1 issue needs a person");
     expect(entitlements?.sections[0]).toMatchObject({
       title: "Issues",
-      count: "1 human-required · 0 other",
+      count: "1 human-required",
+      rest: " · 0 other",
     });
     expect(entitlements?.sections[0]?.lines[0]).toMatchObject({
       tag: "human-required",
@@ -225,7 +231,7 @@ describe("human-required issues", () => {
     const b = buildBriefing(model(), { state: "clear", problems: [] }, FIXTURE_NOW);
     const html = consoleHtml(b, FIXTURE_NOW);
     expect(html).toContain(
-      "<span>Repository</span><span>Issues<small>human · other</small></span><span>Pull Requests</span><span>Dependabot Bumps</span>",
+      '<span>Repository</span><span>Issues<small>human<span class="rup"> · other</span></small></span><span>Pull Requests</span><span>Dependabot Bumps</span>',
     );
     expect(html).toMatch(
       /<span class="rc"><span class="z">0<\/span><span class="rup"> · 3<\/span><\/span>/,

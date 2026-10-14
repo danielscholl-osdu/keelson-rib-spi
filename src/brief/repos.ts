@@ -44,8 +44,8 @@ export interface RepoLine {
 export interface RepoSection {
   title: string;
   count: string;
-  // Upstream's share of the count, drawn faded after it.
-  upstream?: string;
+  // The informational share of the count, drawn faded after it.
+  rest?: string;
   lines: RepoLine[];
   // Bumps sit a step below the work; alerts drain slowly, so they sit lowest.
   weight?: "minor" | "quiet";
@@ -243,6 +243,7 @@ function issueCell(r: RepoRow): RepoCell {
     text: String(human),
     tone: human > 0 ? "bad" : "neutral",
     rest: ` · ${other}${r.unreadIssues > 0 ? "+" : ""}`,
+    fade: true,
   };
 }
 
@@ -408,10 +409,14 @@ function alertSection(r: RepoRow, source: AlertGroup["source"]): RepoSection | u
   );
   const shown = [...mine, ...inherited];
   const s = section(KIND_LABEL[source], shown.map(alertLine), shown.length, `${mine.length} ours`);
-  return s ? { ...s, upstream: ` · ${inherited.length} upstream`, weight: "quiet" } : undefined;
+  return s ? { ...s, rest: ` · ${inherited.length} upstream`, weight: "quiet" } : undefined;
 }
 
 const REACH_RANK: Record<DependencyPr["reach"], number> = { shipped: 0, tooling: 1, tests: 2 };
+
+function withRest(s: RepoSection | undefined, rest: string | undefined): RepoSection | undefined {
+  return s && rest ? { ...s, rest } : s;
+}
 
 function minor(s: RepoSection | undefined): RepoSection | undefined {
   return s ? { ...s, weight: "minor" } : undefined;
@@ -430,13 +435,14 @@ function entryOf(r: RepoRow, now: Date): RepoEntry {
   ];
   const automation = r.issues.automation.filter((i) => !needsHuman(i)).length;
   const sections = [
-    section(
-      "Issues",
-      issues.map((i) => issueLine(r, i, now)),
-      issues.length,
-      human.length > 0
-        ? `${human.length} human-required · ${issues.length - human.length} other`
-        : String(issues.length),
+    withRest(
+      section(
+        "Issues",
+        issues.map((i) => issueLine(r, i, now)),
+        issues.length,
+        human.length > 0 ? `${human.length} human-required` : String(issues.length),
+      ),
+      human.length > 0 ? ` · ${issues.length - human.length} other` : undefined,
     ),
     section(
       "Pull Requests",
