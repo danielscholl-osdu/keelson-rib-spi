@@ -224,7 +224,7 @@ describe("human-required issues", () => {
     const b = buildBriefing(model(), { state: "clear", problems: [] }, FIXTURE_NOW);
     const html = consoleHtml(b, FIXTURE_NOW);
     expect(html).toContain(
-      "<span>Repository</span><span>Issues<small>human-required · other</small></span><span>Pull Requests</span><span>Dependabot Bumps</span>",
+      "<span>Repository</span><span>Issues<small>human · other</small></span><span>Pull Requests</span><span>Dependabot Bumps</span>",
     );
     expect(html).toMatch(
       /<span class="rc"><span class="z">0<\/span><span class="rup"> · 3<\/span><\/span>/,

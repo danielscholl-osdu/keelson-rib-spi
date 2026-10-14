@@ -401,7 +401,7 @@ function repositoriesHtml(b: Briefing): string {
       ? `<p class="rgrp">${label}</p>${rows.map((x) => repoRow(x, x.id === first)).join("")}`
       : "";
   };
-  const head = `<div class="rhead"><span>Repository</span><span>Issues<small>human-required · other</small></span><span>Pull Requests</span><span>Dependabot Bumps</span><span>Vulnerabilities<small>ours · upstream</small></span><span>Code scanning<small>ours · upstream</small></span></div>`;
+  const head = `<div class="rhead"><span>Repository</span><span>Issues<small>human · other</small></span><span>Pull Requests</span><span>Dependabot Bumps</span><span>Vulnerabilities<small>ours · upstream</small></span><span>Code scanning<small>ours · upstream</small></span></div>`;
   const table = `<div class="rtable"><div class="rgrid">${head}${group("program", "Program")}${group("fork", "Forks")}</div><p class="note">Vulnerabilities are Dependabot alerts on the libraries a service uses. Code scanning is CodeQL and Scorecard findings in the source itself. Both count critical and high alerts in shipped code only. Pipeline PRs stay on Flow.</p></div>`;
   const details = r.rows.map((x) => repoDetail(x, x.id === first)).join("");
   return `<h2>${esc(r.headline)}</h2>
@@ -503,8 +503,8 @@ button.envband { cursor: pointer; }
 .events { margin-top: 12px; }
 .facts.four { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .rtable { min-width: 0; overflow-x: auto; }
-.rgrid { min-width: 700px; }
-.rhead, .rrow { display: grid; box-sizing: border-box; grid-template-columns: minmax(100px, 1.3fr) minmax(152px, 1.2fr) repeat(2, minmax(64px, .8fr)) repeat(2, minmax(118px, 1.2fr)); gap: 0 8px; align-items: baseline; }
+.rgrid { min-width: 640px; }
+.rhead, .rrow { display: grid; box-sizing: border-box; grid-template-columns: minmax(100px, 1.3fr) minmax(100px, 1fr) repeat(2, minmax(64px, .8fr)) repeat(2, minmax(118px, 1.2fr)); gap: 0 8px; align-items: baseline; }
 .rhead { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 0 11px 4px; border-bottom: 1px solid var(--border); align-items: end; line-height: 1.3; }
 .rhead small { display: block; white-space: nowrap; font-size: 10px; font-weight: 500; letter-spacing: .02em; text-transform: none; }
 .rgrp { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 10px 0 2px; padding: 0 10px; }
