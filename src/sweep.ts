@@ -102,6 +102,12 @@ const cacheFileSchema = z.object({
       mrDiffs: z.record(z.string(), z.unknown()),
       commitDiffs: z.record(z.string(), z.unknown()),
       filters: z.record(z.string(), z.string()),
+      ledgers: z
+        .object({
+          merged: z.record(z.string(), z.array(z.unknown())),
+          portPrs: z.record(z.string(), z.unknown()),
+        })
+        .optional(),
     })
     .optional(),
 });
@@ -157,6 +163,7 @@ export class Sweeper {
     this.facts = { ...emptyFacts(), ...(stored as Partial<Facts> | undefined) };
     const cache = opts.store.read(CACHE_FILE, cacheFileSchema) as Partial<CacheFile> | undefined;
     this.cache = cache ? { ...emptyCache(), ...cache } : emptyCache();
+    this.cache.radar = { ...emptyRadarState(), ...this.cache.radar };
     this.detailCache = new DetailCache(this.cache.details);
     const upstreamAt = this.facts.upstream.at ? Date.parse(this.facts.upstream.at) : 0;
     this.gitlabAt = Number.isFinite(upstreamAt) ? upstreamAt : 0;

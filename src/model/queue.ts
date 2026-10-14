@@ -69,7 +69,8 @@ export type ItemKind =
   | "template-pr"
   | "bump"
   | "access"
-  | "radar";
+  | "radar"
+  | "port";
 
 // The entries a halt names, for checking whether other forks will halt on them too.
 export interface HaltEntries {
@@ -1044,6 +1045,59 @@ function radarItems(lines: readonly LineModel[], radar: RadarModel | undefined):
   return items;
 }
 
+// Upstream MRs that changed fork-owned code since the seed and that no fork PR cites.
+function portItems(
+  lines: readonly LineModel[],
+  radar: RadarModel | undefined,
+  now: Date,
+): QueueItem[] {
+  const items: QueueItem[] = [];
+  for (const line of lines) {
+    const svc = line.fork.id;
+    const ports = radar?.services[svc]?.ports;
+    const owed = ports?.owed ?? [];
+    if (!ports || owed.length === 0) continue;
+    const n = owed.length + ports.ported.length;
+    const trees = [...new Set(owed.flatMap((m) => m.trees))];
+    const prs = githubUrl(line.fork.repo, "/pulls");
+    const oldest = [...owed].sort((a, b) => Date.parse(a.mergedAt) - Date.parse(b.mergedAt))[0];
+    items.push({
+      id: `port:${svc}`,
+      kind: "port",
+      rung: 1,
+      scope: svc,
+      text: `${plural(n, "upstream MR")} changed ${names(trees)} since the seed, ${ports.ported.length === 0 ? "none ported" : `${ports.ported.length} of ${n} ported`}`,
+      ...(oldest ? { since: oldest.mergedAt } : {}),
+      url: prs,
+      effects: owed.map((m) => ({
+        text: `!${m.iid} · ${m.title} · merged ${stamp(m.mergedAt, now)}`,
+        url: m.url,
+      })),
+      cause: [
+        ...(line.fork.seeded ? [{ label: "seeded", value: line.fork.seeded }] : []),
+        { label: "tree", value: names(trees) },
+        {
+          label: "owed",
+          value: owed.map((m) => `!${m.iid} (${names(m.trees)})`).join(", "),
+          ...(owed[0] ? { url: owed[0].url } : {}),
+        },
+        {
+          label: "match",
+          value: "a fork PR whose body or a commit message cites the MR's GitLab URL",
+          url: prs,
+        },
+      ],
+      links: [
+        ...owed.map((m) => ({ label: `Open MR !${m.iid}`, url: m.url })),
+        { label: "Open fork PRs", url: prs },
+      ],
+      incident: false,
+      blocks: owed.length,
+    });
+  }
+  return items;
+}
+
 export function buildQueue(input: {
   stack: StackModel;
   lines: readonly LineModel[];
@@ -1059,6 +1113,7 @@ export function buildQueue(input: {
   items.push(...stackItems(stack, lines, now).items);
   for (const line of lines) items.push(...lineItems(line, now));
   items.push(...radarItems(lines, radar));
+  items.push(...portItems(lines, radar, now));
   items.push(...approvalItems(approvals));
   const set = templateSetItem(template, lines, stack, now);
   if (set) items.push(set);

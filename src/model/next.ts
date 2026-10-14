@@ -40,6 +40,7 @@ export const CLASS_VERB: Record<FailureClass | "INCIDENT", string> = {
 const KIND_VERB: Partial<Record<ItemKind, string>> = {
   stack: "Re-dispatch",
   maintenance: "Re-dispatch",
+  port: "Open MR",
   cascade: "Investigate, then Dispatch cascade",
   approvals: "Approve runs",
   gate1: "Review on GitHub",
@@ -161,6 +162,10 @@ export function nextText(item: QueueItem, listed: readonly ListedEntry[] = []): 
       return "Merge the env bump PR on GitHub to start env-upgrade";
     case "radar":
       return radarNext(item);
+    case "port": {
+      const first = /!(\d+) \(([^)]+)\)/.exec(fact(item, "owed") ?? "");
+      return `Port ${first ? `!${first[1]}` : "the MR"} into ${first?.[2] ?? "the fork-owned tree"}; cite the MR URL in the PR body`;
+    }
   }
   if (item.cls && item.cls !== "ENV") return failureNext(item);
   switch (item.kind) {

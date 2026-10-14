@@ -59,6 +59,22 @@ export type RadarState =
   | "clean"
   | "unmeasured";
 
+export interface OwedMr {
+  iid: number;
+  title: string;
+  url: string;
+  mergedAt: string;
+  // The fork-owned paths it changed, and the fork-owned trees they sit in.
+  paths: string[];
+  trees: string[];
+}
+
+// Upstream MRs merged since the seed that changed fork-owned paths, and which a fork PR cites.
+export interface PortLedger {
+  owed: OwedMr[];
+  ported: { iid: number; pr: string }[];
+}
+
 export interface RadarService {
   state: RadarState;
   queued: number;
@@ -66,6 +82,8 @@ export interface RadarService {
   certain: Verdict[];
   possible: Verdict[];
   filterSha?: string;
+  // Undefined while the merged MRs, their diffs or the fork PRs are unread.
+  ports?: PortLedger;
 }
 
 export interface RadarModel {
@@ -79,6 +97,7 @@ export interface Prediction {
   certain: Verdict[];
   possible: Verdict[];
   filterSha: string;
+  ports?: PortLedger;
 }
 
 const MAP_CODE: Record<FilterMap, HaltCode> = {
@@ -236,6 +255,30 @@ function gather(
   );
 }
 
+export function portLedger(
+  service: RadarFacts["services"][string],
+  filter: UpstreamFilter,
+): PortLedger | undefined {
+  const { merged, forkPrs } = service;
+  if (!merged || !forkPrs || merged.some((m) => !m.paths)) return undefined;
+  const cited = new Map<string, string>();
+  for (const pr of forkPrs) for (const ref of pr.refs) cited.set(ref.toLowerCase(), pr.url);
+  const owed: OwedMr[] = [];
+  const ported: PortLedger["ported"] = [];
+  for (const m of merged) {
+    const hits = (m.paths ?? [])
+      .map((p) => ({ p, v: classifyPath(filter, p) }))
+      .filter((x) => x.v.bucket === "Port");
+    if (hits.length === 0) continue;
+    const paths = hits.map((x) => x.p);
+    const trees = [...new Set(hits.map((x) => x.v.entry ?? ""))];
+    const pr = cited.get(`${service.project}!${m.iid}`.toLowerCase());
+    if (pr) ported.push({ iid: m.iid, pr });
+    else owed.push({ iid: m.iid, title: m.title, url: m.url, mergedAt: m.mergedAt, paths, trees });
+  }
+  return { owed, ported };
+}
+
 export function predict(
   service: RadarFacts["services"][string] | undefined,
   filterFile: RadarFacts["filters"][string] | undefined,
@@ -263,12 +306,14 @@ export function predict(
       },
     })),
   );
+  const ports = portLedger(service, filter);
   return {
     queued: service.queued.length,
     mrs: service.mrs.length,
     certain,
     possible,
     filterSha: filterFile.sha,
+    ...(ports ? { ports } : {}),
   };
 }
 
@@ -323,6 +368,7 @@ export function buildRadar(
           certain: p.certain,
           possible: p.possible,
           filterSha: p.filterSha,
+          ...(p.ports ? { ports: p.ports } : {}),
         }
       : { state: "unmeasured", queued: 0, mrs: 0, certain: [], possible: [] };
   }

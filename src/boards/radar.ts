@@ -204,21 +204,35 @@ const STATE_TONE: Partial<Record<RadarState, CanvasTone>> = {
   "at-risk": "info",
 };
 
+function portsCell(r: RadarService, href: string | undefined): Cell {
+  if (!r.ports) return "?";
+  const owed = r.ports.owed;
+  if (owed.length === 0) return cell("none", "neutral");
+  return cell(
+    owed.map((m) => `!${m.iid}`).join(", "),
+    "warn",
+    owed.length === 1 ? owed[0]?.url : href,
+  );
+}
+
 function nextSync(model: Model, breaks: readonly Break[]): Section[] {
   const sections: Section[] = [];
   const read = measured(model);
-  const shown = read.filter(([, r]) => r.queued > 0);
-  const risky = read.filter(([, r]) => r.queued === 0 && r.state === "at-risk");
-  const clean = read.filter(([, r]) => r.queued === 0 && r.state !== "at-risk");
+  const owes = (r: RadarService) => (r.ports?.owed.length ?? 0) > 0;
+  const shown = read.filter(([, r]) => r.queued > 0 || owes(r));
+  const rest = read.filter(([, r]) => r.queued === 0 && !owes(r));
+  const risky = rest.filter(([, r]) => r.state === "at-risk");
+  const clean = rest.filter(([, r]) => r.state !== "at-risk");
   if (shown.length > 0) {
     sections.push({
       kind: "table",
-      caption: "Next sync · one row per fork with something queued",
+      caption: "Next sync · one row per fork with something queued or a port owed",
       columns: [
         { key: "fork", label: "fork" },
         { key: "queued", label: "queued" },
         { key: "next", label: "next sync" },
         { key: "mrs", label: "open MRs" },
+        { key: "ports", label: "ports owed" },
         { key: "filter", label: "filter" },
       ],
       rows: shown.map(([fork, r]) => {
@@ -238,6 +252,7 @@ function nextSync(model: Model, breaks: readonly Break[]): Section[] {
             would > 0 ? "info" : "neutral",
             def ? gitlabUrl(def.upstream, "/-/merge_requests") : undefined,
           ),
+          ports: portsCell(r, def ? githubUrl(def.repo, "/pulls") : undefined),
           filter: r.filterSha
             ? cell(
                 short(r.filterSha),

@@ -25516,7 +25516,498 @@
               "paths": ["devops/core-plus/pipeline/override-stages.yml"]
             }
           ],
-          "queued": []
+          "queued": [],
+          "merged": [
+            {
+              "iid": 829,
+              "title": "[GONRG-15334] Migrate gc partition",
+              "url": "https://community.opengroup.org/osdu/platform/system/partition/-/merge_requests/829",
+              "mergedAt": "2026-09-24T09:36:19Z",
+              "headSha": "75c76566edf6f0eb2f5b00cf573c5fd8898b23eb",
+              "paths": [
+                "devops/gc/deploy/templates/_helpers.tpl",
+                "devops/gc/deploy/templates/authorization-policy.yaml",
+                "devops/gc/deploy/templates/configmap-bootstrap.yaml",
+                "devops/gc/deploy/templates/configmap.yaml",
+                "devops/gc/deploy/templates/deploy-bootstrap.yaml",
+                "devops/gc/deploy/templates/hpa-cpu.yaml",
+                "devops/gc/deploy/templates/hpa-request.yaml",
+                "devops/gc/deploy/templates/pdb.yaml",
+                "devops/gc/deploy/templates/rate-limits.yaml",
+                "devops/gc/deploy/templates/request-authentication.yaml",
+                "devops/gc/deploy/templates/service-account.yaml",
+                "devops/gc/deploy/templates/service.yaml",
+                "devops/gc/deploy/templates/spot-deploy.yaml",
+                "devops/gc/deploy/templates/standard-deploy.yaml",
+                "devops/gc/deploy/templates/virtual-service.yaml",
+                "devops/gc/deploy/Chart.yaml",
+                "devops/gc/deploy/README.md",
+                "devops/gc/deploy/values.yaml",
+                "devops/gc/pipeline/override-stages.yml",
+                "devops/gc-quarkus/deploy/templates/_helpers.tpl",
+                "devops/gc-quarkus/deploy/templates/configmap.yaml",
+                "devops/gc-quarkus/deploy/templates/hpa-cpu.yaml",
+                "devops/gc-quarkus/deploy/templates/hpa-request.yaml",
+                "devops/gc-quarkus/deploy/templates/pdb.yaml",
+                "devops/gc-quarkus/deploy/templates/rate-limits.yaml",
+                "devops/gc-quarkus/deploy/templates/request-authentication.yaml",
+                "devops/gc-quarkus/deploy/templates/service.yaml",
+                "devops/gc-quarkus/deploy/templates/spot-deploy.yaml",
+                "devops/gc-quarkus/deploy/templates/standard-deploy.yaml",
+                "devops/gc-quarkus/deploy/templates/system-partition.yaml",
+                "devops/gc-quarkus/deploy/templates/virtual-service.yaml",
+                "devops/gc-quarkus/deploy/Chart.yaml",
+                "devops/gc-quarkus/deploy/README.md",
+                "devops/gc-quarkus/deploy/values.yaml",
+                "devops/gc-quarkus/pipeline/override-stages.yml",
+                "docs/docs/running.md",
+                "provider/partition-gc/bootstrap/Dockerfile",
+                "provider/partition-gc/bootstrap/bootstrap_partition.sh",
+                "provider/partition-gc/bootstrap/data_gc.sh",
+                "provider/partition-gc/bootstrap/system_gc.sh",
+                "provider/partition-gc/cloudbuild/Dockerfile.cloudbuild",
+                "provider/partition-gc/cloudbuild/cloudbuild.yaml",
+                "provider/partition-gc/docs/api/partition_openapi_system.yaml",
+                "provider/partition-gc/docs/gc/README.md",
+                "provider/partition-gc/src/main/java/org/opengroup/osdu/partition/provider/gcp/config/IDTokenVerifierConfiguration.java",
+                "provider/partition-gc/src/main/java/org/opengroup/osdu/partition/provider/gcp/config/SystemTenantConfiguration.java",
+                "provider/partition-gc/src/main/java/org/opengroup/osdu/partition/provider/gcp/controller/PartitionControllerV2.java",
+                "provider/partition-gc/src/main/java/org/opengroup/osdu/partition/provider/gcp/formatter/GoogleJsonFormatter.java",
+                "provider/partition-gc/src/main/java/org/opengroup/osdu/partition/provider/gcp/middleware/GcpExceptionMapper.java",
+                "provider/partition-gc/src/main/java/org/opengroup/osdu/partition/provider/gcp/security/AnthosAuthorizationService.java",
+                "provider/partition-gc/src/main/java/org/opengroup/osdu/partition/provider/gcp/security/GcpAuthorizationService.java",
+                "provider/partition-gc/src/main/java/org/opengroup/osdu/partition/provider/gcp/PartitionGcpApplication.java",
+                "provider/partition-gc/src/main/resources/application.properties",
+                "provider/partition-gc/src/main/resources/logback.xml",
+                "provider/partition-gc/src/main/resources/type-mapper-config.json",
+                "provider/partition-gc/README.md",
+                "provider/partition-gc/pom.xml",
+                "provider/partition-gc-quarkus/cloudbuild/Dockerfile.cloudbuild",
+                "provider/partition-gc-quarkus/src/main/docker/Dockerfile.native",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/api/HealthCheckApi.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/api/InfoApi.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/api/PartitionApi.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/configuration/PropertyConfiguration.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/controller/HealthCheckController.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/controller/InfoController.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/controller/PartitionController.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/middleware/ExceptionMappers.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/middleware/SpringCompatibleRequestFilter.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/model/exception/AppError.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/model/exception/AppException.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/model/info/ConnectedOuterService.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/model/info/VersionInfo.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/model/PartitionInfo.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/model/Property.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/service/DirectoryWatchService.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/service/GitPropertiesProvider.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/service/IPartitionService.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/service/PartitionConfigProvider.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/service/PartitionFileLoaderService.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/service/PartitionServiceImpl.java",
+                "provider/partition-gc-quarkus/src/main/java/org/opengroup/osdu/service/VersionInfoBuilder.java",
+                "provider/partition-gc-quarkus/src/main/resources/application.properties",
+                "provider/partition-gc-quarkus/src/test/java/org/opengroup/osdu/api/HealthCheckResourceTest.java",
+                "provider/partition-gc-quarkus/src/test/java/org/opengroup/osdu/api/InfoApiTest.java",
+                "provider/partition-gc-quarkus/src/test/java/org/opengroup/osdu/api/PartitionResourceTest.java",
+                "provider/partition-gc-quarkus/src/test/java/org/opengroup/osdu/service/DirectoryWatchServiceTest.java",
+                "provider/partition-gc-quarkus/src/test/java/org/opengroup/osdu/service/GitPropertiesProviderTest.java",
+                "provider/partition-gc-quarkus/src/test/java/org/opengroup/osdu/service/PartitionConfigProviderTest.java",
+                "provider/partition-gc-quarkus/src/test/java/org/opengroup/osdu/service/PartitionFileLoaderServiceTest.java",
+                "provider/partition-gc-quarkus/src/test/java/org/opengroup/osdu/service/PartitionServiceImplTest.java",
+                "provider/partition-gc-quarkus/src/test/java/org/opengroup/osdu/service/VersionInfoBuilderTest.java",
+                "provider/partition-gc-quarkus/src/test/java/org/opengroup/osdu/util/EnvVarResource.java",
+                "provider/partition-gc-quarkus/src/test/java/org/opengroup/osdu/util/TestUtils.java",
+                "provider/partition-gc-quarkus/src/test/resources/testFiles/sub1/sub2/level2.json",
+                "provider/partition-gc-quarkus/src/test/resources/testFiles/sub1/level1.json",
+                "provider/partition-gc-quarkus/src/test/resources/testFiles/not.json.txt",
+                "provider/partition-gc-quarkus/src/test/resources/testFiles/not_a_partition.json",
+                "provider/partition-gc-quarkus/src/test/resources/testFiles/not_valid.json",
+                "provider/partition-gc-quarkus/src/test/resources/testFiles/osdu.json",
+                "provider/partition-gc-quarkus/src/test/resources/testFiles/root.json",
+                "provider/partition-gc-quarkus/src/test/resources/testFiles/second.json",
+                "provider/partition-gc-quarkus/src/test/resources/test.git.properties",
+                "provider/partition-gc-quarkus/.dockerignore",
+                "provider/partition-gc-quarkus/.gitignore",
+                "provider/partition-gc-quarkus/README.md",
+                "provider/partition-gc-quarkus/pom.xml",
+                "testing/partition-test-gc/src/test/java/org/opengroup/osdu/partition/api/TestCreatePartition.java",
+                "testing/partition-test-gc/src/test/java/org/opengroup/osdu/partition/api/TestDeletePartition.java",
+                "testing/partition-test-gc/src/test/java/org/opengroup/osdu/partition/api/TestGetPartitionById.java",
+                "testing/partition-test-gc/src/test/java/org/opengroup/osdu/partition/api/TestGetVersionInfo.java",
+                "testing/partition-test-gc/src/test/java/org/opengroup/osdu/partition/api/TestHealthCheck.java",
+                "testing/partition-test-gc/src/test/java/org/opengroup/osdu/partition/api/TestListPartitions.java",
+                "testing/partition-test-gc/src/test/java/org/opengroup/osdu/partition/api/TestUpdatePartition.java",
+                "testing/partition-test-gc/src/test/java/org/opengroup/osdu/partition/util/DecodedContentExtractor.java",
+                "testing/partition-test-gc/src/test/java/org/opengroup/osdu/partition/util/GCPTestUtils.java",
+                "testing/partition-test-gc/src/test/java/org/opengroup/osdu/partition/util/GoogleServiceAccount.java",
+                "testing/partition-test-gc/src/test/resources/logback-test.xml",
+                "testing/partition-test-gc/pom.xml",
+                "testing/pom.xml",
+                ".fossa.yml",
+                ".gitlab-ci.yml",
+                "NOTICE",
+                "README.md",
+                "pom.xml"
+              ]
+            },
+            {
+              "iid": 828,
+              "title": "Merge forward 'fix/cve' (!827) from release/0.30",
+              "url": "https://community.opengroup.org/osdu/platform/system/partition/-/merge_requests/828",
+              "mergedAt": "2026-09-16T13:54:47Z",
+              "headSha": "4733a3988a601badcc3309a968f0b0d05ef2660e",
+              "paths": ["pom.xml"]
+            },
+            {
+              "iid": 826,
+              "title": "fix: CVE remediation wave 1 (tomcat, log4j-api, jackson-databind, kotlin-stdlib)",
+              "url": "https://community.opengroup.org/osdu/platform/system/partition/-/merge_requests/826",
+              "mergedAt": "2026-09-14T10:55:21Z",
+              "headSha": "c85ba49608a2770e25b4e5524beca87580e0d995",
+              "paths": ["partition-core/pom.xml", "NOTICE", "pom.xml"]
+            },
+            {
+              "iid": 825,
+              "title": "add SCHEMATHESIS_OPENAPI_YAML_ROUTE",
+              "url": "https://community.opengroup.org/osdu/platform/system/partition/-/merge_requests/825",
+              "mergedAt": "2026-09-11T06:46:25Z",
+              "headSha": "729c40fb419af4cd259f2788502f0096d8483d6d",
+              "paths": [".gitlab-ci.yml", "NOTICE"]
+            },
+            {
+              "iid": 824,
+              "title": "CIMPL: Deleting old CI overrides",
+              "url": "https://community.opengroup.org/osdu/platform/system/partition/-/merge_requests/824",
+              "mergedAt": "2026-09-02T13:58:20Z",
+              "headSha": "e54871e2ed40da53baa7a0d2a0a9a52d0ea0c65b",
+              "paths": ["devops/core-plus/pipeline/override-stages.yml", ".gitlab-ci.yml"]
+            },
+            {
+              "iid": 823,
+              "title": "chore: remove AWS provider and AWS CI/CD",
+              "url": "https://community.opengroup.org/osdu/platform/system/partition/-/merge_requests/823",
+              "mergedAt": "2026-08-27T12:51:01Z",
+              "headSha": "ff0b4c131b6cab5064235d8f44fcc4b08479e187",
+              "paths": [
+                "docs/docs/running.md",
+                "provider/partition-aws/build-aws/Dockerfile",
+                "provider/partition-aws/build-aws/build-info.py",
+                "provider/partition-aws/build-aws/buildspec.yaml",
+                "provider/partition-aws/build-aws/entrypoint.sh",
+                "provider/partition-aws/src/main/java/org/opengroup/osdu/partition/provider/aws/config/ProviderConfigurationBag.java",
+                "provider/partition-aws/src/main/java/org/opengroup/osdu/partition/provider/aws/model/PartitionDoc.java",
+                "provider/partition-aws/src/main/java/org/opengroup/osdu/partition/provider/aws/model/PartitionInfoConverter.java",
+                "provider/partition-aws/src/main/java/org/opengroup/osdu/partition/provider/aws/security/AuthorizationService.java",
+                "provider/partition-aws/src/main/java/org/opengroup/osdu/partition/provider/aws/service/PartitionServiceImpl.java",
+                "provider/partition-aws/src/main/java/org/opengroup/osdu/partition/provider/aws/PartitionApplication.java",
+                "provider/partition-aws/src/main/resources/application.properties",
+                "provider/partition-aws/src/test/java/org/opengroup/osdu/partition/provider/aws/config/ProviderConfigurationBagTest.java",
+                "provider/partition-aws/src/test/java/org/opengroup/osdu/partition/provider/aws/model/PartitionDocTest.java",
+                "provider/partition-aws/src/test/java/org/opengroup/osdu/partition/provider/aws/model/PartitionInfoConverterTest.java",
+                "provider/partition-aws/src/test/java/org/opengroup/osdu/partition/provider/aws/security/AuthorizationServiceTest.java",
+                "provider/partition-aws/src/test/java/org/opengroup/osdu/partition/provider/aws/service/PartitionServiceImplTest.java",
+                "provider/partition-aws/src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker",
+                "provider/partition-aws/README.md",
+                "provider/partition-aws/SECURITY.md",
+                "provider/partition-aws/lombok.config",
+                "provider/partition-aws/pom.xml",
+                "testing/partition-test-aws/build-aws/prepare-dist.sh",
+                "testing/partition-test-aws/build-aws/run-acceptance-tests.sh",
+                "testing/partition-test-aws/build-aws/run-tests.sh",
+                "testing/partition-test-aws/src/test/java/org/opengroup/osdu/partition/api/TestCreatePartition.java",
+                "testing/partition-test-aws/src/test/java/org/opengroup/osdu/partition/api/TestDeletePartition.java",
+                "testing/partition-test-aws/src/test/java/org/opengroup/osdu/partition/api/TestGetPartitionById.java",
+                "testing/partition-test-aws/src/test/java/org/opengroup/osdu/partition/api/TestGetVersionInfo.java",
+                "testing/partition-test-aws/src/test/java/org/opengroup/osdu/partition/api/TestHealthCheck.java",
+                "testing/partition-test-aws/src/test/java/org/opengroup/osdu/partition/api/TestListPartitions.java",
+                "testing/partition-test-aws/src/test/java/org/opengroup/osdu/partition/api/TestUpdatePartition.java",
+                "testing/partition-test-aws/src/test/java/org/opengroup/osdu/partition/util/AwsTestUtils.java",
+                "testing/partition-test-aws/src/test/resources/logback.xml",
+                "testing/partition-test-aws/pom.xml",
+                "testing/pom.xml",
+                ".fossa.yml",
+                ".gitlab-ci.yml",
+                "NOTICE",
+                "README.md",
+                "pom.xml"
+              ]
+            },
+            {
+              "iid": 819,
+              "title": "Update FOSSA NOTICE",
+              "url": "https://community.opengroup.org/osdu/platform/system/partition/-/merge_requests/819",
+              "mergedAt": "2026-08-04T04:40:55Z",
+              "headSha": "3c628e3885ab4f8e396731d00cf3652d274e35f0",
+              "paths": ["NOTICE"]
+            }
+          ],
+          "forkPrs": [
+            {
+              "number": 175,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/175",
+              "state": "open",
+              "refs": []
+            },
+            {
+              "number": 80,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/80",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 82,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/82",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 83,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/83",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 96,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/96",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 97,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/97",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 100,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/100",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 101,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/101",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 103,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/103",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 104,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/104",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 106,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/106",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 114,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/114",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 117,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/117",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 119,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/119",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 121,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/121",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 125,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/125",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 126,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/126",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 128,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/128",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 129,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/129",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 130,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/130",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 135,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/135",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 136,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/136",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 138,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/138",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 139,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/139",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 147,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/147",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 148,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/148",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 149,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/149",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 150,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/150",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 152,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/152",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 155,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/155",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 156,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/156",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 157,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/157",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 158,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/158",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 159,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/159",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 162,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/162",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 163,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/163",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 164,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/164",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 165,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/165",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 169,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/169",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 170,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/170",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 171,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/171",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 173,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/173",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 174,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/174",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 178,
+              "url": "https://github.com/Azure/osdu-spi-partition/pull/178",
+              "state": "merged",
+              "refs": []
+            }
+          ]
         },
         "entitlements": {
           "project": "osdu/platform/security-and-compliance/entitlements",
@@ -25855,6 +26346,320 @@
                   "+\t</dependency>"
                 ]
               }
+            }
+          ],
+          "merged": [
+            {
+              "iid": 966,
+              "title": "chore: remove GC code",
+              "url": "https://community.opengroup.org/osdu/platform/security-and-compliance/entitlements/-/merge_requests/966",
+              "mergedAt": "2026-09-23T09:24:08Z",
+              "headSha": "26896898a30cff8d1680d9f6b97fe924f3fc241b",
+              "paths": [
+                "devops/azure/development-pipeline.yml",
+                "devops/azure/pipeline.yml",
+                "devops/gc/deploy/templates/_helpers.tpl",
+                "devops/gc/deploy/templates/configmap-bootstrap.yaml",
+                "devops/gc/deploy/templates/configmap.yaml",
+                "devops/gc/deploy/templates/deploy-bootstrap.yaml",
+                "devops/gc/deploy/templates/deploy-redis.yaml",
+                "devops/gc/deploy/templates/hpa-cpu.yaml",
+                "devops/gc/deploy/templates/hpa-request.yaml",
+                "devops/gc/deploy/templates/pdb.yaml",
+                "devops/gc/deploy/templates/rate-limits.yaml",
+                "devops/gc/deploy/templates/service-redis.yaml",
+                "devops/gc/deploy/templates/service.yaml",
+                "devops/gc/deploy/templates/spot-deploy.yaml",
+                "devops/gc/deploy/templates/standard-deploy.yaml",
+                "devops/gc/deploy/templates/virtual-service.yaml",
+                "devops/gc/deploy/Chart.yaml",
+                "devops/gc/deploy/README.md",
+                "devops/gc/deploy/values.yaml",
+                "devops/gc/pipeline/override-stages.yml",
+                "docs/docs/running-locally.md",
+                "provider/entitlements-v2-jdbc/bootstrap/Dockerfile",
+                "provider/entitlements-v2-jdbc/bootstrap/README.md",
+                "provider/entitlements-v2-jdbc/bootstrap/bootstrap.sh",
+                "provider/entitlements-v2-jdbc/cloudbuild/Dockerfile.cloudbuild",
+                "provider/entitlements-v2-jdbc/cloudbuild/cloudbuild.yaml",
+                "provider/entitlements-v2-jdbc/cloudbuild/create-db-script.sql",
+                "provider/entitlements-v2-jdbc/docs/gc/README.md",
+                "provider/entitlements-v2-jdbc/docs/sql_digram.jpg",
+                "provider/entitlements-v2-jdbc/pics/security_problem.png",
+                "provider/entitlements-v2-jdbc/src/main/java/org/opengroup/osdu/entitlements/v2/jdbc/config/properties/IapConfigurationProperties.java",
+                "provider/entitlements-v2-jdbc/src/main/java/org/opengroup/osdu/entitlements/v2/jdbc/config/security/ExternalAuthConfiguration.java",
+                "provider/entitlements-v2-jdbc/src/main/java/org/opengroup/osdu/entitlements/v2/jdbc/config/IDTokenValidatorFactory.java",
+                "provider/entitlements-v2-jdbc/src/main/java/org/opengroup/osdu/entitlements/v2/jdbc/interceptor/authenticator/impl/IAPAuthenticator.java",
+                "provider/entitlements-v2-jdbc/src/main/java/org/opengroup/osdu/entitlements/v2/jdbc/interceptor/userinfo/impl/GcpUserInfoProvider.java",
+                "provider/entitlements-v2-jdbc/src/main/java/org/opengroup/osdu/entitlements/v2/jdbc/security/ExternalAuthorizationFilter.java",
+                "provider/entitlements-v2-jdbc/src/main/java/org/opengroup/osdu/entitlements/v2/jdbc/GcEntitlementsV2Application.java",
+                "provider/entitlements-v2-jdbc/src/main/resources/application-gcp.properties",
+                "provider/entitlements-v2-jdbc/src/main/resources/application.properties",
+                "provider/entitlements-v2-jdbc/src/test/java/org/opengroup/osdu/entitlements/v2/jdbc/interceptor/IAPAuthenticatorTest.java",
+                "provider/entitlements-v2-jdbc/README.md",
+                "provider/entitlements-v2-jdbc/pom.xml",
+                "testing/entitlements-v2-test-jdbc/src/test/java/org/opengroup/osdu/entitlements/v2/jdbc/acceptance/api/InfoApiJdbcTest.java",
+                "testing/entitlements-v2-test-jdbc/src/test/java/org/opengroup/osdu/entitlements/v2/jdbc/acceptance/api/SwaggerApiGcTest.java",
+                "testing/entitlements-v2-test-jdbc/src/test/java/org/opengroup/osdu/entitlements/v2/jdbc/acceptance/AddMemberJdbcTest.java",
+                "testing/entitlements-v2-test-jdbc/src/test/java/org/opengroup/osdu/entitlements/v2/jdbc/acceptance/CreateGroupsJdbcTest.java",
+                "testing/entitlements-v2-test-jdbc/src/test/java/org/opengroup/osdu/entitlements/v2/jdbc/acceptance/DeleteGroupJdbcTest.java",
+                "testing/entitlements-v2-test-jdbc/src/test/java/org/opengroup/osdu/entitlements/v2/jdbc/acceptance/DeleteMemberJdbcTest.java",
+                "testing/entitlements-v2-test-jdbc/src/test/java/org/opengroup/osdu/entitlements/v2/jdbc/acceptance/GetDataGroupsIndexerServiceAccJdbcTest.java",
+                "testing/entitlements-v2-test-jdbc/src/test/java/org/opengroup/osdu/entitlements/v2/jdbc/acceptance/GetGroupsJdbcTest.java",
+                "testing/entitlements-v2-test-jdbc/src/test/java/org/opengroup/osdu/entitlements/v2/jdbc/acceptance/GetMembersCountJdbcTest.java",
+                "testing/entitlements-v2-test-jdbc/src/test/java/org/opengroup/osdu/entitlements/v2/jdbc/acceptance/GetMembersJdbcTest.java",
+                "testing/entitlements-v2-test-jdbc/src/test/java/org/opengroup/osdu/entitlements/v2/jdbc/acceptance/ImpersonationJdbcTest.java",
+                "testing/entitlements-v2-test-jdbc/src/test/java/org/opengroup/osdu/entitlements/v2/jdbc/acceptance/ListAllPartitionGroupsJdbcTest.java",
+                "testing/entitlements-v2-test-jdbc/src/test/java/org/opengroup/osdu/entitlements/v2/jdbc/acceptance/ListGroupOnBehalfOfJdbcTest.java",
+                "testing/entitlements-v2-test-jdbc/src/test/java/org/opengroup/osdu/entitlements/v2/jdbc/acceptance/RemoveMemberJdbcTest.java",
+                "testing/entitlements-v2-test-jdbc/src/test/java/org/opengroup/osdu/entitlements/v2/jdbc/acceptance/TenantInitJdbcTest.java",
+                "testing/entitlements-v2-test-jdbc/src/test/java/org/opengroup/osdu/entitlements/v2/jdbc/acceptance/UpdateGroupJdbcTest.java",
+                "testing/entitlements-v2-test-jdbc/src/test/java/org/opengroup/osdu/entitlements/v2/util/GoogleServiceAccount.java",
+                "testing/entitlements-v2-test-jdbc/src/test/java/org/opengroup/osdu/entitlements/v2/util/JdbcConfigurationService.java",
+                "testing/entitlements-v2-test-jdbc/src/test/java/org/opengroup/osdu/entitlements/v2/util/JdbcTokenService.java",
+                "testing/entitlements-v2-test-jdbc/src/test/resources/logback-test.xml",
+                "testing/entitlements-v2-test-jdbc/pom.xml",
+                "testing/pom.xml",
+                ".fossa.yml",
+                ".gitlab-ci.yml",
+                "README.md",
+                "pom.xml"
+              ]
+            },
+            {
+              "iid": 963,
+              "title": "Merge forward 'fix/cve-critical-high-tomcat-netty' (!962) from release/0.30",
+              "url": "https://community.opengroup.org/osdu/platform/security-and-compliance/entitlements/-/merge_requests/963",
+              "mergedAt": "2026-09-14T14:02:39Z",
+              "headSha": "aa7f757b9422b5f44b1e61ee84adadec3ee05292",
+              "paths": [
+                "entitlements-v2-core-plus/pom.xml",
+                "gremlin-shaded-fix/pom.xml",
+                "provider/entitlements-v2-jdbc/pom.xml",
+                "testing/entitlements-v2-test-azure/pom.xml",
+                "testing/entitlements-v2-test-core/pom.xml",
+                "testing/entitlements-v2-test-ibm/pom.xml",
+                "testing/entitlements-v2-test-jdbc/pom.xml",
+                "NOTICE",
+                "pom.xml"
+              ]
+            },
+            {
+              "iid": 956,
+              "title": "Fix schemathesis issues",
+              "url": "https://community.opengroup.org/osdu/platform/security-and-compliance/entitlements/-/merge_requests/956",
+              "mergedAt": "2026-10-07T09:52:03Z",
+              "headSha": "e20d5e97c443600ee998b05e5509f4e71440db99",
+              "paths": [
+                "docs/api/community/v2/openapi.yaml",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/api/AddMemberApi.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/api/CreateGroupApi.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/api/DeleteGroupApi.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/api/DeleteMemberApi.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/api/HealthChecksApi.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/api/InfoApi.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/api/InitApi.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/api/ListGroupOnBehalfOfApi.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/api/ListMemberApi.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/api/MembersCountApi.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/api/RemoveMemberApi.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/api/UpdateGroupApi.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/errors/SpringExceptionMapper.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/model/addmember/AddMemberDto.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/model/updategroup/UpdateGroupOperation.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/model/GroupType.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/swagger/DataPartitionHeaderOperationCustomizer.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/swagger/SwaggerConfiguration.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/swagger/UpdateGroupOperationOpenApiCustomizer.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/validation/ApiInputValidation.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/validation/UpdateGroupOpValidator.java",
+                "entitlements-v2-core/src/main/java/org/opengroup/osdu/entitlements/v2/validation/UpdateGroupPathValidator.java",
+                "entitlements-v2-core/src/main/resources/swagger.properties",
+                "entitlements-v2-core/src/test/java/org/opengroup/osdu/entitlements/v2/api/UpdateGroupApiTests.java",
+                "entitlements-v2-core/src/test/java/org/opengroup/osdu/entitlements/v2/errors/SpringExceptionMapperTest.java",
+                "entitlements-v2-core/src/test/java/org/opengroup/osdu/entitlements/v2/swagger/DataPartitionHeaderOperationCustomizerTest.java",
+                "entitlements-v2-core/src/test/java/org/opengroup/osdu/entitlements/v2/swagger/UpdateGroupOperationOpenApiCustomizerTest.java",
+                "entitlements-v2-core/src/test/java/org/opengroup/osdu/entitlements/v2/validation/ApiInputValidationTest.java",
+                "entitlements-v2-core/pom.xml",
+                "entitlements-v2-core-plus/src/main/java/org/opengroup/osdu/entitlements/v2/jdbc/spi/jdbc/retrievegroup/RetrieveGroupRepoJdbc.java",
+                "entitlements-v2-core-plus/src/main/resources/application.properties",
+                "entitlements-v2-core-plus/src/test/java/org/opengroup/osdu/entitlements/v2/jdbc/spi/jdbc/retrievegroup/RetrieveGroupRepoJdbcAdditionalTest.java",
+                "entitlements-v2-core-plus/pom.xml",
+                "provider/entitlements-v2-azure/src/main/java/org/opengroup/osdu/entitlements/v2/azure/spi/gremlin/retrievegroup/RetrieveGroupRepoGremlin.java",
+                "provider/entitlements-v2-azure/src/test/java/org/opengroup/osdu/entitlements/v2/azure/spi/gremlin/retrievegroup/RetrieveGroupRepoGremlinTest.java",
+                "provider/entitlements-v2-ibm/src/main/java/org/opengroup/osdu/entitlements/v2/ibm/spi/retrievegroup/RetrieveGroupRedisRepo.java",
+                "provider/entitlements-v2-ibm/pom.xml",
+                "schemathesis-tests/hooks/hooks.py",
+                "schemathesis-tests/schemathesis.toml",
+                ".gitignore",
+                ".gitlab-ci.yml",
+                "NOTICE",
+                "pom.xml"
+              ]
+            }
+          ],
+          "forkPrs": [
+            {
+              "number": 55,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/55",
+              "state": "open",
+              "refs": []
+            },
+            {
+              "number": 54,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/54",
+              "state": "open",
+              "refs": []
+            },
+            {
+              "number": 52,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/52",
+              "state": "open",
+              "refs": []
+            },
+            {
+              "number": 49,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/49",
+              "state": "open",
+              "refs": []
+            },
+            {
+              "number": 11,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/11",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 12,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/12",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 13,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/13",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 14,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/14",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 15,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/15",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 17,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/17",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 18,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/18",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 19,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/19",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 21,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/21",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 22,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/22",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 23,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/23",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 26,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/26",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 27,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/27",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 28,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/28",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 32,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/32",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 33,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/33",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 34,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/34",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 39,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/39",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 40,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/40",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 43,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/43",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 44,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/44",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 46,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/46",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 48,
+              "url": "https://github.com/Azure/osdu-spi-entitlements/pull/48",
+              "state": "merged",
+              "refs": []
             }
           ]
         },
@@ -26439,6 +27244,195 @@
                 ]
               }
             }
+          ],
+          "merged": [
+            {
+              "iid": 786,
+              "title": "fix(cve): bump jackson to 2.21.7 and Tomcat to 10.1.60",
+              "url": "https://community.opengroup.org/osdu/platform/security-and-compliance/legal/-/merge_requests/786",
+              "mergedAt": "2026-10-07T11:51:22Z",
+              "headSha": "b9175d91b1aebc50a44c83f87d089bc6b03d8ac7",
+              "paths": ["pom.xml"]
+            },
+            {
+              "iid": 783,
+              "title": "Legal - migration to java 25",
+              "url": "https://community.opengroup.org/osdu/platform/security-and-compliance/legal/-/merge_requests/783",
+              "mergedAt": "2026-10-07T08:05:28Z",
+              "headSha": "3dd09595dc8383c803fbcdb51dd3212b47a1b7eb",
+              "paths": [
+                "docs/api/community/v1/openapi.yaml",
+                "legal-acceptance-test/README.md",
+                "legal-acceptance-test/pom.xml",
+                "legal-core/pom.xml",
+                "legal-core-plus/build/Dockerfile",
+                "legal-core-plus/docs/baremetal/README.md",
+                "legal-core-plus/README.md",
+                "legal-core-plus/pom.xml",
+                "provider/legal-azure/README.md",
+                ".gitlab-ci.yml",
+                "NOTICE",
+                "README.md",
+                "pom.xml"
+              ]
+            },
+            {
+              "iid": 778,
+              "title": "chore(gc): decouple GCP provider (GONRG-15184)",
+              "url": "https://community.opengroup.org/osdu/platform/security-and-compliance/legal/-/merge_requests/778",
+              "mergedAt": "2026-09-16T11:15:06Z",
+              "headSha": "b6a6a162d6f564ed52722681214997df2e8a808c",
+              "paths": [
+                "devops/gc/bootstrap_legalstatus_update/Dockerfile",
+                "devops/gc/bootstrap_legalstatus_update/update_legal_status.sh",
+                "devops/gc/bootstrap_legalstatus_update/validate-env.sh",
+                "devops/gc/deploy/templates/_helpers.tpl",
+                "devops/gc/deploy/templates/cronjob.yaml",
+                "devops/gc/deploy/templates/hpa-cpu.yaml",
+                "devops/gc/deploy/templates/hpa-requests.yaml",
+                "devops/gc/deploy/templates/legal-configmap.yaml",
+                "devops/gc/deploy/templates/legal-service.yaml",
+                "devops/gc/deploy/templates/legal-spot-deploy.yaml",
+                "devops/gc/deploy/templates/legal-standard-deploy.yaml",
+                "devops/gc/deploy/templates/legal-status-update-configmap.yaml",
+                "devops/gc/deploy/templates/legal-virtual-service.yaml",
+                "devops/gc/deploy/templates/pdb.yaml",
+                "devops/gc/deploy/templates/rate-limits.yaml",
+                "devops/gc/deploy/Chart.yaml",
+                "devops/gc/deploy/README.md",
+                "devops/gc/deploy/values.yaml",
+                "devops/gc/pipeline/override-stages.yml",
+                "provider/legal-gc/cloudbuild/Dockerfile.cloudbuild",
+                "provider/legal-gc/cloudbuild/cloudbuild.yaml",
+                "provider/legal-gc/docs/gc/pics/namespace.PNG",
+                "provider/legal-gc/docs/gc/README.md",
+                "provider/legal-gc/src/main/java/org/opengroup/osdu/legal/logging/formatter/GoogleJsonFormatter.java",
+                "provider/legal-gc/src/main/java/org/opengroup/osdu/legal/LegalApplicationGC.java",
+                "provider/legal-gc/src/main/resources/application-gcp.properties",
+                "provider/legal-gc/src/main/resources/application.properties",
+                "provider/legal-gc/src/main/resources/logback.xml",
+                "provider/legal-gc/src/main/resources/type-mapper-config.json",
+                "provider/legal-gc/src/test/resources/application.properties",
+                "provider/legal-gc/README.md",
+                "provider/legal-gc/pom.xml",
+                "testing/legal-test-gc/src/test/java/org/opengroup/osdu/legal/acceptanceTests/TestCreateLegalTagApiAcceptance.java",
+                "testing/legal-test-gc/src/test/java/org/opengroup/osdu/legal/acceptanceTests/TestDeleteLegalTagApiAcceptance.java",
+                "testing/legal-test-gc/src/test/java/org/opengroup/osdu/legal/acceptanceTests/TestGetInfoApiAcceptance.java",
+                "testing/legal-test-gc/src/test/java/org/opengroup/osdu/legal/acceptanceTests/TestGetLegalTagApiAcceptance.java",
+                "testing/legal-test-gc/src/test/java/org/opengroup/osdu/legal/acceptanceTests/TestGetLegalTagPropertiesApiAcceptance.java",
+                "testing/legal-test-gc/src/test/java/org/opengroup/osdu/legal/acceptanceTests/TestGetLegalTagsApiAcceptance.java",
+                "testing/legal-test-gc/src/test/java/org/opengroup/osdu/legal/acceptanceTests/TestListLegalTagsApiAcceptance.java",
+                "testing/legal-test-gc/src/test/java/org/opengroup/osdu/legal/acceptanceTests/TestQueryApiAcceptance.java",
+                "testing/legal-test-gc/src/test/java/org/opengroup/osdu/legal/acceptanceTests/TestUpdateLegalTagApiAcceptance.java",
+                "testing/legal-test-gc/src/test/java/org/opengroup/osdu/legal/acceptanceTests/TestValidateLegalTagsApiAcceptance.java",
+                "testing/legal-test-gc/src/test/java/org/opengroup/osdu/legal/service/PartitionService.java",
+                "testing/legal-test-gc/src/test/java/org/opengroup/osdu/legal/util/CustomHttpClientResponseHandler.java",
+                "testing/legal-test-gc/src/test/java/org/opengroup/osdu/legal/util/DecodedContentExtractor.java",
+                "testing/legal-test-gc/src/test/java/org/opengroup/osdu/legal/util/GCPLegalTagUtils.java",
+                "testing/legal-test-gc/src/test/java/org/opengroup/osdu/legal/util/GoogleServiceAccount.java",
+                "testing/legal-test-gc/src/test/java/org/opengroup/osdu/legal/util/PubSubHelper.java",
+                "testing/legal-test-gc/src/test/resources/logback-test.xml",
+                "testing/legal-test-gc/pom.xml",
+                "testing/pom.xml",
+                ".fossa.yml",
+                ".gitlab-ci.yml",
+                "NOTICE",
+                "README.md",
+                "pom.xml"
+              ]
+            }
+          ],
+          "forkPrs": [
+            {
+              "number": 36,
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/36",
+              "state": "open",
+              "refs": []
+            },
+            {
+              "number": 31,
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/31",
+              "state": "open",
+              "refs": []
+            },
+            {
+              "number": 13,
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/13",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 14,
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/14",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 15,
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/15",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 16,
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/16",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 17,
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/17",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 19,
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/19",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 20,
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/20",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 21,
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/21",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 25,
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/25",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 26,
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/26",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 27,
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/27",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 30,
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/30",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 33,
+              "url": "https://github.com/Azure/osdu-spi-legal/pull/33",
+              "state": "merged",
+              "refs": []
+            }
           ]
         },
         "file": {
@@ -26570,7 +27564,233 @@
               }
             }
           ],
-          "queued": []
+          "queued": [],
+          "merged": [
+            {
+              "iid": 749,
+              "title": "chore(gc): decouple Google Cloud provider code (GONRG-15319)",
+              "url": "https://community.opengroup.org/osdu/platform/system/file/-/merge_requests/749",
+              "mergedAt": "2026-09-29T20:16:46Z",
+              "headSha": "9e763aa7c013b5a6486a41244cd434b59c1bcfc8",
+              "paths": [
+                "devops/gc/deploy/templates/_helpers.tpl",
+                "devops/gc/deploy/templates/authorization-policy.yaml",
+                "devops/gc/deploy/templates/file-configmap.yaml",
+                "devops/gc/deploy/templates/hpa-cpu.yaml",
+                "devops/gc/deploy/templates/hpa-request.yaml",
+                "devops/gc/deploy/templates/pdb.yaml",
+                "devops/gc/deploy/templates/rate-limits.yaml",
+                "devops/gc/deploy/templates/service.yaml",
+                "devops/gc/deploy/templates/spot-deployment.yaml",
+                "devops/gc/deploy/templates/standard-deployment.yaml",
+                "devops/gc/deploy/templates/virtual-service.yaml",
+                "devops/gc/deploy/Chart.yaml",
+                "devops/gc/deploy/README.md",
+                "devops/gc/deploy/values.yaml",
+                "devops/gc/pipeline/override-stages.yml",
+                "provider/file-gc/cloudbuild/Dockerfile.cloudbuild",
+                "provider/file-gc/cloudbuild/cloudbuild.yaml",
+                "provider/file-gc/docs/gc/README.md",
+                "provider/file-gc/src/main/java/org/opengroup/osdu/file/provider/gcp/FileGcpDatastoreApplication.java",
+                "provider/file-gc/src/main/resources/application.properties",
+                "provider/file-gc/src/main/resources/logback.xml",
+                "provider/file-gc/src/main/resources/type-mapper-config.json",
+                "provider/file-gc/README.md",
+                "provider/file-gc/index.yaml",
+                "provider/file-gc/pom.xml",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/constants/HttpConnection.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/constants/TestConstants.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/runner/FileDmsTestsRunner.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/runner/FileTestsRunner.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/runner/PreIntegrationTestsRunner.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/runner/TearDownTestsRunner.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/stepdefs/model/FileScope.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/stepdefs/model/HttpRequest.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/stepdefs/model/HttpResponse.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/stepdefs/CommonUtility.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/stepdefs/FileDMSStepdefs.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/stepdefs/FileStepDef_DELETE.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/stepdefs/FileStepDef_GET.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/stepdefs/FileStepDef_GetLocation_FileLocation_FileList.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/stepdefs/FileStepDef_POST.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/stepdefs/FileStepDef_PUT.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/stepdefs/InfoStepDef_GET.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/stepdefs/LocalSetupStepDef.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/stepdefs/TearDownStepDefs.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/util/AuthUtil.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/util/CommonUtil.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/util/DecodedContentExtractor.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/util/FileUtils.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/util/GoogleServiceAccount.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/util/HttpClient.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/util/HttpClientFactory.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/util/JsonUtils.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/util/PayloadFormatUtil.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/util/RestAssuredClient.java",
+                "testing/file-test-gc/src/test/java/org/opengroup/osdu/file/util/VersionInfoUtils.java",
+                "testing/file-test-gc/src/test/resources/features/IntegrationTest_DMS.feature",
+                "testing/file-test-gc/src/test/resources/features/IntegrationTest_FILE_DELETE.feature",
+                "testing/file-test-gc/src/test/resources/features/IntegrationTest_File_GET.feature",
+                "testing/file-test-gc/src/test/resources/features/IntegrationTest_File_Get_Location_FileLocation_FileList.feature",
+                "testing/file-test-gc/src/test/resources/features/IntegrationTest_File_POST.feature",
+                "testing/file-test-gc/src/test/resources/features/IntegrationTest_Info_GET.feature",
+                "testing/file-test-gc/src/test/resources/features/PositiveScenarios_FILE.feature",
+                "testing/file-test-gc/src/test/resources/features/post_integration.feature",
+                "testing/file-test-gc/src/test/resources/features/pre_integration.feature",
+                "testing/file-test-gc/src/test/resources/input_payloads/GetLocation_FileList_FileLocation/File_GetList_EmptyPayload.json",
+                "testing/file-test-gc/src/test/resources/input_payloads/GetLocation_FileList_FileLocation/File_GetList_InvalidPayload.json",
+                "testing/file-test-gc/src/test/resources/input_payloads/GetLocation_FileList_FileLocation/File_GetList_NoRecordPayload.json",
+                "testing/file-test-gc/src/test/resources/input_payloads/dms_input_payload/datasetregistry.json",
+                "testing/file-test-gc/src/test/resources/input_payloads/File_Calculate_Checksum.json",
+                "testing/file-test-gc/src/test/resources/input_payloads/File_CorrectPayload.json",
+                "testing/file-test-gc/src/test/resources/input_payloads/File_Datatype_Mismatch.json",
+                "testing/file-test-gc/src/test/resources/input_payloads/File_empty_fileSource.json",
+                "testing/file-test-gc/src/test/resources/input_payloads/File_invalid_Endian.json",
+                "testing/file-test-gc/src/test/resources/input_payloads/File_invalid_ScalarIndicator.json",
+                "testing/file-test-gc/src/test/resources/input_payloads/File_invalid_fileSource.json",
+                "testing/file-test-gc/src/test/resources/input_payloads/File_missing_acl.json",
+                "testing/file-test-gc/src/test/resources/input_payloads/File_missing_data.json",
+                "testing/file-test-gc/src/test/resources/input_payloads/File_missing_fileSource.json",
+                "testing/file-test-gc/src/test/resources/input_payloads/File_missing_kind.json",
+                "testing/file-test-gc/src/test/resources/input_payloads/File_missing_legal.json",
+                "testing/file-test-gc/src/test/resources/input_payloads/File_missing_owners.json",
+                "testing/file-test-gc/src/test/resources/input_payloads/File_missing_viewers.json",
+                "testing/file-test-gc/src/test/resources/output_payloads/FileGET_InvalidFilename.json",
+                "testing/file-test-gc/src/test/resources/output_payloads/FileGET_InvalidID.json",
+                "testing/file-test-gc/src/test/resources/output_payloads/FileGET_MissingAuthorization.json",
+                "testing/file-test-gc/src/test/resources/output_payloads/FileGET_MissingDataPartitionId.json",
+                "testing/file-test-gc/src/test/resources/output_payloads/FileGET_UnAuthUserExcp.json",
+                "testing/file-test-gc/src/test/resources/output_payloads/File_CorrectResponse.json",
+                "testing/file-test-gc/src/test/resources/output_payloads/File_Datatype_Mismatch_msg.json",
+                "testing/file-test-gc/src/test/resources/output_payloads/File_empty_fileSource_msg.json",
+                "testing/file-test-gc/src/test/resources/output_payloads/File_invalid_Endian_msg.json",
+                "testing/file-test-gc/src/test/resources/output_payloads/File_invalid_ScalarIndicator_msg.json",
+                "testing/file-test-gc/src/test/resources/output_payloads/File_invalid_fileSource_msg.json",
+                "testing/file-test-gc/src/test/resources/output_payloads/File_missing_acl_msg.json",
+                "testing/file-test-gc/src/test/resources/output_payloads/File_missing_data_msg.json",
+                "testing/file-test-gc/src/test/resources/output_payloads/File_missing_fileSource_msg.json",
+                "testing/file-test-gc/src/test/resources/output_payloads/File_missing_kind_msg.json",
+                "testing/file-test-gc/src/test/resources/output_payloads/File_missing_legal_msg.json",
+                "testing/file-test-gc/src/test/resources/output_payloads/File_missing_owners_msg.json",
+                "testing/file-test-gc/src/test/resources/output_payloads/File_missing_viewers_msg.json",
+                "testing/file-test-gc/src/test/resources/sample_downloaded_files/TestDownloadUrl_downloaded.txt",
+                "testing/file-test-gc/src/test/resources/sample_downloaded_files/test_downloaded.csv",
+                "testing/file-test-gc/src/test/resources/sample_upload_files/TestDownloadUrl.txt",
+                "testing/file-test-gc/src/test/resources/sample_upload_files/test.csv",
+                "testing/file-test-gc/src/test/resources/logback-test.xml",
+                "testing/file-test-gc/pom.xml",
+                "testing/pom.xml",
+                ".fossa.yml",
+                ".gitlab-ci.yml",
+                "README.md",
+                "pom.xml"
+              ]
+            }
+          ],
+          "forkPrs": [
+            {
+              "number": 55,
+              "url": "https://github.com/Azure/osdu-spi-file/pull/55",
+              "state": "open",
+              "refs": []
+            },
+            {
+              "number": 54,
+              "url": "https://github.com/Azure/osdu-spi-file/pull/54",
+              "state": "open",
+              "refs": []
+            },
+            {
+              "number": 19,
+              "url": "https://github.com/Azure/osdu-spi-file/pull/19",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 21,
+              "url": "https://github.com/Azure/osdu-spi-file/pull/21",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 25,
+              "url": "https://github.com/Azure/osdu-spi-file/pull/25",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 34,
+              "url": "https://github.com/Azure/osdu-spi-file/pull/34",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 37,
+              "url": "https://github.com/Azure/osdu-spi-file/pull/37",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 38,
+              "url": "https://github.com/Azure/osdu-spi-file/pull/38",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 39,
+              "url": "https://github.com/Azure/osdu-spi-file/pull/39",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 40,
+              "url": "https://github.com/Azure/osdu-spi-file/pull/40",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 44,
+              "url": "https://github.com/Azure/osdu-spi-file/pull/44",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 45,
+              "url": "https://github.com/Azure/osdu-spi-file/pull/45",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 46,
+              "url": "https://github.com/Azure/osdu-spi-file/pull/46",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 48,
+              "url": "https://github.com/Azure/osdu-spi-file/pull/48",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 49,
+              "url": "https://github.com/Azure/osdu-spi-file/pull/49",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 50,
+              "url": "https://github.com/Azure/osdu-spi-file/pull/50",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 51,
+              "url": "https://github.com/Azure/osdu-spi-file/pull/51",
+              "state": "merged",
+              "refs": []
+            }
+          ]
         },
         "schema": {
           "project": "osdu/platform/system/schema-service",
@@ -26941,7 +28161,170 @@
               "paths": ["devops/core-plus/pipeline/override-stages.yml"]
             }
           ],
-          "queued": []
+          "queued": [],
+          "merged": [
+            {
+              "iid": 865,
+              "title": "Schema Registration Resources M27.1 DD schema repo commit 054ccf2547806a507f8af24152c2088333704df0",
+              "url": "https://community.opengroup.org/osdu/platform/system/schema-service/-/merge_requests/865",
+              "mergedAt": "2026-10-02T11:32:35Z",
+              "headSha": "b9461ad4fd4de796f579a7a777cd3bab81abc320",
+              "paths": [
+                "deployments/shared-schemas/osdu/_IncrementalLoadSequences/v0.30.0_load_sequence.json",
+                "deployments/shared-schemas/osdu/_IncrementalLoadSequences/v0.30.1_load_sequence.json",
+                "deployments/shared-schemas/osdu/master-data/EquipmentInventory.1.1.0.json",
+                "deployments/shared-schemas/osdu/master-data/RigAnchor.1.0.0.json",
+                "deployments/shared-schemas/osdu/master-data/RigBoiler.1.0.0.json",
+                "deployments/shared-schemas/osdu/master-data/RigCementUnit.1.0.0.json",
+                "deployments/shared-schemas/osdu/master-data/RigCentrifuge.1.0.0.json",
+                "deployments/shared-schemas/osdu/master-data/RigCoilTubingReel.1.0.0.json",
+                "deployments/shared-schemas/osdu/master-data/RigCrane.1.0.0.json",
+                "deployments/shared-schemas/osdu/master-data/RigDegasser.1.0.0.json",
+                "deployments/shared-schemas/osdu/master-data/RigHydrocyclone.1.0.0.json",
+                "deployments/shared-schemas/osdu/master-data/RigMotor.1.0.0.json",
+                "deployments/shared-schemas/osdu/master-data/RigPit.1.0.0.json",
+                "deployments/shared-schemas/osdu/master-data/RigPump.1.1.0.json",
+                "deployments/shared-schemas/osdu/master-data/RigShaker.1.0.0.json",
+                "deployments/shared-schemas/osdu/master-data/Risk.2.0.0.json",
+                "deployments/shared-schemas/osdu/master-data/Well.1.5.0.json",
+                "deployments/shared-schemas/osdu/reference-data/CoilTubingWrapType.1.0.0.json",
+                "deployments/shared-schemas/osdu/work-product-component/SeismicPostStackProcessingProduct.0.0.0.json",
+                "deployments/shared-schemas/osdu/work-product-component/SeismicPostStackTrace2DSection.0.0.0.json",
+                "deployments/shared-schemas/osdu/work-product-component/SeismicPostStackTrace3DVolume.0.0.0.json",
+                "deployments/shared-schemas/osdu/work-product-component/SeismicPreStackProcessingProduct.0.0.0.json",
+                "deployments/shared-schemas/osdu/work-product-component/SeismicPreStackTrace2DSection.0.0.0.json",
+                "deployments/shared-schemas/osdu/work-product-component/SeismicPreStackTrace3DVolume.0.0.0.json",
+                "deployments/shared-schemas/osdu/work-product-component/SeismicTraceData.1.7.0.json",
+                "deployments/shared-schemas/osdu/work-product-component/SeismicTraceData.1.8.0.json",
+                "deployments/shared-schemas/osdu/load_sequence.1.0.0.json",
+                "NOTICE"
+              ]
+            },
+            {
+              "iid": 857,
+              "title": "CIMPL: Deleting old CI overrides",
+              "url": "https://community.opengroup.org/osdu/platform/system/schema-service/-/merge_requests/857",
+              "mergedAt": "2026-09-24T05:00:22Z",
+              "headSha": "ef0f5b51e46f0ea548652907bc05b9150da0f820",
+              "paths": ["devops/core-plus/pipeline/override-stages.yml"]
+            }
+          ],
+          "forkPrs": [
+            {
+              "number": 40,
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/40",
+              "state": "open",
+              "refs": []
+            },
+            {
+              "number": 12,
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/12",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 13,
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/13",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 14,
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/14",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 15,
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/15",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 16,
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/16",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 17,
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/17",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 18,
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/18",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 19,
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/19",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 23,
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/23",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 24,
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/24",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 25,
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/25",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 26,
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/26",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 28,
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/28",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 32,
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/32",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 34,
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/34",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 35,
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/35",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 36,
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/36",
+              "state": "merged",
+              "refs": []
+            },
+            {
+              "number": 37,
+              "url": "https://github.com/Azure/osdu-spi-schema/pull/37",
+              "state": "merged",
+              "refs": []
+            }
+          ]
         }
       },
       "filters": {
@@ -26965,6 +28348,10 @@
           "sha": "bf504d64fd84e943c1063d03481f4522181e6e84",
           "text": "# Per-service upstream filter config (ADR-038), planted at fork initialization\n# with file substituted from the upstream repository name.\n# Every upstream top-level entry, testing/ entry, root pom profile, and\n# .fossa.yml module must appear here: the engine halts rather than guess.\n# Entries absent from a given upstream tree are inert, so this file carries the\n# superset of the conventional OSDU service shape. A service that deviates\n# maintains its own copy of this file on the fork's main branch.\nservice: file\n\ntop_level:\n  .config: keep\n  .dockerignore: keep\n  .editorconfig: keep\n  .envrc.template: keep\n  .fossa.yml: keep\n  .gitattributes: keep\n  .gitignore: keep\n  .gitlab: strip\n  .gitlab-ci.yml: strip\n  .mvn: keep\n  .sonarlint: keep\n  .trufflehog-exclude: strip\n  LICENSE: keep\n  NOTICE: keep\n  README.md: strip\n  img: keep\n  maven: keep\n  docs: keep\n  pom.xml: keep\n  publish.yml: strip\n  file-acceptance-test: keep\n  file-core: keep\n  file-core-plus: strip\n\ntesting:\n  INTEGRATION-TESTS.md: keep\n  README.md: keep\n  maven: keep\n  pom.xml: keep\n  file-test-core: keep\n  file-test-core-bdd: keep\n  file-test-azure: fork\n  file-test-aws: strip\n  file-test-baremetal: strip\n  file-test-core-plus: strip\n  file-test-gc: strip\n  file-test-gcp: strip\n  file-test-ibm: strip\n  file-test-jdbc: strip\n\nprofiles:\n  Default: keep\n  core: keep\n  azure: inject\n  aws: strip\n  gc: strip\n  gcp: strip\n  ibm: strip\n\nfossa_modules:\n  file: keep\n  file-service: keep\n  file-core: keep\n  file-core-plus: strip\n  file-azure: strip\n  file-aws: strip\n  file-gc: strip\n  file-gcp: strip\n  file-ibm: strip\n  file-jdbc: strip\n  file-gcp-datastore: strip\n\nexpected_kept:\n  - pom.xml\n  - file-core\n  - testing/file-test-core\n\nexpected_absent:\n  - provider\n  - devops\n  - file-core-plus\n  - .gitlab-ci.yml\n  - testing/file-test-azure\n  - testing/file-test-aws\n  - testing/file-test-core-plus\n\ninject_root_pom_azure_profile: |\n      <profile>\n        <id>azure</id>\n        <modules>\n          <module>provider/file-azure</module>\n        </modules>\n      </profile>\n\ninject_testing_pom_azure_module: |\n      <module>file-test-azure</module>\n"
         }
+      },
+      "portRead": {
+        "prs": 122,
+        "commits": 361
       }
     }
   },

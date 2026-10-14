@@ -11,6 +11,7 @@ import type { DiffFact, MrFact, RadarFacts, UpstreamFact } from "../facts.ts";
 import { encodeProject, type Gh, type Glab } from "../forge.ts";
 import { pool } from "../util.ts";
 import { readFilterFile } from "./filters.ts";
+import { emptyLedgerState, type LedgerState, readMerged, readPortPrs } from "./ledgers.ts";
 
 interface RawMr {
   iid: number;
@@ -41,10 +42,11 @@ export interface RadarState {
   mrDiffs: Record<string, DiffEntry>;
   commitDiffs: Record<string, DiffEntry>;
   filters: Record<string, string>;
+  ledgers: LedgerState;
 }
 
 export function emptyRadarState(): RadarState {
-  return { mrDiffs: {}, commitDiffs: {}, filters: {} };
+  return { mrDiffs: {}, commitDiffs: {}, filters: {}, ledgers: emptyLedgerState() };
 }
 
 const HUNK_FILES = /(^|\/)(pom\.xml|\.fossa\.yml)$/;
@@ -96,6 +98,9 @@ export async function readRadar(
   state: RadarState,
 ): Promise<RadarFacts> {
   const out: RadarFacts = { services: {}, filters: {} };
+  const merged = await readMerged(glab, state.ledgers);
+  const ports = await readPortPrs(gh, state.ledgers);
+  out.portRead = ports.read;
   await pool(FORKS, 3, async (fork) => {
     const project = encodeProject(fork.upstream);
     const raw = await glab.restAll<RawMr>(
@@ -130,7 +135,25 @@ export async function readRadar(
           ),
         ),
     );
-    out.services[fork.id] = { project: fork.upstream, mrs, queued };
+    const list = merged[fork.id];
+    const landed = list
+      ? await pool(list, 3, async (m) => {
+          const entry = await cachedDiff(
+            state.mrDiffs,
+            mrKey(fork.upstream, m.iid, m.headSha),
+            () => glab.restAll<RawDiff>(`projects/${project}/merge_requests/${m.iid}/diffs`),
+          );
+          return entry ? { ...m, paths: entry.paths } : m;
+        })
+      : undefined;
+    const forkPrs = ports.prs[fork.id];
+    out.services[fork.id] = {
+      project: fork.upstream,
+      mrs,
+      queued,
+      ...(landed ? { merged: landed } : {}),
+      ...(forkPrs ? { forkPrs } : {}),
+    };
     try {
       const file = await readFilterFile(gh, fork.repo);
       state.filters[file.sha] = file.text;
@@ -150,6 +173,7 @@ export function pruneRadar(state: RadarState, facts: RadarFacts | undefined, cap
   for (const svc of Object.values(facts?.services ?? {})) {
     for (const m of svc.mrs) mrs.add(mrKey(svc.project, m.iid, m.headSha));
     for (const c of svc.queued) commits.add(c.sha);
+    for (const m of svc.merged ?? []) mrs.add(mrKey(svc.project, m.iid, m.headSha));
   }
   for (const f of Object.values(facts?.filters ?? {})) blobs.add(f.sha);
   capMap(state.mrDiffs, mrs, cap);

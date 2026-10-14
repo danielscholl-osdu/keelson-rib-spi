@@ -289,9 +289,40 @@ export interface MrFact {
   hunks?: Record<string, string[]>;
 }
 
+// An upstream MR merged to master since the fork was seeded.
+export interface MergedMrFact {
+  iid: number;
+  title: string;
+  url: string;
+  mergedAt: string;
+  headSha: string;
+  paths?: string[];
+}
+
+// A fork PR, open or merged since the seed, and the upstream MRs its body or commits cite.
+export interface ForkPrFact {
+  number: number;
+  url: string;
+  state: "open" | "merged";
+  // "osdu/platform/system/partition!826"
+  refs: string[];
+}
+
 export interface RadarFacts {
-  services: Record<string, { project: string; mrs: MrFact[]; queued: DiffFact[] }>;
+  services: Record<
+    string,
+    {
+      project: string;
+      mrs: MrFact[];
+      queued: DiffFact[];
+      // Undefined while unread; a list cut short by paging stays unread.
+      merged?: MergedMrFact[];
+      forkPrs?: ForkPrFact[];
+    }
+  >;
   filters: Record<string, { sha: string; text: string }>;
+  // How many fork PRs and commit messages the port match read this time.
+  portRead?: { prs: number; commits: number };
 }
 
 export interface Facts {

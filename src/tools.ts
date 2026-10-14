@@ -475,6 +475,11 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
               ]),
             ),
             breaks: radarBreaks(m),
+            ledgers: {
+              ports: Object.fromEntries(
+                Object.entries(m.radar.services).map(([svc, r]) => [svc, r.ports ?? null]),
+              ),
+            },
           }
         );
       },

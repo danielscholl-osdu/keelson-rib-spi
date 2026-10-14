@@ -30,7 +30,8 @@ import { age } from "../src/util.ts";
 
 const args = process.argv.slice(2);
 const dir = args.find((a) => !a.startsWith("--")) ?? mkdtempSync(join(tmpdir(), "rib-spi-"));
-const RADAR_READ = /merge_requests|\/commits\/[0-9a-f]+\/diff|upstream-filter\.yml/;
+const RADAR_READ =
+  /merge_requests|mergeRequests|port_o0|\/commits\/[0-9a-f]+\/diff|upstream-filter\.yml/;
 let radarCalls = 0;
 const counted = <F extends (cmd: string, args: string[], ...rest: never[]) => unknown>(f: F): F =>
   ((cmd: string, a: string[], ...rest: never[]) => {
@@ -55,11 +56,13 @@ for (const [area, v] of Object.entries(sweeper.facts)) {
   console.log(`  ${area.padEnd(10)} ${mv.at ? "ok" : "--"} ${mv.error ? `ERROR ${mv.error}` : ""}`);
 }
 const radar = sweeper.facts.radar.data;
-console.log(`\nRADAR · ${radarCalls} calls · ${Object.keys(radar?.filters ?? {}).length} filters`);
+console.log(
+  `\nRADAR · ${radarCalls} calls · ${Object.keys(radar?.filters ?? {}).length} filters · port match read ${radar?.portRead?.prs ?? "?"} fork PRs, ${radar?.portRead?.commits ?? "?"} commit messages`,
+);
 for (const [svc, r] of Object.entries(radar?.services ?? {})) {
   const read = (xs: { paths?: string[] }[]) => xs.filter((x) => x.paths).length;
   console.log(
-    `  ${svc.padEnd(15)} MRs ${r.mrs.length} (${read(r.mrs)} read) · queued ${r.queued.length} (${read(r.queued)} read)`,
+    `  ${svc.padEnd(15)} MRs ${r.mrs.length} (${read(r.mrs)} read) · queued ${r.queued.length} (${read(r.queued)} read) · merged ${r.merged ? `${r.merged.length} (${read(r.merged)} read)` : "?"} · fork PRs ${r.forkPrs?.length ?? "?"}`,
   );
 }
 console.log(

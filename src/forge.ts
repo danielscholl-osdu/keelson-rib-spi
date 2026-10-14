@@ -129,6 +129,20 @@ export class Glab {
     return res.data;
   }
 
+  async graphql<T>(query: string): Promise<T> {
+    this.counter.calls++;
+    const res = await this.exec.runJSON<{ data?: T; errors?: { message: string }[] }>(
+      "glab",
+      ["api", "graphql", "--hostname", GITLAB_HOST, "-f", `query=${query}`],
+      { timeoutMs: 60_000 },
+    );
+    if (!res.ok) throw new ForgeError(`glab api graphql: ${res.error}`, res.code);
+    if (!res.data.data) {
+      throw new ForgeError(`glab api graphql: ${res.data.errors?.[0]?.message ?? "no data"}`, null);
+    }
+    return res.data.data;
+  }
+
   // Every page of a list, 100 at a time, until a short page.
   async restAll<T>(path: string): Promise<T[]> {
     const out: T[] = [];

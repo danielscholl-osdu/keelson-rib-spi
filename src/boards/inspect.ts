@@ -47,6 +47,7 @@ export const KIND_TITLE: Record<ItemKind, string> = {
   bump: "env bump",
   access: "fork image cannot be pulled",
   radar: "next sync predicted",
+  port: "upstream change owed a port",
 };
 
 // A listed rule is the one to copy; absent forks fold into one line.
