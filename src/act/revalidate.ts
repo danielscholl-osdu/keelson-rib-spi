@@ -6,7 +6,7 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-import { SYNC_TEMPLATE_WORKFLOW } from "../config.ts";
+import { LIFECYCLE_WORKFLOWS, STACK_REPO, SYNC_TEMPLATE_WORKFLOW } from "../config.ts";
 import type { Gh } from "../forge.ts";
 import { short } from "../util.ts";
 import type { Target } from "./verbs.ts";
@@ -19,11 +19,20 @@ export interface Seen {
 // The state a target is in on GitHub now, in the same terms the board stamps.
 export async function readTarget(gh: Gh, t: Target): Promise<Seen> {
   if (t.kind === "workflow") {
-    const statuses = await gh.rest<string[]>(
-      `repos/${t.repo}/actions/workflows/${SYNC_TEMPLATE_WORKFLOW}/runs?per_page=5`,
-      "[.workflow_runs[].status]",
+    // The stack's lifecycle workflows share concurrency group env-shared, so either one busy counts.
+    const files =
+      t.repo === STACK_REPO
+        ? [LIFECYCLE_WORKFLOWS.refresh, LIFECYCLE_WORKFLOWS.upgrade]
+        : [SYNC_TEMPLATE_WORKFLOW];
+    const statuses = await Promise.all(
+      files.map((file) =>
+        gh.rest<string[]>(
+          `repos/${t.repo}/actions/workflows/${file}/runs?per_page=5`,
+          "[.workflow_runs[].status]",
+        ),
+      ),
     );
-    return { state: statuses.some((st) => st !== "completed") ? "running" : "idle" };
+    return { state: statuses.flat().some((st) => st !== "completed") ? "running" : "idle" };
   }
   if (t.kind === "repo" || t.number === undefined) return {};
   if (t.kind === "pr") {

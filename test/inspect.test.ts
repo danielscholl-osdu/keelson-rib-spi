@@ -1,13 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import type { RibExec } from "@keelson/shared";
 import { expectView } from "@keelson/shared";
+import { dispatchActions, NO_OPS, WAIT_ACTION } from "../src/act/rerun";
 import { inspectBoard } from "../src/boards/inspect";
 import { stackBoard } from "../src/boards/stack";
 import { entryAcrossForks, filterSection } from "../src/collect/filters";
 import { Gh, Glab } from "../src/forge";
 import { INSPECT_KEY, STACK_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
-import { FIXTURE_NOW, fixtureFacts } from "./harness";
+import type { QueueItem } from "../src/model/queue";
+import { FIXTURE_NOW, fixtureFacts, laneFacts } from "./harness";
 
 const model = buildModel(fixtureFacts(), FIXTURE_NOW);
 const gate = expectView(INSPECT_KEY, "board");
@@ -237,5 +239,108 @@ describe("filter reads", () => {
       entries: ["line 4"],
     });
     expect(out).toEqual([]);
+  });
+});
+
+describe("the environment verbs", () => {
+  const SCOPES = { scopes: ["repo", "workflow"] };
+
+  function actionsOf(m: ReturnType<typeof buildModel>, id: string, opts = {}) {
+    const it = m.queue.items.find((i) => i.id === id);
+    if (!it) throw new Error(`no ${id}`);
+    const b = inspectBoard(m, { selected: id, item: it }, FIXTURE_NOW, undefined, opts);
+    expect(() => gate(b)).not.toThrow();
+    const actions = b.sections.find((s) => s.kind === "actions");
+    if (actions?.kind !== "actions") throw new Error(`${id} draws no actions`);
+    return actions.items;
+  }
+
+  test("while deployable, one Re-run lanes confirmation names each PR and run and every command", () => {
+    const m = buildModel(laneFacts(), FIXTURE_NOW);
+    const [rerun, ...rest] = actionsOf(m, "stack:lanes", { ...SCOPES, ops: true });
+    expect(rest).toEqual([]);
+    expect(rerun).toMatchObject({ type: "act", label: "Re-run lanes · 5", tone: "accent" });
+    expect(rerun?.confirm?.title).toBe("Re-run 5 failed lanes");
+    const body = rerun?.confirm?.body ?? "";
+    expect(body).toContain("The stack has been deployable since ");
+    expect(body).toContain("Each lane failed in Confirm environment deployable");
+    expect(body).toContain("schema #37 run 38224682332");
+    for (const cmd of [
+      "gh run rerun 38222934119 --failed -R Azure/osdu-spi-partition",
+      "gh run rerun 38224153176 --failed -R Azure/osdu-spi-entitlements",
+      "gh run rerun 38224167314 --failed -R Azure/osdu-spi-legal",
+      "gh run rerun 38224682332 --failed -R Azure/osdu-spi-schema",
+      "gh run rerun 38223915937 --failed -R Azure/osdu-spi-file",
+    ]) {
+      expect(body).toContain(cmd);
+    }
+    expect(body).toContain("one that changed since the board drew it is skipped and named");
+  });
+
+  test("while not deployable, Re-run when deployable replaces it, and needs durable ops", () => {
+    const m = buildModel(laneFacts(true), FIXTURE_NOW);
+    const [noOps] = actionsOf(m, "stack:lanes", SCOPES);
+    expect(noOps).toMatchObject({ type: WAIT_ACTION, disabled: true, reason: NO_OPS });
+    const items = actionsOf(m, "stack:lanes", { ...SCOPES, ops: true });
+    expect(items.map((a) => a.type)).toEqual([WAIT_ACTION]);
+    const [wait] = items;
+    expect(wait?.disabled).toBeUndefined();
+    expect(wait?.confirm?.title).toBe("Re-run 5 failed lanes when deployable");
+    expect(wait?.confirm?.body).toContain("A Keelson restart drops the wait");
+    expect(wait?.confirm?.body).toContain(
+      "gh run rerun 38224682332 --failed -R Azure/osdu-spi-schema",
+    );
+    const [held] = actionsOf(m, "stack:lanes", {
+      ...SCOPES,
+      ops: true,
+      waiting: { id: "op-7", at: "2026-10-12T21:45:00Z" },
+    });
+    expect(held?.reason).toContain("as op op-7");
+  });
+
+  test("a failed lifecycle attempt offers both re-dispatches, the one that stopped first", () => {
+    const m = buildModel(laneFacts(true), FIXTURE_NOW);
+    const [refresh, upgrade] = actionsOf(m, "stack:99000001", SCOPES);
+    expect(refresh).toMatchObject({ label: "Re-dispatch env-refresh", tone: "accent" });
+    expect(refresh?.confirm?.body).toContain(
+      "gh workflow run env-refresh.yml -R Azure/osdu-spi-stack",
+    );
+    expect(refresh?.confirm?.body).toContain("It clears maintenance only after its probes pass");
+    expect(upgrade?.label).toBe("Re-dispatch env-upgrade");
+    expect(upgrade?.tone).toBeUndefined();
+    expect(upgrade?.confirm?.body).toContain(
+      "gh workflow run env-upgrade.yml -R Azure/osdu-spi-stack",
+    );
+    expect(upgrade?.confirm?.body).toContain("It takes no inputs");
+  });
+
+  test("re-dispatch is disabled while a lifecycle run is in flight, and without the repo scope", () => {
+    const stack = model.queue.items.find((i) => i.kind === "stack");
+    if (!stack) throw new Error("fixture has a stack incident");
+    const busy = actionsOf(model, stack.id, SCOPES);
+    expect(busy.map((a) => a.label)).toEqual([
+      "Re-dispatch env-upgrade",
+      "Re-dispatch env-refresh",
+    ]);
+    for (const a of busy) {
+      expect(a.disabled).toBe(true);
+      expect(a.reason).toBe("env-upgrade v0.28.2 is running in concurrency group env-shared");
+    }
+    const m = buildModel(laneFacts(true), FIXTURE_NOW);
+    for (const a of actionsOf(m, "stack:99000001", { scopes: ["read:org"] })) {
+      expect(a.reason).toBe("gh's token lacks the repo scope; run gh auth refresh -s repo");
+    }
+  });
+
+  test("a maintenance hold re-dispatches env-refresh first", () => {
+    const m = buildModel(laneFacts(), FIXTURE_NOW);
+    const held = {
+      ...item("template-set"),
+      id: "stack:maintenance",
+      kind: "maintenance",
+    } as QueueItem;
+    const [first] = dispatchActions(held, m.stack, { swept: "s" });
+    expect(first?.label).toBe("Re-dispatch env-refresh");
+    expect(first?.tone).toBe("accent");
   });
 });

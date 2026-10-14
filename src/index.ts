@@ -20,8 +20,16 @@ import {
 } from "@keelson/shared";
 import { APPROVE_RUNS } from "./act/approve.ts";
 import { ActionLog } from "./act/log.ts";
-import { act } from "./act/path.ts";
+import { act, parseBinding } from "./act/path.ts";
 import { type Readiness, readReadiness } from "./act/readiness.ts";
+import {
+  DeployableWait,
+  DISPATCH_REFRESH,
+  DISPATCH_UPGRADE,
+  NO_OPS,
+  RERUN_LANES,
+  WAIT_ACTION,
+} from "./act/rerun.ts";
 import { ROLL_OUT, ROLLOUT_ITEM, SYNC_FORKS } from "./act/rollout.ts";
 import { ACT_ACTION, registerVerb } from "./act/verbs.ts";
 import { AGENTS, resolveAgent } from "./agent.ts";
@@ -61,6 +69,8 @@ let inspect: InspectState = {};
 let actionLog = new ActionLog(undefined);
 let readiness: Readiness | undefined;
 const othersCache = new Map<string, { at: number; entries: ForkEntry[] }>();
+// Re-run waits by queue item, in memory only: a restart drops them and the item stays queued.
+const waits = new Map<string, DeployableWait>();
 
 const COMPOSERS: Record<(typeof VIEW_KEYS)[number], Composer> = {
   [ATTENTION_KEY]: (s, now) =>
@@ -79,6 +89,8 @@ const COMPOSERS: Record<(typeof VIEW_KEYS)[number], Composer> = {
   [INSPECT_KEY]: (s, now) =>
     inspectBoard(s.model, inspect, now, actionLog.lastFor(inspect.selected), {
       scopes: s.facts.auth.data?.gh.scopes,
+      ops: !!context?.registerOp,
+      ...waitingFor(inspect.selected),
     }),
 };
 
@@ -101,6 +113,27 @@ function recomposeAll(): void {
   for (const key of [...VIEW_KEYS, BADGE_KEY]) snapshots?.recompose(key).catch(() => undefined);
 }
 
+function waitingFor(id: string | undefined): { waiting?: { id: string; at: string } } {
+  const w = id ? waits.get(id) : undefined;
+  return w && !w.settled ? { waiting: { id: w.op.id, at: w.at } } : {};
+}
+
+function wakeWaits(s: Sweeper): void {
+  for (const [item, w] of waits) {
+    w.wake(s.model.stack)
+      .then((over) => {
+        if (!over || waits.get(item) !== w) return;
+        waits.delete(item);
+        snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
+      })
+      .catch(() => undefined);
+  }
+}
+
+function actDeps(s: Sweeper, run: RibExec) {
+  return { exec: run, log: actionLog, resweep: () => resweep(s), now: s.now };
+}
+
 function bind(ctx: RibContext): Sweeper {
   unbind();
   snapshots = ctx.getSnapshotManager?.();
@@ -110,10 +143,20 @@ function bind(ctx: RibContext): Sweeper {
   const s = new Sweeper({
     exec,
     store: new Store(ctx.getDataDir?.()),
-    onChange: recomposeAll,
+    onChange: () => {
+      recomposeAll();
+      if (sweeper) wakeWaits(sweeper);
+    },
   });
   sweeper = s;
-  unregisters.push(registerVerb(APPROVE_RUNS), registerVerb(SYNC_FORKS), registerVerb(ROLL_OUT));
+  unregisters.push(
+    registerVerb(APPROVE_RUNS),
+    registerVerb(SYNC_FORKS),
+    registerVerb(ROLL_OUT),
+    registerVerb(RERUN_LANES),
+    registerVerb(DISPATCH_REFRESH),
+    registerVerb(DISPATCH_UPGRADE),
+  );
   const sm = snapshots;
   if (sm) {
     for (const key of VIEW_KEYS) {
@@ -141,6 +184,8 @@ function bind(ctx: RibContext): Sweeper {
 }
 
 function unbind(): void {
+  for (const w of waits.values()) w.drop("the SPI rib was unloaded; the wait is dropped");
+  waits.clear();
   for (const un of unregisters) un();
   unregisters = [];
   for (const t of timers) clearInterval(t);
@@ -206,6 +251,47 @@ function readOthers(item: QueueItem): void {
     });
 }
 
+// The op holds the binding stamped at click time and acts through act() once deployable.
+function startWait(s: Sweeper, payload: unknown): RibActionResult {
+  const ctx = context;
+  const run = exec;
+  if (!ctx || !run) return { ok: false, error: "spi is not bound yet" };
+  if (!ctx.registerOp) return { ok: false, error: NO_OPS };
+  const binding = parseBinding(payload);
+  if (!binding || binding.verb !== RERUN_LANES.id) {
+    return { ok: false, error: "the wait needs the Re-run lanes binding the board stamped" };
+  }
+  if (s.model.stack.deployable.state === "yes") {
+    return { ok: false, error: "the stack is deployable now; the board redraws with Re-run lanes" };
+  }
+  const held = waits.get(binding.item);
+  if (held && !held.settled) {
+    return { ok: false, error: `a wait already holds this item as op ${held.op.id}` };
+  }
+  const n = binding.targets.length;
+  const op = ctx.registerOp({
+    kind: WAIT_ACTION,
+    title: `Re-run ${n === 1 ? "1 fork lane" : `${n} fork lanes`} when the stack is deployable`,
+  });
+  const wait = new DeployableWait(op, binding, s.now().toISOString(), s.model.stack, (b) =>
+    act(b, actDeps(s, run)),
+  );
+  waits.set(binding.item, wait);
+  op.signal.addEventListener("abort", () => {
+    if (waits.get(binding.item) !== wait) return;
+    wait.wake(s.model.stack).catch(() => undefined);
+    waits.delete(binding.item);
+    snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
+  });
+  snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
+  return {
+    ok: true,
+    data: {
+      message: `Waiting for the stack to read deployable as op ${op.id}; run_cancel drops it`,
+    },
+  };
+}
+
 const rib: Rib = {
   id: RIB_ID,
   displayName: "SPI",
@@ -234,12 +320,7 @@ const rib: Rib = {
     if (action.type === ACT_ACTION) {
       if (!exec) return { ok: false, error: "spi is not bound yet" };
       const started = s.now().toISOString();
-      const result = await act(action.payload, {
-        exec,
-        log: actionLog,
-        resweep: () => resweep(s),
-        now: s.now,
-      });
+      const result = await act(action.payload, actDeps(s, exec));
       const entry = actionLog.lastFor(ROLLOUT_ITEM);
       if (entry?.verb === SYNC_FORKS.id && entry.at >= started) {
         const done = new Set(
@@ -253,6 +334,9 @@ const rib: Rib = {
       snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
       snapshots?.recompose(ENGINEERING_KEY).catch(() => undefined);
       return result;
+    }
+    if (action.type === WAIT_ACTION) {
+      return startWait(s, action.payload);
     }
     if (action.type === INSPECT_ACTION) {
       const id = (action.payload as { id?: unknown } | undefined)?.id;

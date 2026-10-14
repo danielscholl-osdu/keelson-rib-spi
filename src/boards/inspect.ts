@@ -9,6 +9,7 @@
 import type { CanvasBoardView, CanvasTone } from "@keelson/shared";
 import { approveAction } from "../act/approve.ts";
 import type { ActionEntry } from "../act/log.ts";
+import { dispatchActions, laneActions } from "../act/rerun.ts";
 import { writeBlocked } from "../act/verbs.ts";
 import type { EntryState, ForkEntry } from "../collect/filters.ts";
 import type { Model } from "../model/index.ts";
@@ -121,6 +122,10 @@ function sameEntry(item: QueueItem, state: InspectState): Section | undefined {
 export interface InspectOptions {
   // The gh token's scopes, when the sign-in probe could read them.
   scopes?: string[];
+  // The harness can hold a durable op, so a wait can be offered.
+  ops?: boolean;
+  // The re-run wait already holding the selected item.
+  waiting?: { id: string; at: string };
 }
 
 function approvalSections(item: QueueItem, model: Model, opts: InspectOptions): Section[] {
@@ -149,6 +154,27 @@ function approvalSections(item: QueueItem, model: Model, opts: InspectOptions): 
       items: approve.map((a) => approveAction(a, { item: item.id, swept }, disabled)),
     },
   ];
+}
+
+function stackActions(
+  item: QueueItem,
+  model: Model,
+  opts: InspectOptions,
+  now: Date,
+): Section | undefined {
+  const blocked = writeBlocked(model.sweptAt, opts.scopes);
+  const swept = model.sweptAt ?? "";
+  const items =
+    item.kind === "lanes"
+      ? laneActions(item, model.stack, {
+          swept,
+          now,
+          ops: opts.ops ?? false,
+          ...(blocked ? { blocked } : {}),
+          ...(opts.waiting ? { waiting: opts.waiting } : {}),
+        })
+      : dispatchActions(item, model.stack, { swept, ...(blocked ? { blocked } : {}) });
+  return items.length > 0 ? { kind: "actions", items } : undefined;
 }
 
 function evidence(item: QueueItem): Section | undefined {
@@ -334,6 +360,8 @@ export function inspectBoard(
       })),
     });
   }
+  const verbs = stackActions(item, model, opts, now);
+  if (verbs) sections.push(verbs);
   const same = sameEntry(item, state);
   if (same) sections.push(same);
   sections.push(lastAction(last, now));

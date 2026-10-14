@@ -11,7 +11,7 @@ import { Gh } from "../forge.ts";
 import { clip, plural, pool } from "../util.ts";
 import type { ActionLog, ActionResult } from "./log.ts";
 import { changed, readTarget } from "./revalidate.ts";
-import { bindingSchema, verbOf } from "./verbs.ts";
+import { type Binding, bindingSchema, verbOf } from "./verbs.ts";
 
 const TARGETS_AT_ONCE = 5;
 
@@ -35,9 +35,7 @@ function summary(label: string, results: readonly ActionResult[]): string {
   return parts.join(" · ");
 }
 
-// Every write runs this path: parse the binding the board stamped, read each target
-// again, write only to the ones that still match, log the outcome, then resweep.
-export async function act(payload: unknown, deps: ActDeps): Promise<RibActionResult> {
+export function parseBinding(payload: unknown): Binding | undefined {
   const parsed = bindingSchema.safeParse(
     payload && typeof payload === "object"
       ? Object.fromEntries(
@@ -45,8 +43,14 @@ export async function act(payload: unknown, deps: ActDeps): Promise<RibActionRes
         )
       : payload,
   );
-  if (!parsed.success) return { ok: false, error: "act needs the binding the board stamped" };
-  const binding = parsed.data;
+  return parsed.success ? parsed.data : undefined;
+}
+
+// Every write runs this path: parse the binding the board stamped, read each target
+// again, write only to the ones that still match, log the outcome, then resweep.
+export async function act(payload: unknown, deps: ActDeps): Promise<RibActionResult> {
+  const binding = parseBinding(payload);
+  if (!binding) return { ok: false, error: "act needs the binding the board stamped" };
   const verb = verbOf(binding.verb);
   if (!verb) return { ok: false, error: `spi has no verb '${binding.verb}'` };
 

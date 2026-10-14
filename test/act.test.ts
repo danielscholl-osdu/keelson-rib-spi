@@ -1,19 +1,30 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expectView, type RibExec } from "@keelson/shared";
+import { expectView, type OpHandle, type RibContext, type RibExec } from "@keelson/shared";
 import { ActionLog } from "../src/act/log";
 import { act } from "../src/act/path";
 import { readReadiness } from "../src/act/readiness";
+import {
+  DeployableWait,
+  DISPATCH_REFRESH,
+  laneTargets,
+  NO_OPS,
+  RERUN_LANES,
+  WAIT_ACTION,
+} from "../src/act/rerun";
 import { changed } from "../src/act/revalidate";
 import { type Binding, registerVerb, type Target, verbAction } from "../src/act/verbs";
 import { actChecks, doctorRow } from "../src/boards/doctor";
 import { inspectBoard } from "../src/boards/inspect";
 import { tokenScopes } from "../src/forge";
+import rib from "../src/index";
 import { INSPECT_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
-import { FIXTURE_NOW, fixtureFacts } from "./harness";
+import type { QueueItem } from "../src/model/queue";
+import { INSPECT_ACTION } from "../src/surfaces";
+import { FIXTURE_NOW, fakeContext, fixtureFacts, laneFacts } from "./harness";
 
 const NOW = () => new Date("2026-10-13T16:00:00Z");
 
@@ -318,5 +329,285 @@ describe("readiness", () => {
     expect(row?.tone).toBe("ok");
     const detail = row?.section.kind === "rows" ? row.section.items[0]?.detail : undefined;
     expect(detail).toContain("! Act · grants");
+  });
+});
+
+// Lane runs and lifecycle workflows as gh reads them; writes are recorded and
+// fail when they name a run in `failRuns`.
+function forge(opts: {
+  runs?: Record<number, { status?: string; conclusion?: string }>;
+  heads?: Record<number, string>;
+  lifecycle?: Record<string, string[]>;
+  failRuns?: number[];
+}) {
+  const writes: string[][] = [];
+  const exec: RibExec = {
+    runJSON: async (_cmd: string, args: string[]) => {
+      const path = args[1] ?? "";
+      const wf = /actions\/workflows\/([\w.-]+)\/runs/.exec(path);
+      if (wf) return { ok: true as const, data: (opts.lifecycle?.[wf[1] ?? ""] ?? []) as never };
+      const run = /actions\/runs\/(\d+)$/.exec(path);
+      if (run) {
+        const r = opts.runs?.[Number(run[1])] ?? {};
+        return {
+          ok: true as const,
+          data: {
+            status: r.status ?? "completed",
+            conclusion: r.conclusion ?? "failure",
+            sha: "",
+          } as never,
+        };
+      }
+      const pr = /pulls\/(\d+)$/.exec(path);
+      if (pr) {
+        const sha = opts.heads?.[Number(pr[1])];
+        return { ok: true as const, data: { state: "open", merged: false, sha } as never };
+      }
+      return { ok: false as const, error: `no fake for ${path}`, code: 1 };
+    },
+    runText: async (_cmd: string, args: string[]) => {
+      writes.push(args);
+      return (opts.failRuns ?? []).some((id) => args.includes(String(id)))
+        ? { ok: false as const, error: "HTTP 403: Must have admin rights to Repository.", code: 1 }
+        : { ok: true as const, data: "" };
+    },
+  };
+  return { exec, writes };
+}
+
+function lanesOf(down: boolean): { item: QueueItem; model: ReturnType<typeof buildModel> } {
+  const model = buildModel(laneFacts(down), FIXTURE_NOW);
+  const item = model.queue.items.find((i) => i.id === "stack:lanes");
+  if (!item?.lanes) throw new Error("fixture has loose lanes");
+  return { item, model };
+}
+
+function fakeOp(id = "op-1") {
+  const abort = new AbortController();
+  const events: [string, unknown][] = [];
+  const op: OpHandle = {
+    id,
+    signal: abort.signal,
+    log: (m) => events.push(["log", m]),
+    progress: (m) => events.push(["progress", m]),
+    done: (r) => events.push(["done", r]),
+    error: (m) => events.push(["error", m]),
+  };
+  return { op, events, cancel: () => abort.abort() };
+}
+
+describe("the re-run verbs", () => {
+  test("Re-run lanes re-runs each lane's failed jobs and names each one it skips or fails", async () => {
+    unregister = registerVerb(RERUN_LANES);
+    const { item } = lanesOf(false);
+    const lanes = item.lanes ?? [];
+    const heads = Object.fromEntries(lanes.map((l) => [l.pr, l.headSha]));
+    heads[37] = "eeeeeee0000";
+    const { exec, writes } = forge({
+      heads,
+      runs: { 38224167314: { status: "in_progress" } },
+      failRuns: [38223915937],
+    });
+    const log = new ActionLog(undefined);
+    const res = await act(
+      { verb: RERUN_LANES.id, item: item.id, swept: "s", targets: laneTargets(lanes) },
+      { exec, log, resweep: () => {}, now: NOW },
+    );
+    expect(writes).toEqual([
+      ["run", "rerun", "38222934119", "--failed", "-R", "Azure/osdu-spi-partition"],
+      ["run", "rerun", "38224153176", "--failed", "-R", "Azure/osdu-spi-entitlements"],
+      ["run", "rerun", "38223915937", "--failed", "-R", "Azure/osdu-spi-file"],
+    ]);
+    expect(res).toEqual({
+      ok: true,
+      data: {
+        message:
+          "Re-run lanes: 2 of 5 done · legal #33 skipped (now in_progress, was failure) · schema #37 skipped (head moved 073b651 → eeeeeee) · file #51 failed (HTTP 403: Must have admin rights to Repository.)",
+      },
+    });
+    expect(log.lastFor("stack:lanes")?.results.map((r) => r.outcome)).toEqual([
+      "done",
+      "done",
+      "refused",
+      "refused",
+      "failed",
+    ]);
+  });
+
+  test("Re-dispatch is refused while env-refresh or env-upgrade is active, and dispatches otherwise", async () => {
+    unregister = registerVerb(DISPATCH_REFRESH);
+    const target: Target = {
+      repo: "Azure/osdu-spi-stack",
+      kind: "workflow",
+      state: "idle",
+      label: "env-refresh",
+    };
+    const binding = { verb: DISPATCH_REFRESH.id, item: "stack:1", swept: "s", targets: [target] };
+    const deps = (exec: RibExec) => ({
+      exec,
+      log: new ActionLog(undefined),
+      resweep: () => {},
+      now: NOW,
+    });
+    const busy = forge({
+      lifecycle: { "env-refresh.yml": ["completed"], "env-upgrade.yml": ["queued", "completed"] },
+    });
+    const refused = await act(binding, deps(busy.exec));
+    expect(refused.ok).toBe(false);
+    expect(refused.ok ? "" : refused.error).toContain(
+      "env-refresh skipped (now running, was idle)",
+    );
+    expect(busy.writes).toEqual([]);
+    const idle = forge({
+      lifecycle: { "env-refresh.yml": ["completed"], "env-upgrade.yml": ["completed"] },
+    });
+    expect(await act(binding, deps(idle.exec))).toEqual({
+      ok: true,
+      data: { message: "Re-dispatch env-refresh: 1 of 1 done" },
+    });
+    expect(idle.writes).toEqual([
+      ["workflow", "run", "env-refresh.yml", "-R", "Azure/osdu-spi-stack"],
+    ]);
+  });
+});
+
+describe("the re-run wait", () => {
+  function binding(item: QueueItem) {
+    return {
+      verb: RERUN_LANES.id,
+      item: item.id,
+      swept: "s",
+      targets: laneTargets(item.lanes ?? []),
+    };
+  }
+
+  test("waits while the stack is not deployable, then runs the stamped binding once", async () => {
+    const down = lanesOf(true);
+    const up = lanesOf(false);
+    const { op, events } = fakeOp();
+    const runs: unknown[] = [];
+    const wait = new DeployableWait(op, binding(down.item), "t", down.model.stack, async (b) => {
+      runs.push(b);
+      return { ok: true, data: { message: "Re-run lanes: 5 of 5 done" } };
+    });
+    expect(await wait.wake(down.model.stack)).toBe(false);
+    expect(runs).toHaveLength(0);
+    expect(await wait.wake(up.model.stack)).toBe(true);
+    expect(await wait.wake(up.model.stack)).toBe(true);
+    expect(runs).toEqual([binding(down.item)]);
+    expect(events.at(-1)).toEqual([
+      "done",
+      { outcome: "re-ran", message: "Re-run lanes: 5 of 5 done" },
+    ]);
+  });
+
+  test("stands down without writing when a lifecycle run fails again", async () => {
+    const down = lanesOf(true);
+    const facts = laneFacts(true);
+    const lc = facts.lifecycle.data;
+    const first = lc?.refresh[0];
+    if (!lc || !first) throw new Error("fixture has the failed refresh");
+    lc.refresh.unshift({ ...first, id: 99000002, createdAt: "2026-10-12T21:50:00Z" });
+    const again = buildModel(facts, FIXTURE_NOW).stack;
+    const { op, events } = fakeOp();
+    let ran = false;
+    const wait = new DeployableWait(op, binding(down.item), "t", down.model.stack, async () => {
+      ran = true;
+      return { ok: true, data: {} };
+    });
+    expect(await wait.wake(again)).toBe(true);
+    expect(ran).toBe(false);
+    const [kind, result] = events.at(-1) ?? [];
+    expect(kind).toBe("done");
+    expect(result).toMatchObject({ outcome: "stood-down" });
+    expect((result as { message: string }).message).toContain("no lane was re-run");
+  });
+
+  test("a cancelled wait never writes", async () => {
+    const down = lanesOf(true);
+    const up = lanesOf(false);
+    const { op, events, cancel } = fakeOp();
+    let ran = false;
+    const wait = new DeployableWait(op, binding(down.item), "t", down.model.stack, async () => {
+      ran = true;
+      return { ok: true, data: {} };
+    });
+    cancel();
+    expect(await wait.wake(up.model.stack)).toBe(true);
+    expect(ran).toBe(false);
+    expect(events.some(([k]) => k === "done" || k === "error")).toBe(false);
+  });
+
+  describe("through the rib", () => {
+    afterEach(async () => {
+      await rib.dispose?.();
+    });
+
+    function bound(registerOp?: RibContext["registerOp"]) {
+      const dir = mkdtempSync(join(tmpdir(), "rib-spi-"));
+      writeFileSync(join(dir, "facts.json"), JSON.stringify(laneFacts(true)));
+      const { ctx, snapshots } = fakeContext({
+        getDataDir: () => dir,
+        ...(registerOp ? { registerOp } : {}),
+      });
+      rib.registerTools?.(ctx);
+      return { ctx, snapshots };
+    }
+
+    async function lanesInspector(
+      ctx: RibContext,
+      snapshots: ReturnType<typeof bound>["snapshots"],
+    ) {
+      await rib.onAction?.({ type: INSPECT_ACTION, payload: { id: "stack:lanes" } }, ctx);
+      const frame = await snapshots.recompose(INSPECT_KEY);
+      const board = frame.data as ReturnType<typeof inspectBoard>;
+      const actions = board.sections.find((s) => s.kind === "actions");
+      if (actions?.kind !== "actions") throw new Error("the lanes inspector has actions");
+      return actions.items;
+    }
+
+    test("on a harness without ops the wait is disabled with its reason and refused", async () => {
+      const { ctx, snapshots } = bound();
+      const [wait] = await lanesInspector(ctx, snapshots);
+      expect(wait).toMatchObject({ type: WAIT_ACTION, disabled: true, reason: NO_OPS });
+      const res = await rib.onAction?.({ type: WAIT_ACTION, payload: wait?.binding }, ctx);
+      expect(res).toEqual({ ok: false, error: NO_OPS });
+    });
+
+    test("the wait is one op that the inspector names until it is cancelled", async () => {
+      const ops: {
+        kind: string;
+        title?: string;
+        cancel: () => void;
+        events: [string, unknown][];
+      }[] = [];
+      const { ctx, snapshots } = bound((req) => {
+        const { op, events, cancel } = fakeOp(`op-${ops.length + 1}`);
+        ops.push({ kind: req.kind, title: req.title, cancel, events });
+        return op;
+      });
+      const [wait] = await lanesInspector(ctx, snapshots);
+      expect(wait).toMatchObject({ type: WAIT_ACTION, label: "Re-run when deployable" });
+      expect(wait?.confirm?.body).toContain("stands down without writing");
+      const res = await rib.onAction?.({ type: WAIT_ACTION, payload: wait?.binding }, ctx);
+      expect(res).toEqual({
+        ok: true,
+        data: {
+          message: "Waiting for the stack to read deployable as op op-1; run_cancel drops it",
+        },
+      });
+      expect(ops.map((o) => [o.kind, o.title])).toEqual([
+        [WAIT_ACTION, "Re-run 5 fork lanes when the stack is deployable"],
+      ]);
+      const twice = await rib.onAction?.({ type: WAIT_ACTION, payload: wait?.binding }, ctx);
+      expect(twice).toEqual({ ok: false, error: "a wait already holds this item as op op-1" });
+      const [held] = await lanesInspector(ctx, snapshots);
+      expect(held?.disabled).toBe(true);
+      expect(held?.reason).toContain("as op op-1; run_cancel drops it");
+      ops[0]?.cancel();
+      const [free] = await lanesInspector(ctx, snapshots);
+      expect(free?.disabled).toBeUndefined();
+      expect(ops[0]?.events.some(([k]) => k === "done" || k === "error")).toBe(false);
+    });
   });
 });

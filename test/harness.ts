@@ -192,3 +192,29 @@ export function fakeContext(overrides: Partial<RibContext> = {}): {
   };
   return { ctx, snapshots };
 }
+
+// The 12 October fleet with the stack green again since 11 October, so the
+// template-sync lanes it failed are loose; `down` adds a refresh that failed after them.
+export function laneFacts(down = false): Facts {
+  const f = fixtureFacts();
+  const lc = f.lifecycle.data;
+  if (!lc) throw new Error("fixture has lifecycle runs");
+  const cut = Date.parse("2026-10-11T22:00:00Z");
+  const refresh = lc.refresh.filter((r) => Date.parse(r.createdAt) < cut);
+  const last = refresh[0];
+  if (!last) throw new Error("fixture has a refresh before the cut");
+  const failed = {
+    ...last,
+    id: 99000001,
+    createdAt: "2026-10-12T21:30:00Z",
+    updatedAt: "2026-10-12T21:40:00Z",
+    conclusion: "failure",
+    jobs: undefined,
+  };
+  f.lifecycle.data = {
+    ...lc,
+    refresh: down ? [failed, ...refresh] : refresh,
+    upgrade: lc.upgrade.filter((r) => Date.parse(r.createdAt) < cut),
+  };
+  return f;
+}

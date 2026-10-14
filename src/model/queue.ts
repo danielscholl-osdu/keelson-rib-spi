@@ -86,6 +86,16 @@ export interface ApprovePr {
   workflowFiles: string[];
 }
 
+// A fork lane run that failed on a stack step, as Re-run lanes targets it.
+export interface LaneRun {
+  repo: string;
+  service: string;
+  pr: number;
+  headSha: string;
+  runId: number;
+  step?: string;
+}
+
 export interface QueueItem {
   id: string;
   kind: ItemKind;
@@ -100,6 +110,7 @@ export interface QueueItem {
   cls?: FailureClass;
   halt?: HaltEntries;
   approve?: ApprovePr[];
+  lanes?: LaneRun[];
   // An incident is a cause that broke or blocks; gates and ready work are not.
   incident: boolean;
   blocks: number;
@@ -157,6 +168,24 @@ export function haltEntries(detail: string): string[] {
 function haltText(code: string, detail: string): string {
   const said = summarizeReason(`${code}: ${detail}`) ?? code;
   return said.startsWith("sync halted") ? said : `sync halted: ${said}`;
+}
+
+function laneRuns(loose: readonly { line: LineModel; f: Failure }[]): LaneRun[] {
+  const runs = new Map<string, LaneRun>();
+  for (const { line, f } of loose) {
+    const p = line.prs.find((x) => x.pr.repo === f.repo && x.pr.number === f.pr);
+    const runId = p?.pr.checks.find((c) => c.name === f.check && c.url === f.url)?.runId;
+    if (!p || !runId || runs.has(`${f.repo}#${runId}`)) continue;
+    runs.set(`${f.repo}#${runId}`, {
+      repo: f.repo,
+      service: line.fork.id,
+      pr: f.pr,
+      headSha: p.pr.headSha,
+      runId,
+      ...(f.step ? { step: f.step } : {}),
+    });
+  }
+  return [...runs.values()];
 }
 
 function stackItems(
@@ -287,6 +316,7 @@ function stackItems(
         },
       ],
       cls: "ENV",
+      lanes: laneRuns(loose),
       incident: true,
       blocks: loose.length,
     });
