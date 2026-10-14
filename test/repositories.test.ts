@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { expectView } from "@keelson/shared";
 import { consoleHtml } from "../src/boards/console";
+import { inspectBoard } from "../src/boards/inspect";
 import { repoBoard } from "../src/boards/repo";
 import { buildBriefing } from "../src/brief/index";
 import { repositoriesOf } from "../src/brief/repos";
@@ -126,6 +127,15 @@ describe("the Today rule", () => {
     expect(item).toMatchObject({ rung: 1, cls: "SECURITY", scope: "partition", incident: false });
     expect(item && nextText(item)).toBe(
       "No fixed release is published; replace the dependency or record the accepted risk",
+    );
+    const m = model(withCritical);
+    const board = inspectBoard(m, { selected: item?.id }, FIXTURE_NOW);
+    expect(() => expectView(INSPECT_KEY, "board")(board)).not.toThrow();
+    const b = buildBriefing(m, { state: "clear", problems: [] }, FIXTURE_NOW);
+    const focus = [...b.focus, ...b.rest].find((f) => f.id === item?.id);
+    expect(focus?.title).toBe("Critical async-http-client in SPI code");
+    expect(focus?.cause).toBe(
+      "1 open alert against async-http-client in SPI-owned shipped code; no fixed release is published.",
     );
     const upstream = model((f) => {
       f.security.data?.["Azure/osdu-spi-partition"]?.dependabot?.push({

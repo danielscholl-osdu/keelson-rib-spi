@@ -1130,10 +1130,20 @@ function securityItems(repositories: ReposModel | undefined): QueueItem[] {
       text: `Critical ${name} in SPI code · ${plural(count, "alert")}, ${fixWord}`,
       url: g.url,
       effects: at.map((a) => ({
-        text: `${a.repo.name}: ${plural(a.g.count, "alert")} in ${a.g.where || "the repository"}, shipped`,
+        text: `Ships in ${a.repo.name} from ${a.g.where || "the repository"}`,
         url: a.g.url,
       })),
       cause: [
+        {
+          label: "why",
+          value: `${plural(count, "open alert")} against ${name} in SPI-owned shipped code; ${
+            g.source === "code"
+              ? "code scanning rates it critical"
+              : fix
+                ? `${fix} fixes them`
+                : "no fixed release is published"
+          }`,
+        },
         { label: g.source === "dependabot" ? "package" : "rule", value: g.name, url: g.url },
         { label: "where", value: at.map((a) => `${a.repo.name} ${a.g.where}`).join(", ") },
         {
