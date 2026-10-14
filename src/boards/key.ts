@@ -31,5 +31,5 @@ export function keyGrid(title: string, entries: readonly KeyEntry[]): Section {
 // Until the host draws an axis under a bar, a lane group's title names the window.
 export function spanText(days: readonly { day: Day }[], unit: "cell" | "column"): string {
   const first = days[0]?.day.key;
-  return first ? `${first} to today, one ${unit} per UTC day` : `one ${unit} per UTC day`;
+  return first ? `${first} to today, one ${unit} per day` : `one ${unit} per day`;
 }

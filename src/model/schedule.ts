@@ -118,30 +118,60 @@ export function nextFire(crons: readonly Cron[], now: Date): number | undefined 
   return undefined;
 }
 
+// Every fire time in [from, to), oldest first.
+export function firesBetween(crons: readonly Cron[], from: number, to: number): number[] {
+  const out: number[] = [];
+  for (let day = Math.floor(from / DAY_MS) * DAY_MS; day < to; day += DAY_MS) {
+    for (const c of crons) {
+      if (!firesOn(c, day)) continue;
+      for (const h of c.hours)
+        for (const m of c.minutes) {
+          const t = day + (h * 60 + m) * 60_000;
+          if (t >= from && t < to) out.push(t);
+        }
+    }
+  }
+  return [...new Set(out)].sort((a, b) => a - b);
+}
+
 function two(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-// "daily 08:00Z", "weekdays 04:00Z", or the fallback when nothing is scheduled.
-export function cadence(crons: readonly Cron[], unscheduled = "unscheduled"): string {
+const SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// Weekdays as a reader says them: "daily", "weekdays", "Sun-Thu", "Mon,Wed".
+function dayNames(days: readonly number[]): string {
+  const set = [...new Set(days)].sort((a, b) => a - b);
+  if (set.length === 7) return "daily";
+  if (set.join(",") === "1,2,3,4,5") return "weekdays";
+  for (let r = 0; r < 7 && set.length >= 3; r++) {
+    const run = set.map((d) => (d - r + 7) % 7).sort((a, b) => a - b);
+    if (run.every((d, i) => d === (run[0] as number) + i)) {
+      const lo = ((run[0] as number) + r) % 7;
+      const hi = ((run[run.length - 1] as number) + r) % 7;
+      return `${SHORT[lo]}-${SHORT[hi]}`;
+    }
+  }
+  return set.map((d) => SHORT[d]).join(",");
+}
+
+// "daily 03:00", "Sun-Thu 23:00" in local time, read from the week after `now`
+// so a daylight-time change moves the label with it.
+export function cadence(
+  crons: readonly Cron[],
+  unscheduled = "unscheduled",
+  now: Date = new Date(),
+): string {
   const cron = crons[0];
   if (!cron) return unscheduled;
-  const time =
-    cron.hours.length === 1 && cron.minutes.length === 1
-      ? `${two(cron.hours[0] as number)}:${two(cron.minutes[0] as number)}Z`
-      : "several times";
-  if (cron.dom || cron.months) return `scheduled ${time}`;
-  const dow = cron.dow ? [...cron.dow].sort().join(",") : undefined;
-  const days =
-    dow === undefined
-      ? "daily"
-      : dow === "1,2,3,4,5"
-        ? "weekdays"
-        : [...(cron.dow ?? [])]
-            .sort()
-            .map((d) => DAY_NAMES[d])
-            .join(",");
-  return `${days} ${time}`;
+  if (cron.dom || cron.months) return "scheduled";
+  const fires = firesBetween([cron], now.getTime(), now.getTime() + 7 * DAY_MS).map(
+    (t) => new Date(t),
+  );
+  const times = new Set(fires.map((d) => `${two(d.getHours())}:${two(d.getMinutes())}`));
+  const time = times.size === 1 ? [...times][0] : "several times";
+  return `${dayNames(fires.map((d) => d.getDay()))} ${time}`;
 }
 
 export function toCrons(texts: readonly string[] | undefined): Cron[] {

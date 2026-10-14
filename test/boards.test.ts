@@ -425,31 +425,41 @@ describe("what the boards say", () => {
     expect(calmBoard.header?.status).toEqual({ label: "5 UPDATES WAITING", tone: "info" });
   });
 
-  test("the environment keeps its three tiles in place and shows how the outage unfolded", () => {
+  test("the environment keeps its tiles in place and shows how the outage unfolded", () => {
     const b = stackBoard(model, FIXTURE_NOW);
     expect(b.header?.status).toEqual({ label: "MAINTENANCE MODE", tone: "error" });
     const stats = b.sections[0];
     if (stats?.kind !== "stats") throw new Error("stats first");
     expect(stats.items.map((i) => i.label)).toEqual([
       "Running",
-      "Greenfield · smoke",
+      "Deployable · 21 days",
+      "Fork lanes · last deploy passed",
       "Brownfield · in maintenance since",
+      "Greenfield · smoke",
     ]);
     expect(model.stack.maintenance.since).toStartWith("2026-10-11T22:44");
-    expect(stats.items[2]?.clock).toEqual({ at: model.stack.maintenance.since!, mode: "since" });
+    expect(stats.items[3]?.clock).toEqual({ at: model.stack.maintenance.since!, mode: "since" });
     expect(stats.items[0]).toMatchObject({ value: "v0.28.0", tone: "warn" });
     expect(stats.items[0]?.delta?.text).toBe("v0.28.2 declared");
     expect(stats.items[0]?.sub).toMatch(
       /^v0\.28\.2 is latest · landed 10-0[56] \d\d:\d\d · 50 min after release, usually 33$/,
     );
-    expect(stats.items[1]).toMatchObject({
+    expect(stats.items[1]).toMatchObject({ value: "63%" });
+    expect(stats.items[1]?.sub).toMatch(
+      /^6 holds over an hour, 7 d 14 h in all · held since 10-11 22:44$/,
+    );
+    expect(stats.items[2]).toMatchObject({ value: "0 of 5", tone: "caution" });
+    expect(stats.items[2]?.sub).toBe(
+      "every lane's newest deploy failed · 113 deploys in 21 days, 41 failed",
+    );
+    expect(stats.items[4]).toMatchObject({
       value: "26 min",
       tone: "ok",
       delta: { text: "8 min under usual", direction: "down", tone: "ok" },
     });
-    expect(stats.items[1]?.clock).toBeUndefined();
-    expect(stats.items[1]?.spark?.at(-1)).toBe(26);
-    expect(stats.items[1]?.sub).toMatch(
+    expect(stats.items[4]?.clock).toBeUndefined();
+    expect(stats.items[4]?.spark?.at(-1)).toBe(26);
+    expect(stats.items[4]?.sub).toMatch(
       /^fresh cluster to green · 7 in a row · 12 h 52 min ago · next /,
     );
     const kinds = b.sections.map((s) => s.kind);
@@ -459,29 +469,52 @@ describe("what the boards say", () => {
       if (s?.kind !== "rows") throw new Error(prefix);
       return s;
     };
-    expect(titled("Greenfield").items.map((i) => i.text)).toEqual(["smoke · daily 08:00Z"]);
-    const brown = titled("Brownfield");
-    expect(brown.items.map((i) => i.text)).toEqual([
-      "behind latest",
-      "upgrade · on bump",
-      "refresh · weekdays 04:00Z",
+    const env = titled("Environment");
+    expect(env.items.map((i) => i.text)).toEqual([
+      "deployable · 63%",
+      "fork deploys · 5 forks",
+      "releases behind",
     ]);
-    const cells = (i: number) => {
-      const bar = brown.items[i]?.bar;
+    const life = titled("Lifecycle");
+    expect(life.items.map((i) => i.text)).toEqual([
+      "upgrade · on bump",
+      "refresh · weekdays 04:00",
+      "smoke · daily 08:00",
+    ]);
+    const cells = (rows: typeof life, i: number) => {
+      const bar = rows.items[i]?.bar;
       if (!bar || !("cells" in bar)) throw new Error("cells");
       return bar.cells;
     };
-    expect(cells(2)).toHaveLength(21);
-    expect(cells(2).at(-1)).toMatchObject({ tone: "error" });
-    expect(cells(2)[4]).toMatchObject({ hollow: true });
-    expect(cells(2)[4]?.tone).toBeUndefined();
-    const behind = brown.items[0]?.bar;
-    if (!behind || !("columns" in behind)) throw new Error("columns");
-    expect(behind.columns.map((c) => c.segments[0]?.n ?? 0)).toEqual([
+    expect(cells(life, 1)).toHaveLength(21);
+    expect(cells(life, 1).at(-1)).toMatchObject({ tone: "error" });
+    expect(cells(life, 1)[4]).toMatchObject({ hollow: true });
+    expect(cells(life, 1)[4]?.tone).toBeUndefined();
+    const held = cells(env, 0);
+    expect(held.at(-1)).toMatchObject({ tone: "error" });
+    expect(held.at(-1)?.label).toMatch(/^10-12 · held \d+ h/);
+    // A run in flight holds the environment; that alone does not make today red.
+    expect(model.stack.inflight).toBeDefined();
+    const columns = (i: number) => {
+      const bar = env.items[i]?.bar;
+      if (!bar || !("columns" in bar)) throw new Error("columns");
+      return bar.columns;
+    };
+    expect(columns(1).at(-2)).toEqual({
+      label: "10-11 · 5 passed, 11 failed",
+      segments: [
+        { label: "passed", n: 5, tone: "ok" },
+        { label: "failed", n: 11, tone: "error" },
+      ],
+    });
+    expect(columns(2).map((c) => c.segments[0]?.n ?? 0)).toEqual([
       0, 1, 3, 5, 5, 5, 1, 0, 0, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 1, 2,
     ]);
+    expect(columns(2)[3]?.segments[0]?.tone).toBe("neutral");
     expect(titled("Housekeeping").items).toEqual([
-      expect.objectContaining({ text: "sweeper · green on every run in 21 days" }),
+      expect.objectContaining({
+        text: expect.stringMatching(/^sweeper · green on every run in 21 days · next /),
+      }),
     ]);
   });
 
@@ -492,17 +525,20 @@ describe("what the boards say", () => {
     if (stats?.kind !== "stats") throw new Error("stats first");
     expect(stats.items.map((i) => i.label)).toEqual([
       "Running",
-      "Greenfield · smoke",
+      "Deployable · 21 days",
+      "Fork lanes · last deploy passed",
       "Brownfield · refresh",
+      "Greenfield · smoke",
     ]);
-    expect(stats.items[2]).toMatchObject({
+    expect(stats.items[3]).toMatchObject({
       value: "2 min",
       tone: "ok",
       delta: { text: "as usual", direction: "flat", tone: "neutral" },
     });
-    expect(stats.items[2]?.clock).toBeUndefined();
-    expect(stats.items[2]?.spark?.at(-1)).toBe(2);
-    expect(stats.items[2]?.sub).toMatch(/^re-proved in place · 24 h 14 min ago · next /);
+    expect(stats.items[3]?.clock).toBeUndefined();
+    expect(stats.items[3]?.spark?.at(-1)).toBe(2);
+    expect(stats.items[3]?.sub).toMatch(/^re-proved in place · 24 h 14 min ago · next /);
+    expect(stats.items[1]?.sub).toMatch(/ · up since 10-11 21:4\d$/);
     expect(b.sections.some((s) => s.kind === "timeline")).toBe(false);
     expect(() => expectView(STACK_KEY, "board")(b)).not.toThrow();
   });
@@ -530,7 +566,7 @@ describe("what the boards say", () => {
     expect(b.header?.status).toEqual({ label: "DEPLOYABLE", tone: "ok" });
     const stats = b.sections[0];
     if (stats?.kind !== "stats") throw new Error("stats first");
-    const refresh = stats.items[2];
+    const refresh = stats.items[3];
     expect(refresh?.label).toBe("Brownfield · refresh");
     expect(refresh).toMatchObject({ value: "FAILED", tone: "warn" });
     expect(refresh?.delta).toBeUndefined();
@@ -555,7 +591,7 @@ describe("what the boards say", () => {
   function proofTiles(model: ReturnType<typeof buildModel>) {
     const stats = stackBoard(model, FIXTURE_NOW).sections[0];
     if (stats?.kind !== "stats") throw new Error("stats first");
-    return { smoke: stats.items[1], refresh: stats.items[2] };
+    return { smoke: stats.items[4], refresh: stats.items[3] };
   }
 
   test("a green proof leads with its time against the usual and a stopped run with its result", () => {
@@ -588,6 +624,98 @@ describe("what the boards say", () => {
       value: "CANCELLED",
       tone: "warn",
     });
+  });
+
+  test("a slow green proof names the step that grew against its own usual", () => {
+    const f = settled();
+    const lc = f.lifecycle.data!;
+    // The recorded steps carry no times; give spi reconcile 20 s on every run, 5 min 20 s on the last.
+    const timed = lc.refresh.map((r, i) => {
+      const run = structuredClone(r);
+      const at = Date.parse(run.createdAt);
+      const took = i === 0 ? 320_000 : 20_000;
+      for (const step of run.jobs?.flatMap((j) => j.steps) ?? [])
+        if (step.name === "spi reconcile") {
+          step.startedAt = new Date(at).toISOString();
+          step.completedAt = new Date(at + took).toISOString();
+        }
+      if (i === 0) run.updatedAt = new Date(Date.parse(run.updatedAt) + 300_000).toISOString();
+      return run;
+    });
+    f.lifecycle.data = { ...lc, refresh: timed };
+    const { refresh } = proofTiles(buildModel(f, FIXTURE_NOW));
+    expect(refresh?.delta).toMatchObject({ direction: "up", tone: "caution" });
+    expect(refresh?.sub).toMatch(/^spi reconcile 5 min 20 s, usually 20 s · \d+ h/);
+  });
+
+  test("the running version that matches its declaration and the latest says so once", () => {
+    const stats = stackBoard(buildModel(settled(), FIXTURE_NOW), FIXTURE_NOW).sections[0];
+    if (stats?.kind !== "stats") throw new Error("stats first");
+    const running = stats.items[0];
+    if (running?.delta?.text === "latest")
+      expect(running.sub).toStartWith("matches the declaration · ");
+    else expect(running?.sub).not.toContain("matches the declaration");
+  });
+
+  test("fork lanes name the one fork whose newest deploy failed", () => {
+    const f = fixtureFacts();
+    const repos = f.github.data!.repos;
+    for (const repo of Object.values(repos))
+      repo.deployments = repo.deployments.map((d) => ({ ...d, state: "SUCCESS" }));
+    const legal = repos["Azure/osdu-spi-legal"];
+    if (!legal?.deployments[0]) throw new Error("fixture legal has deployments");
+    legal.deployments[0] = {
+      ...legal.deployments[0],
+      state: "FAILURE",
+      statusAt: "2026-10-12T21:30:00Z",
+    };
+    const stats = stackBoard(buildModel(f, FIXTURE_NOW), FIXTURE_NOW).sections[0];
+    if (stats?.kind !== "stats") throw new Error("stats first");
+    expect(stats.items[2]).toMatchObject({ value: "4 of 5" });
+    expect(stats.items[2]?.tone).toBeUndefined();
+    expect(stats.items[2]?.sub).toMatch(/^legal failed 21:30 · \d+ deploys in 21 days, 1 failed$/);
+  });
+
+  test("a stopped run that left the environment held turns today red within the hour", () => {
+    const since = FIXTURE_NOW.getTime() - 10 * 60_000;
+    const held = model.stack.history.held!.map((d, i, all) =>
+      i === all.length - 1 ? { ...d, heldMs: 10 * 60_000 } : d,
+    );
+    const stuck = {
+      ...model,
+      stack: {
+        ...model.stack,
+        inflight: undefined,
+        availability: { ...model.stack.availability!, heldNow: true, since },
+        history: { ...model.stack.history, held },
+      },
+    };
+    const env = stackBoard(stuck, FIXTURE_NOW).sections.find(
+      (s) => s.kind === "rows" && s.title === "Environment",
+    );
+    if (env?.kind !== "rows") throw new Error("environment rows");
+    const bar = env.items[0]?.bar;
+    if (!bar || !("cells" in bar)) throw new Error("cells");
+    expect(bar.cells.at(-1)).toEqual({ label: "10-12 · held 10 min, since 21:48", tone: "error" });
+  });
+
+  test("a sweeper slot later today keeps housekeeping folded", () => {
+    const now = new Date("2026-10-12T03:00:00Z");
+    const f = fixtureFacts();
+    const lc = f.lifecycle.data!;
+    const before = (r: { createdAt: string }) => Date.parse(r.createdAt) < now.getTime();
+    f.lifecycle.data = {
+      refresh: lc.refresh.filter(before),
+      upgrade: lc.upgrade.filter(before),
+      smoke: lc.smoke.filter(before),
+      sweeper: lc.sweeper.filter(before),
+    };
+    const m = buildModel(f, now);
+    expect(m.stack.history.runs.sweeper.at(-1)?.state).toBe("due");
+    const b = stackBoard(m, now);
+    const house = b.sections.find((s) => s.kind === "rows" && s.title === "Housekeeping");
+    if (house?.kind !== "rows") throw new Error("housekeeping");
+    expect(house.items[0]?.text).toMatch(/^sweeper · green on every run in 21 days · next 04:00$/);
   });
 
   test("with no run in the window the proof tiles say so and show no value", () => {

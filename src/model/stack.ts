@@ -9,6 +9,7 @@
 import { HISTORY_DAYS, type LifecycleKind } from "../config.ts";
 import type {
   Declaration,
+  DeploymentFact,
   JobDetail,
   LifecycleRun,
   PrFact,
@@ -21,6 +22,12 @@ import {
   type BehindDay,
   behindDays,
   type Day,
+  type DeployDay,
+  deployDays,
+  deployResult,
+  type Hold,
+  type HoldDay,
+  holdDays,
   median,
   type RunDay,
   runDays,
@@ -92,12 +99,43 @@ export interface StackModel {
     runs: Record<LifecycleKind, RunDay[]>;
     // Undefined while the releases are unread.
     behind?: BehindDay[];
+    // Undefined while no lifecycle run is read.
+    held?: HoldDay[];
+    // Undefined while no fork's deployments are read.
+    deploys?: DeployDay[];
+  };
+  // How much of the window the environment was not held in maintenance.
+  availability?: {
+    share: number;
+    // Holds over an hour, clipped to the window.
+    long: number;
+    longMs: number;
+    heldNow: boolean;
+    // The newest clear; with heldNow, when the current hold began.
+    since?: number;
+  };
+  // Each fork's newest finished deploy to the lane environment.
+  forks?: {
+    newest: { fork: string; passed: boolean; at: string }[];
+    // Forks read that have never deployed in the window.
+    noLane: string[];
+    sinceBack?: { passed: number; failed: number };
+    window: { passed: number; failed: number };
   };
   // The green upgrade that put the running version in place, and how long after its release.
   landed?: { at: string; release?: ReleaseFact; lagMs?: number };
   usualLagMs?: number;
-  // greenMs is every green run's span in the window, oldest first.
-  durations: Record<"smoke" | "refresh", { lastMs?: number; usualMs?: number; greenMs: number[] }>;
+  // greenMs is every green run's span in the window, oldest first; grew is the step
+  // that moved most against its own usual on a slow green last run.
+  durations: Record<
+    "smoke" | "refresh",
+    {
+      lastMs?: number;
+      usualMs?: number;
+      greenMs: number[];
+      grew?: { step: string; ms: number; usualMs: number };
+    }
+  >;
 }
 
 const SET_STEP = /set maintenance/i;
@@ -289,6 +327,91 @@ export function inferMaintenance(runs: readonly LifecycleRun[]): StackModel["mai
   return state;
 }
 
+// Every hold in maintenance the runs show: from a run's set step to the next
+// clear step, a green run's own few minutes included.
+export function replayHolds(runs: readonly LifecycleRun[]): { holds: Hold[]; unreadAt: number[] } {
+  const holds: Hold[] = [];
+  const unreadAt: number[] = [];
+  let open: number | undefined;
+  for (const run of [...runs].sort(byCreated)) {
+    if (!run.jobs) {
+      if (run.conclusion !== "skipped") unreadAt.push(Date.parse(run.createdAt));
+      continue;
+    }
+    const all = steps(run.jobs);
+    const set = all.find(({ step }) => SET_STEP.test(step.name) && step.conclusion === "success");
+    const clear = all.find(
+      ({ step }) => CLEAR_STEP.test(step.name) && step.conclusion === "success",
+    );
+    if (set && open === undefined) open = Date.parse(set.step.startedAt ?? run.createdAt);
+    if (clear && open !== undefined) {
+      holds.push({ from: open, to: Date.parse(clear.step.completedAt ?? run.updatedAt) });
+      open = undefined;
+    }
+  }
+  if (open !== undefined) holds.push({ from: open });
+  return { holds, unreadAt };
+}
+
+const HOUR_MS = 3_600_000;
+
+function availability(
+  holds: readonly Hold[],
+  from: number,
+  now: Date,
+): NonNullable<StackModel["availability"]> {
+  const clipped = holds
+    .map((h) => ({ from: Math.max(h.from, from), to: h.to ?? now.getTime() }))
+    .filter((h) => h.to > h.from);
+  const held = clipped.reduce((sum, h) => sum + (h.to - h.from), 0);
+  const long = clipped.filter((h) => h.to - h.from > HOUR_MS);
+  const last = holds[holds.length - 1];
+  const heldNow = last !== undefined && last.to === undefined;
+  return {
+    share: Math.max(0, 1 - held / Math.max(1, now.getTime() - from)),
+    long: long.length,
+    longMs: long.reduce((sum, h) => sum + (h.to - h.from), 0),
+    heldNow,
+    since: heldNow ? last?.from : last?.to,
+  };
+}
+
+function forkDeploys(
+  deploys: readonly { fork: string; deployments: readonly DeploymentFact[] }[],
+  cutoff: number,
+  back: number | undefined,
+): NonNullable<StackModel["forks"]> {
+  const newest: NonNullable<StackModel["forks"]>["newest"] = [];
+  const noLane: string[] = [];
+  const count = (from: number) => {
+    const all = deploys.flatMap((d) =>
+      d.deployments.filter((x) => Date.parse(x.createdAt) >= from),
+    );
+    return {
+      passed: all.filter((x) => deployResult(x.state) === "passed").length,
+      failed: all.filter((x) => deployResult(x.state) === "failed").length,
+    };
+  };
+  for (const { fork, deployments } of deploys) {
+    const done = deployments
+      .filter((d) => deployResult(d.state) && Date.parse(d.createdAt) >= cutoff)
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
+    if (!done) noLane.push(fork);
+    else
+      newest.push({
+        fork,
+        passed: deployResult(done.state) === "passed",
+        at: done.statusAt ?? done.createdAt,
+      });
+  }
+  return {
+    newest,
+    noLane,
+    ...(back !== undefined ? { sinceBack: count(back) } : {}),
+    window: count(cutoff),
+  };
+}
+
 const DRIFT = /deployed ref \((v[\d.]+)\) drifted from declared stackVersion/;
 
 // The running version is the newest proof: a green upgrade or refresh proves
@@ -351,6 +474,33 @@ function spanMs(run: LifecycleRun): number | undefined {
   return Number.isFinite(ms) && ms >= 0 ? ms : undefined;
 }
 
+function stepSpans(run: LifecycleRun): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const { step } of steps(run.jobs)) {
+    if (!step.startedAt || !step.completedAt) continue;
+    const ms = Date.parse(step.completedAt) - Date.parse(step.startedAt);
+    if (Number.isFinite(ms) && ms >= 0) out.set(step.name, (out.get(step.name) ?? 0) + ms);
+  }
+  return out;
+}
+
+// The step of the last run that moved most against its own median on the other green runs.
+function grewMost(
+  last: LifecycleRun,
+  others: readonly LifecycleRun[],
+): StackModel["durations"]["smoke"]["grew"] {
+  const spans = others.map(stepSpans);
+  let best: StackModel["durations"]["smoke"]["grew"];
+  for (const [step, ms] of stepSpans(last)) {
+    const usualMs = median(spans.flatMap((m) => m.get(step) ?? []));
+    if (usualMs === undefined) continue;
+    if (ms - usualMs > (best ? best.ms - best.usualMs : 0)) best = { step, ms, usualMs };
+  }
+  return best;
+}
+
+const MINUTE_MS = 60_000;
+
 function durations(
   runs: readonly LifecycleRun[],
   cutoff: number,
@@ -359,13 +509,28 @@ function durations(
     .filter((r) => r.status === "completed" && r.conclusion !== "skipped")
     .sort((a, b) => byCreated(b, a));
   const last = done[0];
-  const green = done
-    .filter((r) => r.conclusion === "success" && Date.parse(r.createdAt) >= cutoff)
-    .flatMap((r) => spanMs(r) ?? []);
+  const greenRuns = done.filter(
+    (r) => r.conclusion === "success" && Date.parse(r.createdAt) >= cutoff,
+  );
+  const green = greenRuns.flatMap((r) => spanMs(r) ?? []);
+  const lastMs = last ? spanMs(last) : undefined;
+  const usualMs = median(green);
+  const slow =
+    last?.conclusion === "success" &&
+    lastMs !== undefined &&
+    usualMs !== undefined &&
+    lastMs - usualMs > MINUTE_MS;
+  const grew = slow
+    ? grewMost(
+        last,
+        greenRuns.filter((r) => r !== last),
+      )
+    : undefined;
   return {
-    lastMs: last ? spanMs(last) : undefined,
-    usualMs: median(green),
+    lastMs,
+    usualMs,
     greenMs: green.reverse(),
+    ...(grew ? { grew } : {}),
   };
 }
 
@@ -396,6 +561,8 @@ export function buildStack(
   stackRepo: RepoFact | undefined,
   lifecycle: Partial<Record<LifecycleKind, LifecycleRun[]>> | undefined,
   now: Date,
+  // Each fork whose repository was read, with its deploys to the lane environment.
+  deploys?: readonly { fork: string; deployments: readonly DeploymentFact[] }[],
 ): StackModel {
   const refresh = lifecycle?.refresh ?? [];
   const upgrade = lifecycle?.upgrade ?? [];
@@ -448,6 +615,10 @@ export function buildStack(
   const landed = releases ? landings(upgrade, releases) : [];
   const cutoff = now.getTime() - HISTORY_DAYS * 86_400_000;
   const current = running ? landed.filter((l) => l.target === running.version).at(-1) : undefined;
+  const replay = both.length > 0 ? replayHolds(both) : undefined;
+  const from = days[0]?.start ?? cutoff;
+  const avail = replay ? availability(replay.holds, from, now) : undefined;
+  const allDeploys = deploys?.flatMap((d) => d.deployments);
   return {
     declaration: stackRepo?.declaration,
     declared: stackRepo?.declaration?.stackVersion,
@@ -481,7 +652,13 @@ export function buildStack(
         sweeper: runsOf("sweeper"),
       },
       behind: releases ? behindDays(releases, both, days) : undefined,
+      held: replay ? holdDays(replay.holds, replay.unreadAt, days, now) : undefined,
+      deploys: allDeploys && deploys?.length ? deployDays(allDeploys, days) : undefined,
     },
+    ...(avail ? { availability: avail } : {}),
+    ...(deploys?.length
+      ? { forks: forkDeploys(deploys, from, avail && !avail.heldNow ? avail.since : undefined) }
+      : {}),
     landed: current
       ? { at: current.at, release: current.release, lagMs: current.lagMs }
       : undefined,

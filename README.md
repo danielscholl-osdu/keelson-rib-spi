@@ -55,14 +55,20 @@ good read until it reads again. The disclosure ends with three Act lines: the
 workflow and gate grants `config.json` holds. They never raise the doctor; a
 verb that cannot run says why on its own button.
 
-The Environment panel has three tiles in fixed places. **Running** is the
+The Environment panel has five tiles in fixed places. **Running** is the
 version on the environment against the declared one and the newest release,
 with when it landed and how long after its release, against the usual lag.
-**Greenfield** is the last smoke run, a fresh cluster brought to green, with its
-duration against the usual and the next scheduled run. **Brownfield** is the
-last refresh, the running environment re-proved in place, the same way. A
-refresh that failed before a later green upgrade reads amber, since the upgrade
-proved the stack after it.
+**Deployable** is the share of the last 21 days the environment was not held in
+maintenance, replayed from the same set and clear steps the pill reads, with
+the holds over an hour and when it came back. **Fork lanes** is how many forks'
+newest deploy to the environment passed, the fork that failed, and the deploys
+since it came back; a deploy's state carries no cause, so it never moves the
+pill and turns caution only when every fork with a lane failed. **Brownfield**
+is the last refresh, the running environment re-proved in place, with its
+duration against the usual and the next scheduled run; a slow green run names
+the step that grew against its own usual. **Greenfield** is the last smoke run,
+a fresh cluster brought to green, the same way. A refresh that failed before a
+later green upgrade reads amber, since the upgrade proved the stack after it.
 
 When forks cannot deploy, Brownfield turns into the time since (`MAINTENANCE
 MODE` when the hold is the reason), and the panel adds the stage the latest
@@ -71,15 +77,17 @@ attempt in order, cancelled ones included. A step that runs past every green run
 of its kind turns amber. Greenfield stays where it is, so a green fresh deploy
 beside a red in-place run points at the upgrade path rather than the release.
 
-Under the tiles, 21 days of history are one cell per UTC day, grouped as
-greenfield (smoke), brownfield (behind latest, upgrade, refresh) and
-housekeeping (sweeper). A day's cell is its newest run: green, red, amber for
-cancelled, blue while running. A scheduled day with no run is an outlined red
-cell, and a day with nothing due is an empty outline. Green days are a faint
-tint, so color goes to exceptions. Behind latest is a column per day as tall as
-the number of releases the environment trailed at day end. Sweeper folds to one
-line while every run in the window is green. Times are local, the zone Keelson
-draws its timelines and clocks in; days are UTC because the schedules are.
+Under the tiles, 21 days of history are one cell per local day under one key.
+The Environment group is deployable (red on a day held over an hour, or today
+while a stopped run holds it), fork deploys (passed and failed per day) and
+releases behind. The Lifecycle group is upgrade, refresh and smoke: a day's cell
+is its newest run, green, red, amber for cancelled, blue while running. A
+scheduled run counts toward the slot it answers, so a 23:00 run that starts
+after midnight still fills its own day. A slot long past with no run is an
+outlined red cell, a slot later today a blue outline, and a day with nothing due
+an empty outline. Lane labels print the schedule in local time. Green days are a
+faint tint, so color goes to exceptions. Sweeper folds to one line while every
+run in the window is green, a slot later today included.
 
 The Engineering system panel treats the `osdu-spi` template as the one shared
 input it is. **Release** is the newest release and how many forks are on it,

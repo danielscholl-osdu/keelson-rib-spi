@@ -6,6 +6,7 @@ import {
   inferMaintenance,
   inferRunning,
   overdue,
+  replayHolds,
   usualText,
   viewRun,
 } from "../src/model/stack";
@@ -257,5 +258,73 @@ describe("remote-mode inference", () => {
     expect(usualText(early.usual)).toBe("green runs 1–12 min");
     expect(overdue(early, new Date("2026-10-12T22:08:00Z"))).toBe(false);
     expect(overdue(early, new Date("2026-10-12T22:29:00Z"))).toBe(true);
+  });
+});
+
+describe("availability and fork lanes", () => {
+  const H = 3_600_000;
+
+  test("holds run from a set step to the next clear; a green run's own minutes count too", () => {
+    const { holds, unreadAt } = replayHolds([
+      greenRefresh("2026-10-11T04:00:00Z"),
+      failedUpgrade("2026-10-11T22:44:00Z"),
+      driftRefresh("2026-10-12T04:16:00Z"),
+      run("refresh", "2026-10-12T08:00:00Z", "success", undefined as never),
+      greenRefresh("2026-10-12T19:44:00Z"),
+    ]);
+    expect(holds).toEqual([
+      { from: Date.parse("2026-10-11T04:00:00Z"), to: Date.parse("2026-10-11T04:00:00Z") },
+      { from: Date.parse("2026-10-11T22:44:00Z"), to: Date.parse("2026-10-12T19:44:00Z") },
+    ]);
+    expect(unreadAt).toEqual([Date.parse("2026-10-12T08:00:00Z")]);
+  });
+
+  test("the window's share, its long holds and when the environment came back", () => {
+    const now = new Date("2026-10-13T12:00:00Z");
+    const stack = buildStack(
+      undefined,
+      {
+        refresh: [greenRefresh("2026-10-12T19:44:00Z")],
+        upgrade: [failedUpgrade("2026-10-11T22:44:00Z")],
+      },
+      now,
+      [
+        {
+          fork: "partition",
+          deployments: [
+            { createdAt: "2026-10-13T01:00:00Z", state: "SUCCESS" },
+            { createdAt: "2026-10-12T01:00:00Z", state: "FAILURE" },
+          ],
+        },
+        {
+          fork: "legal",
+          deployments: [
+            {
+              createdAt: "2026-10-13T02:00:00Z",
+              state: "FAILURE",
+              statusAt: "2026-10-13T02:05:00Z",
+            },
+          ],
+        },
+        { fork: "storage", deployments: [] },
+      ],
+    );
+    const a = stack.availability;
+    expect(a?.long).toBe(1);
+    expect(a?.longMs).toBe(21 * H);
+    expect(a?.heldNow).toBe(false);
+    expect(a?.since).toBe(Date.parse("2026-10-12T19:44:00Z"));
+    expect(a?.share).toBeGreaterThan(0.95);
+    expect(stack.history.held?.at(-2)?.heldMs).toBe(19 * H + 44 * 60_000);
+    expect(stack.forks).toEqual({
+      newest: [
+        { fork: "partition", passed: true, at: "2026-10-13T01:00:00Z" },
+        { fork: "legal", passed: false, at: "2026-10-13T02:05:00Z" },
+      ],
+      noLane: ["storage"],
+      sinceBack: { passed: 1, failed: 1 },
+      window: { passed: 1, failed: 2 },
+    });
+    expect(stack.history.deploys?.at(-1)).toMatchObject({ passed: 1, failed: 1 });
   });
 });

@@ -42,7 +42,15 @@ export function buildModel(
 ): Model {
   const repos = facts.github.data?.repos ?? {};
   const details = facts.details.data ?? {};
-  const stack = buildStack(repos[STACK_REPO], facts.lifecycle.data, now);
+  const stack = buildStack(
+    repos[STACK_REPO],
+    facts.lifecycle.data,
+    now,
+    FORKS.flatMap((f) => {
+      const repo = repos[f.repo];
+      return repo ? [{ fork: f.id, deployments: repo.deployments }] : [];
+    }),
+  );
   const templateRepo = repos[TEMPLATE_REPO];
   const predictions = predictAll(facts.radar.data);
   const lines = FORKS.map((fork) =>

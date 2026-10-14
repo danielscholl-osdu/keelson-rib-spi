@@ -10,28 +10,36 @@ import { HISTORY_DAYS } from "../config.ts";
 import type { LifecycleRun, PastIssueFact, PastPrFact, ReleaseFact } from "../facts.ts";
 import { classifyPr } from "./attribution.ts";
 import type { LinePr } from "./lines.ts";
-import { type Cron, firstFire } from "./schedule.ts";
+import { type Cron, firesBetween } from "./schedule.ts";
 
 const DAY_MS = 86_400_000;
-// A scheduled run that has not started this long after its slot counts as missed.
+// A scheduled run that has not started this long after its slot counts as missed,
+// and a scheduled run that starts within it answers that slot.
 const MISSED_AFTER_MS = 3 * 3_600_000;
 
-// One UTC day of the history window; `end` stops at now for today.
+// One local day of the history window; `end` stops at now for today.
 export interface Day {
   key: string;
   start: number;
   end: number;
+  // The next day's start; a DST day is 23 or 25 hours.
+  stop: number;
+}
+
+function two(n: number): string {
+  return String(n).padStart(2, "0");
 }
 
 export function windowDays(now: Date, n = HISTORY_DAYS): Day[] {
-  const today = Math.floor(now.getTime() / DAY_MS) * DAY_MS;
   const out: Day[] = [];
   for (let i = n - 1; i >= 0; i--) {
-    const start = today - i * DAY_MS;
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    const stop = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i + 1).getTime();
     out.push({
-      key: new Date(start).toISOString().slice(5, 10),
-      start,
-      end: Math.min(start + DAY_MS, now.getTime()),
+      key: `${two(start.getMonth() + 1)}-${two(start.getDate())}`,
+      start: start.getTime(),
+      end: Math.min(stop, now.getTime()),
+      stop,
     });
   }
   return out;
@@ -48,14 +56,14 @@ export function median(values: readonly number[]): number | undefined {
 
 // --- environment ---------------------------------------------------------
 
-export type RunDayState = "ok" | "failed" | "cancelled" | "running" | "idle" | "missed";
+export type RunDayState = "ok" | "failed" | "cancelled" | "running" | "idle" | "missed" | "due";
 
 export interface RunDay {
   day: Day;
   state: RunDayState;
   runs: LifecycleRun[];
-  // A schedule fired, or should have fired, on this day.
-  due: boolean;
+  // The schedule's slots on this day.
+  slots: number[];
 }
 
 function runState(run: LifecycleRun): RunDayState {
@@ -64,30 +72,102 @@ function runState(run: LifecycleRun): RunDayState {
   return run.conclusion === "cancelled" ? "cancelled" : "failed";
 }
 
-// Each day takes its newest run; a scheduled day with no run past its slot is missed.
+// A scheduled run counts toward the slot it answers, so a 23:00 run GitHub
+// starts after midnight still fills its own day; any other run counts on the
+// day it started. Each day takes its newest run; a slot long past with no run
+// is missed, and one not yet reached is due.
 export function runDays(
   runs: readonly LifecycleRun[],
   crons: readonly Cron[],
   days: readonly Day[],
   now: Date,
 ): RunDay[] {
-  const kept = runs.filter((r) => r.conclusion !== "skipped");
+  const first = days[0];
+  const last = days[days.length - 1];
+  if (!first || !last) return [];
+  const slots = firesBetween(crons, first.start - MISSED_AFTER_MS, last.stop);
+  const dayOf = (t: number) => days.findIndex((d) => t >= d.start && t < d.stop);
+  const on: LifecycleRun[][] = days.map(() => []);
+  for (const run of runs) {
+    if (run.conclusion === "skipped") continue;
+    const t = Date.parse(run.createdAt);
+    const slot =
+      run.event === "schedule"
+        ? slots.filter((s) => s <= t && t - s <= MISSED_AFTER_MS).at(-1)
+        : undefined;
+    const i = dayOf(slot ?? t);
+    if (i >= 0) on[i]?.push(run);
+  }
+  return days.map((day, i) => {
+    const mine = (on[i] ?? []).sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+    const own = slots.filter((s) => s >= day.start && s < day.stop);
+    const newest = mine[mine.length - 1];
+    if (newest) return { day, state: runState(newest), runs: mine, slots: own };
+    const missed = own.some((s) => now.getTime() - s > MISSED_AFTER_MS);
+    const state = own.length === 0 ? "idle" : missed ? "missed" : "due";
+    return { day, state, runs: mine, slots: own };
+  });
+}
+
+// A span the environment was held in maintenance; `to` is open while it still is.
+export interface Hold {
+  from: number;
+  to?: number;
+}
+
+export interface HoldDay {
+  day: Day;
+  heldMs: number;
+  // A lifecycle run that day was not read, so the hours are not known.
+  unread: boolean;
+}
+
+export function holdDays(
+  holds: readonly Hold[],
+  unreadAt: readonly number[],
+  days: readonly Day[],
+  now: Date,
+): HoldDay[] {
+  return days.map((day) => ({
+    day,
+    heldMs: holds.reduce(
+      (sum, h) =>
+        sum + Math.max(0, Math.min(h.to ?? now.getTime(), day.end) - Math.max(h.from, day.start)),
+      0,
+    ),
+    unread: unreadAt.some((t) => t >= day.start && t < day.stop),
+  }));
+}
+
+const PASSED = new Set(["SUCCESS", "INACTIVE"]);
+const FAILED = new Set(["FAILURE", "ERROR"]);
+
+export function deployResult(state: string | undefined): "passed" | "failed" | undefined {
+  if (!state) return undefined;
+  if (PASSED.has(state)) return "passed";
+  return FAILED.has(state) ? "failed" : undefined;
+}
+
+export interface DeployDay {
+  day: Day;
+  passed: number;
+  failed: number;
+}
+
+export function deployDays(
+  deployments: readonly { createdAt: string; state?: string }[],
+  days: readonly Day[],
+): DeployDay[] {
   return days.map((day) => {
-    const on = kept
-      .filter((r) => {
-        const t = Date.parse(r.createdAt);
-        return t >= day.start && t < day.start + DAY_MS;
-      })
-      .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
-    const slots = crons.flatMap((c) => {
-      const t = firstFire(c, day.start);
-      return t === undefined ? [] : [t];
+    const on = deployments.filter((d) => {
+      const t = Date.parse(d.createdAt);
+      return t >= day.start && t < day.stop;
     });
-    const due = slots.length > 0;
-    const last = on[on.length - 1];
-    if (last) return { day, state: runState(last), runs: on, due };
-    const passed = slots.some((t) => now.getTime() - t > MISSED_AFTER_MS);
-    return { day, state: due && passed ? "missed" : "idle", runs: on, due };
+    return {
+      day,
+      passed: on.filter((d) => deployResult(d.state) === "passed").length,
+      failed: on.filter((d) => deployResult(d.state) === "failed").length,
+    };
   });
 }
 

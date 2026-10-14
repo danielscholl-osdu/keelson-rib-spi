@@ -104,7 +104,7 @@ function runningStat(model: Model, now: Date): Stat {
           : newer
             ? { text: `${latest} out`, direction: "up" as const, tone: "info" as const }
             : {
-                text: latest ? "latest · declared" : "declared",
+                text: latest ? "latest" : "declared",
                 direction: "flat" as const,
                 tone: "ok" as const,
               };
@@ -120,7 +120,11 @@ function runningStat(model: Model, now: Date): Stat {
     value: running?.version ?? null,
     ...(cmp !== undefined && cmp < 0 ? { tone: "warn" as const } : {}),
     ...(delta ? { delta } : {}),
-    sub: [cmp !== undefined && cmp !== 0 && newer ? `${latest} is latest` : undefined, proof]
+    sub: [
+      cmp === 0 && latest ? "matches the declaration" : undefined,
+      cmp !== undefined && cmp !== 0 && newer ? `${latest} is latest` : undefined,
+      proof,
+    ]
       .filter(Boolean)
       .join(" · "),
   };
@@ -148,6 +152,95 @@ function usualDelta(lastMs: number | undefined, usualMs: number | undefined): St
     : { text: `${by} over usual`, direction: "up", tone: "caution" };
 }
 
+// "4 s", "4 min 38 s", then span()'s coarser units past ten minutes.
+function stepSpan(ms: number): string {
+  const sec = Math.round(ms / 1000);
+  if (sec < 60) return `${sec} s`;
+  if (sec < 600) return sec % 60 ? `${Math.floor(sec / 60)} min ${sec % 60} s` : `${sec / 60} min`;
+  return span(ms) ?? `${sec} s`;
+}
+
+function pct(share: number): string {
+  // Never round a held window up to a clean 100.
+  const n = Math.floor(share * 100);
+  return `${n}%`;
+}
+
+function deployableStat(model: Model, now: Date): Stat {
+  const a = model.stack.availability;
+  const label = `Deployable · ${HISTORY_DAYS} days`;
+  if (!a) return { label, value: null, sub: "no lifecycle run read" };
+  const unread = model.stack.history.held?.filter((d) => d.unread).length ?? 0;
+  const at = a.since !== undefined ? stamp(new Date(a.since).toISOString(), now) : undefined;
+  return {
+    label,
+    value: unread > 0 ? null : pct(a.share),
+    sub: [
+      a.long === 0
+        ? "no hold over an hour"
+        : `${a.long} ${a.long === 1 ? "hold" : "holds"} over an hour, ${span(a.longMs)} in all`,
+      a.heldNow ? (at ? `held since ${at}` : "held now") : at ? `up since ${at}` : undefined,
+      unread > 0 ? `${unread === 1 ? "1 day" : `${unread} days`} not read` : undefined,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  };
+}
+
+function names(list: readonly string[], max = 2): string {
+  return list.length <= max
+    ? list.join(", ")
+    : `${list.slice(0, max).join(", ")} and ${list.length - max} more`;
+}
+
+// Whether forks get through on the environment. A deploy's state carries no
+// cause, so this never moves the pill; it turns caution only when every fork
+// with a lane failed its newest deploy.
+function forksStat(model: Model, now: Date): Stat {
+  const f = model.stack.forks;
+  const label = "Fork lanes · last deploy passed";
+  if (!f) return { label, value: null, sub: "fork deployments not read" };
+  const lanes = f.newest.length;
+  const noLane =
+    f.noLane.length === 0
+      ? undefined
+      : f.noLane.length === 1
+        ? `${f.noLane[0]} has no lane yet`
+        : `${f.noLane.length} forks have no lane yet`;
+  if (lanes === 0)
+    return {
+      label,
+      value: null,
+      sub: [`no fork deployed in ${HISTORY_DAYS} days`, noLane].join(" · "),
+    };
+  const passed = f.newest.filter((n) => n.passed).length;
+  const failing = f.newest
+    .filter((n) => !n.passed)
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  const counted = f.sinceBack ?? f.window;
+  const total = counted.passed + counted.failed;
+  const failedText =
+    failing.length === 0
+      ? undefined
+      : failing.length === lanes && lanes > 1
+        ? "every lane's newest deploy failed"
+        : failing.length === 1
+          ? `${failing[0]?.fork} failed ${stamp(failing[0]?.at, now) ?? ""}`.trim()
+          : `${names(failing.map((x) => x.fork))} failed`;
+  return {
+    label,
+    value: `${passed} of ${lanes}`,
+    ...(lanes >= 2 && passed === 0 ? { tone: "caution" as const } : {}),
+    sub: [
+      failedText,
+      `${total} ${total === 1 ? "deploy" : "deploys"} ${f.sinceBack ? "since back up" : `in ${HISTORY_DAYS} days`}, ${counted.failed} failed`,
+      noLane,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  };
+}
+
 function streakText(stat: LifecycleStat): string | undefined {
   const s = stat.streak;
   if (!s || s.n < 2) return undefined;
@@ -172,7 +265,13 @@ function proofStat(model: Model, kind: "smoke" | "refresh", now: Date): Stat {
   if (runTone(last) === "ok") {
     const delta = usualDelta(lastMs, usualMs);
     const spark = greenMs.length >= 2 ? greenMs.map((ms) => Math.round(ms / MINUTE)) : undefined;
-    const measure = kind === "smoke" ? "fresh cluster to green" : "re-proved in place";
+    const { grew } = stack.durations[kind];
+    // A slow run says where the time went instead of what the run proves.
+    const measure = grew
+      ? `${grew.step} ${stepSpan(grew.ms)}, usually ${stepSpan(grew.usualMs)}`
+      : kind === "smoke"
+        ? "fresh cluster to green"
+        : "re-proved in place";
     return {
       label,
       value: span(lastMs) ?? null,
@@ -398,6 +497,7 @@ const DAY_TONE: Record<RunDayState, CanvasTone | undefined> = {
   running: "info",
   idle: undefined,
   missed: "error",
+  due: "info",
 };
 
 function dayText(day: RunDay, kind: LifecycleKind, now: Date): string {
@@ -406,7 +506,10 @@ function dayText(day: RunDay, kind: LifecycleKind, now: Date): string {
       .map((r) => `${runName(r)} ${runResult(r)} ${stamp(r.createdAt, now) ?? ""}`.trim())
       .join(", ");
   if (day.state === "missed") return `no ${kind} ran in its scheduled slot`;
-  return day.due ? `${kind} not run yet` : "nothing due";
+  const slot = day.slots.find((t) => t > now.getTime() - 3 * HOUR) ?? day.slots[0];
+  if (day.state === "due" && slot !== undefined)
+    return `${kind} due ${stamp(new Date(slot).toISOString(), now)}`;
+  return "nothing due";
 }
 
 function cellsOf(days: readonly RunDay[], kind: LifecycleKind, now: Date): Cell[] {
@@ -415,14 +518,14 @@ function cellsOf(days: readonly RunDay[], kind: LifecycleKind, now: Date): Cell[
     return {
       label: `${d.day.key} · ${dayText(d, kind, now)}`,
       ...(tone ? { tone } : {}),
-      ...(d.state === "idle" || d.state === "missed" ? { hollow: true } : {}),
+      ...(d.state === "idle" || d.state === "missed" || d.state === "due" ? { hollow: true } : {}),
     };
   });
 }
 
 function lane(model: Model, kind: LifecycleKind, now: Date, unscheduled?: string): Row {
   const { stack } = model;
-  const when = stack.schedules ? cadence(stack.schedules[kind], unscheduled) : undefined;
+  const when = stack.schedules ? cadence(stack.schedules[kind], unscheduled, now) : undefined;
   const last = stack.lifecycle[kind].last;
   return {
     text: when ? `${kind} · ${when}` : kind,
@@ -431,12 +534,62 @@ function lane(model: Model, kind: LifecycleKind, now: Date, unscheduled?: string
   };
 }
 
+// A day the environment was held past a routine run's few minutes reads red, and
+// so does today while a stopped run leaves it held.
+function heldLane(model: Model, now: Date): Row | undefined {
+  const { held } = model.stack.history;
+  const a = model.stack.availability;
+  if (!held || !a) return undefined;
+  const stuck = a.heldNow && !model.stack.inflight && a.since !== undefined;
+  const last = held.length - 1;
+  return {
+    text: `deployable · ${pct(a.share)}`,
+    bar: {
+      quiet: true,
+      cells: held.map((d, i) =>
+        d.unread
+          ? { label: `${d.day.key} · a lifecycle run that day was not read`, tone: "neutral" }
+          : d.heldMs > HOUR || (stuck && i === last)
+            ? {
+                label: `${d.day.key} · held ${span(d.heldMs)}${stuck && i === last ? `, since ${stamp(new Date(a.since as number).toISOString(), now)}` : ""}`,
+                tone: "error",
+              }
+            : {
+                label: `${d.day.key} · ${d.heldMs > 0 ? `deployable, held ${span(d.heldMs)} by a routine run` : "deployable all day"}`,
+                tone: "ok",
+              },
+      ),
+    },
+  };
+}
+
+function deployLane(model: Model): Row | undefined {
+  const days = model.stack.history.deploys;
+  const forks = model.stack.forks;
+  if (!days || !forks) return undefined;
+  const most = Math.max(3, ...days.map((d) => d.passed + d.failed));
+  const lanes = forks.newest.length;
+  return {
+    text: `fork deploys · ${lanes === 1 ? "1 fork" : `${lanes} forks`}`,
+    bar: {
+      total: most,
+      columns: days.map((d) => ({
+        label: `${d.day.key} · ${d.passed} passed, ${d.failed} failed`,
+        segments: [
+          ...(d.passed > 0 ? [{ label: "passed", n: d.passed, tone: "ok" as const }] : []),
+          ...(d.failed > 0 ? [{ label: "failed", n: d.failed, tone: "error" as const }] : []),
+        ],
+      })),
+    },
+  };
+}
+
 function behindLane(model: Model): Row | undefined {
   const behind = model.stack.history.behind;
   if (!behind) return undefined;
   const most = Math.max(3, ...behind.map((b) => b.behind ?? 0));
   return {
-    text: "behind latest",
+    text: "releases behind",
     bar: {
       total: most,
       rest: "ok",
@@ -451,26 +604,30 @@ function behindLane(model: Model): Row | undefined {
           b.behind === null
             ? [{ label: "unknown", n: null }]
             : b.behind > 0
-              ? [{ label: "releases behind", n: b.behind, tone: "warn" as const }]
+              ? [{ label: "releases behind", n: b.behind, tone: "neutral" as const }]
               : [],
       })),
     },
   };
 }
 
-// A housekeeping lane that never failed folds to one line, and returns on its first red.
+// A housekeeping lane that never failed folds to one line, and returns on its
+// first red or missed slot; a slot later today does not unfold it.
 function housekeeping(model: Model, now: Date): Section {
   const days = model.stack.history.runs.sweeper;
   const clean =
     days.some((d) => d.state === "ok") &&
-    days.every((d) => d.state === "ok" || (d.state === "idle" && !d.due));
+    days.every((d) => d.state === "ok" || d.state === "idle" || d.state === "due");
+  const next = nextText(model, "sweeper", now);
   return {
     kind: "rows",
-    title: clean ? "Housekeeping" : `Housekeeping · ${spanText(days, "cell")}`,
+    title: "Housekeeping",
     items: [
       clean
         ? {
-            text: `sweeper · green on every run in ${HISTORY_DAYS} days`,
+            text: [`sweeper · green on every run in ${HISTORY_DAYS} days`, next]
+              .filter(Boolean)
+              .join(" · "),
             ...(model.stack.lifecycle.sweeper.last
               ? { href: model.stack.lifecycle.sweeper.last.url }
               : {}),
@@ -480,31 +637,34 @@ function housekeeping(model: Model, now: Date): Section {
   };
 }
 
+// One meaning per mark: red is a failure or a hold, amber only a cancel.
 const HISTORY_KEY = [
-  { label: "failed", tone: "error" as const },
-  { label: "cancelled, or releases behind", tone: "warn" as const },
+  { label: "passed", tone: "ok" as const },
+  { label: "failed or held", tone: "error" as const },
+  { label: "cancelled", tone: "warn" as const },
   { label: "running", tone: "info" as const },
   { label: "missed its slot", tone: "error" as const, hollow: true },
+  { label: "due later today", tone: "info" as const, hollow: true },
   { label: "nothing due", tone: "neutral" as const, hollow: true },
+  { label: "releases behind", tone: "neutral" as const },
 ];
 
 function history(model: Model, now: Date): Section[] {
-  const behind = behindLane(model);
-  const span = spanText(model.stack.history.runs.smoke, "cell");
+  const environment = [heldLane(model, now), deployLane(model), behindLane(model)].filter(
+    (r): r is Row => r !== undefined,
+  );
   return [
-    keyGrid(`History · last ${HISTORY_DAYS} days`, HISTORY_KEY),
+    keyGrid(`History · ${spanText(model.stack.history.runs.smoke, "cell")}`, HISTORY_KEY),
+    ...(environment.length > 0
+      ? [{ kind: "rows" as const, title: "Environment", items: environment }]
+      : []),
     {
       kind: "rows",
-      title: `Greenfield · ${span}`,
-      items: [lane(model, "smoke", now)],
-    },
-    {
-      kind: "rows",
-      title: `Brownfield · ${span}`,
+      title: "Lifecycle",
       items: [
-        ...(behind ? [behind] : []),
         lane(model, "upgrade", now, "on bump"),
         lane(model, "refresh", now),
+        lane(model, "smoke", now),
       ],
     },
     housekeeping(model, now),
@@ -537,8 +697,10 @@ export function stackBoard(
   const live = inflightStat(model, now);
   const tiles: Stat[] = [
     runningStat(model, now),
-    proofStat(model, "smoke", now),
+    deployableStat(model, now),
+    forksStat(model, now),
     hurt ? blockedStat(model, now) : (live ?? proofStat(model, "refresh", now)),
+    proofStat(model, "smoke", now),
   ];
   const sections: Section[] = [{ kind: "stats", items: tiles }];
   const focus = stack.inflight ?? (hurt ? stack.attempts[stack.attempts.length - 1] : undefined);

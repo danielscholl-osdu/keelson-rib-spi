@@ -32,23 +32,25 @@ function marks(x: unknown, out: string[] = []): string[] {
 }
 
 describe("keys and spans", () => {
-  test("the Environment history opens with a key, and each lane group names its span", () => {
+  test("the Environment history opens with one key that names its span once", () => {
     const b = stackBoard(model, FIXTURE_NOW);
     expect(() => expectView(STACK_KEY, "board")(b)).not.toThrow();
-    const key = grid(b, "History · last 21 days");
+    const key = grid(b, "History · ");
+    expect(key.title).toBe("History · 09-22 to today, one cell per day");
     expect(key.cells.map((c) => [c.label, c.badge?.tone, c.badge?.text])).toEqual([
-      ["failed", "error", "■"],
-      ["cancelled, or releases behind", "warn", "■"],
+      ["passed", "ok", "■"],
+      ["failed or held", "error", "■"],
+      ["cancelled", "warn", "■"],
       ["running", "info", "■"],
       ["missed its slot", "error", "□"],
+      ["due later today", "info", "□"],
       ["nothing due", "neutral", "□"],
+      ["releases behind", "neutral", "■"],
     ]);
     const titles = b.sections.map((s) => ("title" in s ? s.title : undefined));
-    expect(titles).toContain("Greenfield · 09-22 to today, one cell per UTC day");
-    expect(titles).toContain("Brownfield · 09-22 to today, one cell per UTC day");
-    expect(titles.indexOf("History · last 21 days")).toBeLessThan(
-      titles.indexOf("Greenfield · 09-22 to today, one cell per UTC day"),
-    );
+    expect(titles.indexOf(key.title)).toBeLessThan(titles.indexOf("Environment"));
+    expect(titles.indexOf("Environment")).toBeLessThan(titles.indexOf("Lifecycle"));
+    expect(titles.filter((t) => t?.includes("one cell per day"))).toHaveLength(1);
   });
 
   test("the Services fleet block opens with its key and its span", () => {
@@ -56,7 +58,7 @@ describe("keys and spans", () => {
     expect(() => expectView(LINES_KEY, "board")(b)).not.toThrow();
     const key = grid(b, "Fleet · ");
     expect(key.title).toBe(
-      "Fleet · forks not caught up at day end · 09-22 to today, one column per UTC day",
+      "Fleet · forks not caught up at day end · 09-22 to today, one column per day",
     );
     expect(key.cells.map((c) => [c.label, c.badge?.tone])).toEqual([
       ["halted", "error"],
