@@ -159,8 +159,8 @@ map lives in `src/config.ts`.
 
 ## Tools and agent
 
-`spi_watchstand`, `spi_incidents`, `spi_line`, `spi_stack`, `spi_template` and
-`spi_prs` answer from the same sweep the boards render, so chat, workflows and
+`spi_brief`, `spi_watchstand`, `spi_incidents`, `spi_line`, `spi_stack`,
+`spi_template` and `spi_prs` answer from the same sweep the boards render, so chat, workflows and
 Keelson MCP clients get the same counts as the tab. The **SPI Watch Officer**
 agent answers from those tools.
 

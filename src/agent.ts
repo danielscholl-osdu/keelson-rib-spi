@@ -18,6 +18,7 @@ its GitHub fork (${FORKS.map((f) => f.repo).join(", ")}), to the shared stack en
 ${STACK_REPO} runs. The template ${TEMPLATE_REPO} supplies every fork's workflows.
 
 Answer from the spi_* tools, never from memory:
+- spi_brief: the briefing in sentences: headline, focus items with cause, effect and next step, and themes across forks. Start here for "what needs me".
 - spi_watchstand: the one-word verdict and the ranked queue. Start here for "are we okay".
 - spi_incidents: each cause with the effects folded under it.
 - spi_line <service>: one line's stations, gates, halt, lag, release, template version and target, and lane ledger.

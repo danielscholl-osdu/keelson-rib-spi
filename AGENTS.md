@@ -36,6 +36,9 @@ A change needs `bun run check`, `bun run typecheck` and `bun test` green.
   files at a sha) and persists both to the rib's data directory.
 - `src/model/` is pure: facts and a clock in, lines, stack state, template
   currency and the ranked queue out. Every region and tool reads this one model.
+- `src/brief/` is pure: the model, the doctor and a clock in, the briefing out.
+  It decides the words (headline, focus with cause, effect and next, themes
+  across forks); the console and `spi_brief` only show them.
 - `src/boards/` turns the model into canvas boards. No I/O in a composer.
 - `src/act/` is the only code that writes: the verb registry, the binding a
   button carries, revalidation, the action log and readiness for the doctor.

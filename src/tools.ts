@@ -10,6 +10,7 @@ import { type ToolDefinition, z } from "@keelson/shared";
 import { verdictLabel } from "./boards/attention.ts";
 import { doctorStatus } from "./boards/doctor.ts";
 import { nextSyncAt, radarBreaks } from "./boards/radar.ts";
+import { buildBriefing } from "./brief/index.ts";
 import { FORKS, REPOS, shortRepo } from "./config.ts";
 import { classifyPr, type PrClass, prFailures } from "./model/attribution.ts";
 import { prVerdict } from "./model/checks.ts";
@@ -128,6 +129,15 @@ function repoMatch(r: string, repo: string | undefined): boolean {
 export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
   const now = () => sweeper.now();
   return [
+    tool(
+      "spi_brief",
+      "The SPI briefing in sentences, the same words the tab's console shows: a headline naming at most two causes as imperatives, a summary, three facts (environment version, forks with sync stopped, template adoption), up to five focus items each with cause, effect, next step and verb, the ready line of PRs waiting on review, and themes that group one upstream cause (a halt entry, a Java move, ports owed, the template rollout, the Azure removal deadline) across every fork it reaches. Start here when asked what needs attention and why.",
+      z.object({}),
+      () => {
+        const t = now();
+        return buildBriefing(sweeper.model, doctorStatus(sweeper.facts, t), t);
+      },
+    ),
     tool(
       "spi_watchstand",
       "One-word SPI verdict (BLOCKED, ATTENTION, MOVING or CONVERGED) with the ranked needs-a-person queue behind it. Start here for 'is the SPI fleet healthy'. P0 broke unattended, P1 is a gate or decision, P2 is ready work. Each line's kind is broken (main red), halted (automation stopped, no PR open), blocked (an open PR fails on a real failure), stale, waiting (an update waits on review or the stack), unmeasured or current. doctor says whether the rib read every source (clear, partial, dark); when it did not, panels show each source's last good read.",

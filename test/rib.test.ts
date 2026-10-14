@@ -68,6 +68,7 @@ describe("binding", () => {
     const frames = await snapshots.composeAll();
     expect(frames.size).toBe(BOARD_KEYS.length + 2);
     expect(tools.map((t) => t.name).sort()).toEqual([
+      "spi_brief",
       "spi_incidents",
       "spi_issues",
       "spi_line",
