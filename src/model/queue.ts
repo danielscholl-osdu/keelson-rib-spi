@@ -1127,7 +1127,7 @@ function securityItems(repositories: ReposModel | undefined): QueueItem[] {
       kind: "security" as const,
       rung: 1 as const,
       scope: at.map((a) => a.repo.name).join(", "),
-      text: `${name} is critical in SPI code · ${plural(count, "alert")}, ${fixWord}`,
+      text: `Critical ${name} in SPI code · ${plural(count, "alert")}, ${fixWord}`,
       url: g.url,
       effects: at.map((a) => ({
         text: `${a.repo.name}: ${plural(a.g.count, "alert")} in ${a.g.where || "the repository"}, shipped`,

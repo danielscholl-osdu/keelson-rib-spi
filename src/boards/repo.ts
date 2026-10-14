@@ -45,6 +45,13 @@ function row(line: RepoLine, href?: string, trailing?: string): Row {
   };
 }
 
+// What the row says without opening: the fix, or the scanner for a code finding.
+function fixMark(g: AlertGroup): string {
+  if (g.source === "code") return g.tool ?? "code scanning";
+  const fix = g.fix ? `fix ${g.fix}` : "no fix";
+  return g.pr ? `${fix} · PR #${g.pr}` : fix;
+}
+
 // One alert opens on itself; a group opens GitHub's list filtered to it.
 export function groupUrl(r: RepoRow, g: AlertGroup): string {
   if (g.count === 1) return g.url;
@@ -67,7 +74,7 @@ function capped(title: string, items: Row[], more: string): Rows | undefined {
 
 function securityTab(r: RepoRow): Tab {
   const alerts = (keep: (g: AlertGroup) => boolean) =>
-    r.alerts.filter(keep).map((g) => row(alertLine(g), groupUrl(r, g)));
+    r.alerts.filter(keep).map((g) => row(alertLine(g), groupUrl(r, g), fixMark(g)));
   const overview = `${r.url}/security`;
   const sections = [
     capped(
