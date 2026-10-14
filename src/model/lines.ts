@@ -154,25 +154,6 @@ export function deliveryOf(run: RunFact | undefined, now: Date): Delivery {
   return { run, state: now.getTime() - Date.parse(run.createdAt) > STALE_MS ? "stale" : "ok" };
 }
 
-// Labels read "v1.2.0" on a tag and "v1.2.0 +14" past it.
-function pastTag(label: string | undefined): boolean {
-  return !!label && / \+\d+$/.test(label);
-}
-
-// Template main past its last tag reads as the release its open release PR will cut;
-// a commit past an older tag stays as it is.
-function asRelease(
-  label: string | undefined,
-  next: string | undefined,
-  atHead: boolean,
-  latest: string | undefined,
-) {
-  if (!pastTag(label)) return label;
-  if (latest && !label?.startsWith(`${latest} +`)) return label;
-  if (next) return next;
-  return atHead ? "main" : label;
-}
-
 export function parseHaltCode(issue: IssueFact, now: Date): Halt | undefined {
   if (!issue.halt) return undefined;
   const m = /^([A-Z][A-Z_]+):\s*(.*)$/.exec(issue.halt);
@@ -238,8 +219,6 @@ export function buildLine(input: {
   compares: Record<string, TemplateCompare>;
   targets: Record<string, string>;
   templateHead?: { sha: string; at: string };
-  templateNext?: string;
-  templateLatest?: string;
   dispatchedAt?: string;
   details: Record<string, JobDetail>;
   stack: StackModel;
@@ -253,8 +232,6 @@ export function buildLine(input: {
     compares,
     targets,
     templateHead,
-    templateNext,
-    templateLatest,
     dispatchedAt,
     details,
     stack,
@@ -420,7 +397,6 @@ export function buildLine(input: {
     pill = pillOf("current", "current");
   }
   const current = pill.kind === "current";
-  const atHead = !!marker && marker === templateHead?.sha;
   const history = repo?.pastPrs
     ? lineHistory({
         seeded: fork.seeded,
@@ -466,19 +442,9 @@ export function buildLine(input: {
     lane,
     template: {
       marker,
-      label: atHead
-        ? asRelease(compare?.label, templateNext, true, templateLatest)
-        : compare?.label,
+      label: compare?.label,
       behind: templateBehind,
-      target:
-        targetSha && targetSha !== marker
-          ? asRelease(
-              targets[targetSha],
-              templateNext,
-              targetSha === templateHead?.sha,
-              templateLatest,
-            )
-          : undefined,
+      target: targetSha && targetSha !== marker ? targets[targetSha] : undefined,
       awaitingRun,
     },
     autoMerge: repo?.autoMergeAllowed,

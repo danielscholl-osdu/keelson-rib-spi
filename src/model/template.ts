@@ -91,6 +91,8 @@ export interface TemplateModel {
   mainAhead?: number;
   releasePr?: PrFact;
   next?: string;
+  // Template main as git names it: the latest tag, or "v1.3.0 +6" past it.
+  headLabel: string;
   rows: TemplateRow[];
   current: number;
   waiting: number;
@@ -320,7 +322,13 @@ export function buildTemplate(
     .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
 
   const next = nextTag(templateRepo, latestTag);
-  const headLabel = facts?.mainAhead === 0 && latestTag ? latestTag : (next ?? "main");
+  const headLabel = !latestTag
+    ? "main"
+    : facts?.mainAhead === 0
+      ? latestTag
+      : facts?.mainAhead
+        ? `${latestTag} +${facts.mainAhead}`
+        : "main";
   const read = rows.filter((r) => r.label !== undefined);
   const fire = opts.now && opts.syncCrons ? nextFire(toCrons(opts.syncCrons), opts.now) : undefined;
   const merged = mergedSince(templateRepo);
@@ -331,6 +339,7 @@ export function buildTemplate(
     mainAhead: facts?.mainAhead,
     releasePr: templateReleasePr(templateRepo),
     next,
+    headLabel,
     rows,
     current: rows.filter((r) => r.behind === 0).length,
     waiting: rows.filter((r) => (r.behind ?? 0) > 0 && r.pr).length,

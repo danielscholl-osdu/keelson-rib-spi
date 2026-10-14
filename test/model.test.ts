@@ -126,7 +126,7 @@ describe("the fleet on 12 October", () => {
   test("template-sync PRs blocked only by the stack wait as one set", () => {
     const set = model.queue.items.find((i) => i.id === "template-set");
     expect(set?.rung).toBe(2);
-    expect(set?.text).toContain("5 template-sync PRs to v1.2.1");
+    expect(set?.text).toContain("5 template-sync PRs to v1.2.0 +14");
     expect(set?.text).toContain("once the stack is deployable");
   });
 
@@ -145,7 +145,7 @@ describe("the fleet on 12 October", () => {
     expect(lanes?.text).toBe("deployable again; 5 fork lanes failed before it recovered");
     expect(lanes?.note).toBe("re-run now");
     expect(items.find((i) => i.id === "template-set")?.text).toBe(
-      "5 template-sync PRs to v1.2.1 · mergeable together after the lane re-run · review required",
+      "5 template-sync PRs to v1.2.0 +14 · mergeable together after the lane re-run · review required",
     );
   });
 
@@ -178,7 +178,7 @@ describe("the fleet on 12 October", () => {
   test("the template ladder: one step per fork position, its changes read by what reaches a fork", () => {
     const steps = model.template.steps;
     expect(steps.map((s) => [s.label, s.head, s.adopted.length, s.changes.length])).toEqual([
-      ["v1.2.1", true, 0, 4],
+      ["v1.2.0 +14", true, 0, 4],
       ["v1.2.0 +2", false, 1, 1],
       ["v1.2.0", false, 5, 0],
     ]);
@@ -203,29 +203,29 @@ describe("the fleet on 12 October", () => {
     expect(consequenceOf(".github/workflows/dev-ci.yml", synced)).toBeNull();
   });
 
-  test("a template-sync PR to main past the tag names the release main will become", () => {
+  test("a template-sync PR to main past the tag names main as git does, not the release PR's version", () => {
     const template = (svc: string) => model.lines.find((l) => l.fork.id === svc)?.template;
     expect(model.template.next).toBe("v1.2.1");
     expect(template("partition")).toMatchObject({
       label: "v1.2.0",
-      target: "v1.2.1",
+      target: "v1.2.0 +14",
     });
     expect(template("schema")).toMatchObject({
       label: "v1.2.0 +2",
-      target: "v1.2.1",
+      target: "v1.2.0 +14",
     });
   });
 
-  test("with no release PR open, main past the tag reads as main", () => {
+  test("with no release PR open, main past the tag reads the same", () => {
     const f = fixtureFacts();
     const template = f.github.data?.repos["Azure/osdu-spi"];
     if (!template) throw new Error("fixture has the template");
     template.prs = template.prs.filter((p) => !p.head.startsWith("release-please--"));
     const line = buildModel(f, FIXTURE_NOW).lines.find((l) => l.fork.id === "partition");
-    expect(line?.template).toMatchObject({ label: "v1.2.0", target: "main" });
+    expect(line?.template).toMatchObject({ label: "v1.2.0", target: "v1.2.0 +14" });
   });
 
-  test("a fork already on main past the tag is on the release main will become", () => {
+  test("a fork already on main past the tag is on that commit, not on the release PR's version", () => {
     const f = fixtureFacts();
     const repo = f.github.data?.repos["Azure/osdu-spi-file"];
     const head = f.github.data?.repos["Azure/osdu-spi"]?.head?.sha;
@@ -235,7 +235,7 @@ describe("the fleet on 12 October", () => {
     repo.prs = repo.prs.filter((p) => !p.head.startsWith("template-sync/"));
     compares[head] = { marker: head, head, label: "v1.2.0 +14", aheadBy: 0, shas: [], changes: [] };
     const line = buildModel(f, FIXTURE_NOW).lines.find((l) => l.fork.id === "file");
-    expect(line?.template.label).toBe("v1.2.1");
+    expect(line?.template.label).toBe("v1.2.0 +14");
     expect(line?.pill.kind).toBe("current");
   });
 

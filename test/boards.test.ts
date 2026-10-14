@@ -217,8 +217,8 @@ describe("what the boards say", () => {
       typeof cell === "object" && cell !== null && "tone" in cell ? cell.tone : undefined;
     const row = (svc: string) => table.rows.find((r) => text(r.service) === svc);
     expect(table.rows.map((r) => text(r.service)).slice(0, 2)).toEqual(["entitlements", "legal"]);
-    expect(text(row("partition")?.template)).toBe("◷ v1.2.0 → v1.2.1 · #174");
-    expect(text(row("schema")?.template)).toBe("◷ v1.2.0 +2 → v1.2.1 · #37");
+    expect(text(row("partition")?.template)).toBe("◷ v1.2.0 → v1.2.0 +14 · #174");
+    expect(text(row("schema")?.template)).toBe("◷ v1.2.0 +2 → v1.2.0 +14 · #37");
     expect(row("partition")?.upstream).toEqual({ value: "●", tone: "ok" });
     expect(text(row("entitlements")?.upstream)).toBe("2 behind");
     expect(tone(row("entitlements")?.upstream)).toBe("warn");
@@ -300,7 +300,7 @@ describe("what the boards say", () => {
         : cell;
     const row = table.rows.find((r) => text(r.service) === "file");
     expect(row?.template).toMatchObject({ tone: "ok" });
-    expect(text(row?.template)).toBe("v1.2.1");
+    expect(text(row?.template)).toBe("v1.2.0 +14");
     expect(text(row?.release)).toStartWith("◷ v1.2.0 → v1.2.1 · #60 · ");
     const tiles = b.sections[0];
     if (tiles?.kind !== "stats") throw new Error("tiles first");

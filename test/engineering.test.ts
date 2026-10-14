@@ -5,7 +5,7 @@ import { inspectBoard } from "../src/boards/inspect";
 import type { Facts, PrFact } from "../src/facts";
 import { ENGINEERING_KEY, INSPECT_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
-import { FIXTURE_NOW, NEW_HEAD, releasedFacts as released } from "./harness";
+import { FIXTURE_NOW, fixtureFacts, NEW_HEAD, releasedFacts as released } from "./harness";
 
 function dependabotPr(repo: string, number: number): PrFact {
   return {
@@ -53,7 +53,7 @@ describe("the engineering system panel", () => {
     expect(b.sections.some((s) => s.kind === "rows" && s.title?.startsWith("Open on"))).toBe(false);
     expect(tiles.items[0]).toMatchObject({
       value: "v1.3.0",
-      delta: { text: "on 0 of 5 forks", tone: "info" },
+      delta: { text: "reached 0 of 5 forks", tone: "info" },
       sub: "released 21:00 · main is the release · 8 changes past v1.2.0 +2",
     });
     expect(tiles.items[1]?.clock?.mode).toBe("since");
@@ -277,5 +277,52 @@ describe("the engineering system panel", () => {
     expect(fold?.text ?? "").not.toContain("forks on");
     expect(rows).toHaveLength(5);
     expect(rows.filter((r) => text(r.pr) === "current")).toHaveLength(3);
+  });
+});
+
+describe("main past the latest tag with a release PR open", () => {
+  // Four forks on template main (v1.2.0 +14), file behind the tag with PR #51 to main,
+  // while the osdu-spi release PR for 1.2.1 is open.
+  function ahead() {
+    const f = fixtureFacts();
+    const repos = f.github.data?.repos;
+    const head = repos?.["Azure/osdu-spi"]?.head?.sha;
+    const compares = f.template.data?.compares;
+    if (!repos || !head || !compares) throw new Error("fixture has the template");
+    compares[head] = { marker: head, head, label: "v1.2.0 +14", aheadBy: 0, shas: [], changes: [] };
+    compares.old = { marker: "old", head, label: "v1.1.0 +3", aheadBy: 20, shas: [], changes: [] };
+    for (const svc of ["partition", "entitlements", "legal", "schema"]) {
+      const repo = repos[`Azure/osdu-spi-${svc}`];
+      if (!repo) throw new Error(`fixture has ${svc}`);
+      repo.marker = head;
+      repo.prs = repo.prs.filter((p) => !p.head.startsWith("template-sync/"));
+    }
+    const file = repos["Azure/osdu-spi-file"];
+    if (!file) throw new Error("fixture has file");
+    file.marker = "old";
+    return buildModel(f, FIXTURE_NOW);
+  }
+
+  test("every surface names main as v1.2.0 +14 and v1.2.1 only as the release PR's version", () => {
+    const m = ahead();
+    expect(m.template.next).toBe("v1.2.1");
+    const line = (svc: string) => m.lines.find((l) => l.fork.id === svc)?.template;
+    expect(line("partition")?.label).toBe("v1.2.0 +14");
+    expect(line("file")).toMatchObject({ label: "v1.1.0 +3", target: "v1.2.0 +14" });
+    expect(m.template.steps[0]?.label).toBe("v1.2.0 +14");
+    const b = engineeringBoard(m, FIXTURE_NOW);
+    expect(() => expectView(ENGINEERING_KEY, "board")(b)).not.toThrow();
+    expect(b.header?.status?.label).toStartWith("v1.2.0 +14 ON 4 OF 5");
+    const tiles = b.sections[0];
+    if (tiles?.kind !== "stats") throw new Error("tiles first");
+    const release = tiles.items[0];
+    expect(release).toMatchObject({
+      value: "v1.2.0",
+      delta: { text: "reached 4 of 5 forks", tone: "info" },
+    });
+    expect(release?.sub).toContain("4 forks on v1.2.0 +14");
+    expect(release?.sub).toMatch(/v1\.2\.1 in release PR #\d+/);
+    const said = JSON.stringify(b).replace(/v1\.2\.1 in release PR #\d+/g, "");
+    expect(said).not.toContain("v1.2.1");
   });
 });

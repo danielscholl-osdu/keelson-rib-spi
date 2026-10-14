@@ -65,8 +65,15 @@ function releaseStat(model: Model, now: Date): Stat {
     t.merged?.after && t.merged.n > 0
       ? `${plural(t.merged.n, "PR")} merged since${t.merged.dependabot ? `, ${t.merged.dependabot} from Dependabot` : ""}`
       : undefined;
+  const ahead = t.rows.filter((r) => r.label?.startsWith(`${tag} +`));
+  const aheadLabels = [...new Set(ahead.map((r) => r.label))];
+  const onAhead =
+    ahead.length > 0
+      ? `${plural(ahead.length, "fork")} on ${aheadLabels.length === 1 ? aheadLabels[0] : `commits past ${tag}`}`
+      : undefined;
   const sub = [
     t.release?.tag === tag ? `released ${stamp(t.release.at, now)}` : undefined,
+    onAhead,
     main,
     merged,
     next,
@@ -80,13 +87,13 @@ function releaseStat(model: Model, now: Date): Stat {
     delta:
       t.read < all
         ? {
-            text: `on ${t.onRelease} of ${all} forks, ${all - t.read} unread`,
+            text: `reached ${t.onRelease} of ${all} forks, ${all - t.read} unread`,
             direction: "flat",
             tone: "neutral",
           }
         : t.onRelease === all
-          ? { text: "on every fork", direction: "flat", tone: "ok" }
-          : { text: `on ${t.onRelease} of ${all} forks`, direction: "flat", tone: "info" },
+          ? { text: "reached every fork", direction: "flat", tone: "ok" }
+          : { text: `reached ${t.onRelease} of ${all} forks`, direction: "flat", tone: "info" },
     ...(sub ? { sub } : {}),
   };
 }
@@ -428,8 +435,10 @@ function status(model: Model): { label: string; tone: CanvasTone } {
       ((r.behind ?? 0) > 0 && !r.pr && !r.awaitingRun && !r.syncing),
   ).length;
   const all = t.rows.length;
+  // Name main past the tag only when every fork that reached the tag sits on main.
+  const on = t.onRelease > 0 && t.current === t.onRelease ? t.headLabel : tag;
   const parts = [
-    t.onRelease === all ? `${tag} ON EVERY FORK` : `${tag} ON ${t.onRelease} OF ${all}`,
+    t.onRelease === all ? `${on} ON EVERY FORK` : `${on} ON ${t.onRelease} OF ${all}`,
     failing ? `${failing} FAILING` : undefined,
     halted ? `${halted} HALTED` : undefined,
   ].filter(Boolean);

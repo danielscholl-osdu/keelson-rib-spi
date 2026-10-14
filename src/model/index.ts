@@ -12,7 +12,7 @@ import { buildGates, type Gates } from "./gates.ts";
 import { buildLine, type LineModel } from "./lines.ts";
 import { buildQueue, type Queue } from "./queue.ts";
 import { buildStack, type StackModel } from "./stack.ts";
-import { buildTemplate, nextTag, type TemplateModel } from "./template.ts";
+import { buildTemplate, type TemplateModel } from "./template.ts";
 import { buildWork, type WorkModel } from "./work.ts";
 
 export interface Model {
@@ -41,10 +41,6 @@ export function buildModel(
   const details = facts.details.data ?? {};
   const stack = buildStack(repos[STACK_REPO], facts.lifecycle.data, now);
   const templateRepo = repos[TEMPLATE_REPO];
-  const templateNext = nextTag(
-    templateRepo,
-    facts.template.data?.latestTag ?? templateRepo?.release?.tag,
-  );
   const lines = FORKS.map((fork) =>
     buildLine({
       fork,
@@ -54,8 +50,6 @@ export function buildModel(
       compares: facts.template.data?.compares ?? {},
       targets: facts.template.data?.targets ?? {},
       templateHead: templateRepo?.head,
-      templateNext,
-      templateLatest: facts.template.data?.latestTag ?? templateRepo?.release?.tag,
       dispatchedAt: opts.dispatched?.[fork.repo],
       details,
       stack,
