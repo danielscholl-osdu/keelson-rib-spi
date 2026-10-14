@@ -5,9 +5,17 @@ import { PANEL_SOURCES, staleText } from "../src/boards/doctor";
 import { engineeringBoard } from "../src/boards/engineering";
 import { inspectBoard } from "../src/boards/inspect";
 import { linesBoard } from "../src/boards/lines";
+import { radarBoard } from "../src/boards/radar";
 import { stackBoard } from "../src/boards/stack";
 import { emptyFacts } from "../src/facts";
-import { ATTENTION_KEY, ENGINEERING_KEY, LINES_KEY, STACK_KEY } from "../src/keys";
+import {
+  ATTENTION_KEY,
+  ENGINEERING_KEY,
+  INSPECT_KEY,
+  LINES_KEY,
+  RADAR_KEY,
+  STACK_KEY,
+} from "../src/keys";
 import { buildModel } from "../src/model/index";
 import { buildTemplate } from "../src/model/template";
 import { FIXTURE_NOW, fixtureFacts } from "./harness";
@@ -221,7 +229,7 @@ describe("what the boards say", () => {
     expect(text(row("schema")?.template)).toBe("◷ v1.2.0 +2 → v1.2.0 +14 · #37");
     expect(row("partition")?.upstream).toEqual({ value: "●", tone: "ok" });
     expect(text(row("entitlements")?.upstream)).toBe(
-      "2 behind · held by the halt · will halt on schemathesis-tests",
+      "2 behind · held by the halt · schemathesis-tests",
     );
     expect(tone(row("entitlements")?.upstream)).toBe("warn");
     expect(text(row("entitlements")?.sync)).toBe("✕ halted · 4d");
@@ -545,5 +553,148 @@ describe("a template release the forks have not taken yet", () => {
       "v1.3.0 is out; these PRs carry the template before it",
     );
     expect(model.lines.map((l) => l.template.target).filter(Boolean)).not.toContain("v1.3.0");
+  });
+});
+
+describe("the upstream panel", () => {
+  // Just after the radar frame in the fixture was read.
+  const AT = new Date("2026-10-13T23:30:00Z");
+  const gate = expectView(RADAR_KEY, "board");
+
+  function board(edit?: (f: ReturnType<typeof fixtureFacts>) => void) {
+    const f = fixtureFacts();
+    edit?.(f);
+    const b = radarBoard(buildModel(f, FIXTURE_NOW), AT, { readAt: "2026-10-13T23:20:48Z" });
+    expect(() => gate(b)).not.toThrow();
+    return b;
+  }
+
+  const plain = (v: unknown) =>
+    typeof v === "object" && v !== null && "value" in v
+      ? String((v as { value: unknown }).value).replaceAll(" ", " ")
+      : v;
+
+  test("the pill counts forks whose next sync breaks, and the tiles name them", () => {
+    const b = board();
+    expect(b.header?.status).toEqual({ label: "2 WILL BREAK", tone: "warn" });
+    const tiles = b.sections[0];
+    if (tiles?.kind !== "stats") throw new Error("tiles first");
+    expect(tiles.items.map((i) => i.label)).toEqual([
+      "Next sync",
+      "Will break",
+      "M28 · Azure removal",
+    ]);
+    expect(tiles.items[0]).toMatchObject({
+      clock: { at: "2026-10-14T00:00:00.000Z", mode: "until" },
+      sub: "entitlements halts on schemathesis-tests · legal carries Java 25",
+    });
+    expect(tiles.items[1]).toMatchObject({ value: "5", sub: "partition !830 · legal !756" });
+    expect(tiles.items[2]).toMatchObject({ value: "31 d", sub: "stages land in R4" });
+  });
+
+  test("one row per fork with something queued or at risk, with its certain verdict", () => {
+    const table = board().sections[1];
+    if (table?.kind !== "table") throw new Error("next-sync table second");
+    expect(
+      table.rows.map((r) => [plain(r.fork), plain(r.queued), plain(r.next), plain(r.mrs)]),
+    ).toEqual([
+      ["partition", "none", "clean", "7 · 1 would break"],
+      ["entitlements", "2 commits", "will halt on schemathesis-tests", "6"],
+      ["legal", "4 commits", "Java 25 queued", "8 · 2 would break"],
+      ["schema", "none", "clean", "5 · 1 would break"],
+      ["file", "none", "clean", "4 · 1 would break"],
+    ]);
+    expect(table.rows[1]?.filter).toMatchObject({
+      href: "https://github.com/Azure/osdu-spi-entitlements/blob/main/.github/upstream-filter.yml",
+    });
+  });
+
+  test("clean forks and unread forks fold to one line each; unread never reads clean", () => {
+    const b = board((f) => {
+      const radar = f.radar.data;
+      const partition = radar?.services.partition;
+      if (!radar || !partition) throw new Error("fixture has partition");
+      partition.mrs = [];
+      delete radar.filters.file;
+    });
+    expect(b.header?.status?.label).toBe("2 WILL BREAK · 1 UNREAD");
+    const folds = b.sections.find(
+      (s) => s.kind === "rows" && !s.title && s.items.some((i) => i.text.includes("clean")),
+    );
+    if (folds?.kind !== "rows") throw new Error("folds");
+    expect(folds.items.map((i) => i.text)).toEqual([
+      "1 fork clean · partition",
+      "1 fork unread · file",
+    ]);
+  });
+
+  test("the breaks list names each MR that would break a fork and opens its inspector", () => {
+    const list = board().sections.find((s) => s.kind === "rows" && s.title?.startsWith("Open MRs"));
+    if (list?.kind !== "rows") throw new Error("breaks list");
+    expect(list.title).toBe("Open MRs that would break a fork · 7");
+    expect(list.items.map((i) => [i.chip?.label, i.text])).toEqual([
+      ["partition", "!830 Partition - migration to java 25 · Java 25, os-core-common 9.2.0"],
+      ["legal", "!756 Schemathesis issues fix · UNKNOWN_TOP_LEVEL: schemathesis-tests"],
+      ["legal", "!756 Schemathesis issues fix · os-core-common 9.3.0"],
+      [
+        "legal",
+        "!785 docs: update automated compliance checklists · UNKNOWN_TOP_LEVEL: .osdu, CHARTER.md, CONTRIBUTING.md, DEVELOPMENT_PROC…",
+      ],
+      ["schema", "!867 Schema - migration to java 25 · Java 25, os-core-common 9.2.0"],
+      ["file", "!752 Schemathesis fix · UNKNOWN_TOP_LEVEL: schemathesis-tests"],
+      ["file", "!752 Schemathesis fix · os-core-common 8.4.0"],
+    ]);
+    expect(list.items[1]?.trailing).toStartWith(
+      "also in partition, entitlements, schema and file · ",
+    );
+    expect(list.items[1]?.action).toEqual({ type: "inspect", payload: { id: "mr:legal:756" } });
+  });
+
+  test("a draft is marked and counted apart; past twelve the list links the rest", () => {
+    const b = board((f) => {
+      const partition = f.radar.data?.services.partition;
+      const java = partition?.mrs.find((m) => m.iid === 830);
+      if (!partition || !java) throw new Error("fixture has partition !830");
+      partition.mrs.push({ ...java, iid: 900, draft: true, title: "Draft: Java 25 again" });
+      for (let i = 0; i < 8; i++) partition.mrs.push({ ...java, iid: 1000 + i });
+    });
+    const tiles = b.sections[0];
+    if (tiles?.kind !== "stats") throw new Error("tiles first");
+    expect(tiles.items[1]).toMatchObject({
+      value: "13",
+      sub: "partition !830 · partition !1000 · +1 draft",
+    });
+    const list = b.sections.find((s) => s.kind === "rows" && s.title?.startsWith("Open MRs"));
+    if (list?.kind !== "rows") throw new Error("breaks list");
+    expect(list.items).toHaveLength(13);
+    expect(list.items.at(-1)).toMatchObject({
+      text: "and 4 more",
+      href: "https://community.opengroup.org/osdu/platform/security-and-compliance/legal/-/merge_requests",
+    });
+    expect(list.items.some((i) => i.text.includes("· draft ·"))).toBe(true);
+  });
+
+  test("a breaks row opens an inspector with the MR, its paths by bucket and the forks it reaches", () => {
+    const m = buildModel(fixtureFacts(), FIXTURE_NOW);
+    const b = inspectBoard(m, { selected: "mr:legal:756" }, AT);
+    expect(() => expectView(INSPECT_KEY, "board")(b)).not.toThrow();
+    expect(b.header?.status).toEqual({ label: "HALT", tone: "warn" });
+    const titles = b.sections.flatMap((s) => (s.kind === "rows" && s.title ? [s.title] : []));
+    expect(titles).toEqual([
+      "Halt · 5 paths",
+      "Toolchain · 1 path",
+      "Shared · 53 paths",
+      "Filtered · 5 paths",
+      "Forks it reaches",
+      "Evidence",
+    ]);
+    const reach = b.sections.find((s) => s.kind === "rows" && s.title === "Forks it reaches");
+    if (reach?.kind !== "rows") throw new Error("reach");
+    expect(reach.items.map((i) => i.text)).toEqual([
+      "legal",
+      "partition, entitlements, schema and file",
+    ]);
+    const gone = inspectBoard(m, { selected: "mr:legal:1" }, AT);
+    expect(gone.header?.status?.label).toBe("CLOSED");
   });
 });

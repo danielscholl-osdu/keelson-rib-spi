@@ -12,6 +12,7 @@ import {
   BADGE_KEY,
   ENGINEERING_KEY,
   LINES_KEY,
+  RADAR_KEY,
   STACK_KEY,
   SURFACE_ID,
 } from "./keys.ts";
@@ -57,6 +58,17 @@ export const SURFACES: readonly RibSurfaceDescriptor[] = [
               title: "Engineering system",
               byline: "osdu-spi · the workflows, actions and images every fork runs",
               glyph: { char: "⚙", tone: "brand" },
+              live: true,
+            },
+          ],
+        },
+        {
+          columns: [
+            {
+              key: RADAR_KEY,
+              title: "Upstream",
+              byline: "what the next Sync Upstream carries, per fork, read from GitLab",
+              glyph: { char: "⇣", tone: "info" },
               live: true,
             },
           ],

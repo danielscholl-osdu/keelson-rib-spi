@@ -35,7 +35,14 @@ export interface Verdict {
   map?: FilterMap;
   // "Java 25", "os-core-common 9.2.0"
   value?: string;
-  mr?: { iid: number; title: string; draft: boolean; url: string };
+  mr?: {
+    iid: number;
+    title: string;
+    draft: boolean;
+    url: string;
+    createdAt: string;
+    updatedAt: string;
+  };
   commit?: { sha: string; title: string; url: string };
   // Other forks whose filters lack this entry too.
   elsewhere?: string[];
@@ -246,7 +253,14 @@ export function predict(
     filter,
     service.mrs.map((m) => ({
       diff: m,
-      mr: { iid: m.iid, title: m.title, draft: m.draft, url: m.url },
+      mr: {
+        iid: m.iid,
+        title: m.title,
+        draft: m.draft,
+        url: m.url,
+        createdAt: m.createdAt,
+        updatedAt: m.updatedAt,
+      },
     })),
   );
   return {
@@ -267,7 +281,7 @@ export function predictAll(radar: RadarFacts | undefined): Record<string, Predic
   for (const fork of FORKS) {
     const p = predict(radar.services[fork.id], radar.filters[fork.id]);
     if (!p) continue;
-    for (const v of p.certain) {
+    for (const v of [...p.certain, ...p.possible]) {
       if (v.bucket !== "Halt" || !v.map || !v.entry) continue;
       const map = v.map;
       const entry = v.entry;

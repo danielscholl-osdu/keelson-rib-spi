@@ -140,6 +140,7 @@ export const PANEL_SOURCES = {
   stack: ["github", "lifecycle"],
   engineering: ["github", "runs", "template"],
   lines: ["github", "runs", "upstream", "template"],
+  radar: ["github", "upstream", "radar"],
 } as const satisfies Record<string, readonly AreaName[]>;
 
 // "⚠ GitHub unread since 13:41" when a panel's latest read of a source failed.

@@ -38,6 +38,7 @@ import { PANEL_SOURCES, staleText } from "./boards/doctor.ts";
 import { engineeringBoard, STEP_PREFIX } from "./boards/engineering.ts";
 import { type InspectState, inspectBoard, inspectTitle, stepTitle } from "./boards/inspect.ts";
 import { linesBoard } from "./boards/lines.ts";
+import { MR_PREFIX, mrTitle, radarBoard } from "./boards/radar.ts";
 import { stackBoard } from "./boards/stack.ts";
 import { checkable, entryAcrossForks, type ForkEntry } from "./collect/filters.ts";
 import { FORKS, INFLIGHT_POLL_MS, SWEEP_MS } from "./config.ts";
@@ -49,6 +50,7 @@ import {
   ENGINEERING_KEY,
   INSPECT_KEY,
   LINES_KEY,
+  RADAR_KEY,
   RIB_ID,
   STACK_KEY,
 } from "./keys.ts";
@@ -83,6 +85,12 @@ const COMPOSERS: Record<(typeof VIEW_KEYS)[number], Composer> = {
       stale: staleText(s.facts, PANEL_SOURCES.engineering, now),
       scopes: s.facts.auth.data?.gh.scopes,
       last: actionLog.lastFor(ROLLOUT_ITEM),
+    }),
+  [RADAR_KEY]: (s, now) =>
+    radarBoard(s.model, now, {
+      selected: inspect.selected,
+      stale: staleText(s.facts, PANEL_SOURCES.radar, now),
+      readAt: s.facts.radar.at,
     }),
   [LINES_KEY]: (s, now) =>
     linesBoard(s.model, now, { stale: staleText(s.facts, PANEL_SOURCES.lines, now) }),
@@ -333,6 +341,7 @@ const rib: Rib = {
       }
       snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
       snapshots?.recompose(ENGINEERING_KEY).catch(() => undefined);
+      snapshots?.recompose(RADAR_KEY).catch(() => undefined);
       return result;
     }
     if (action.type === WAIT_ACTION) {
@@ -343,13 +352,14 @@ const rib: Rib = {
       if (typeof id !== "string" || !id) {
         return { ok: false, error: "inspect payload must be { id: string }" };
       }
-      if (id.startsWith(STEP_PREFIX)) {
-        const title = stepTitle(s.model, id);
-        if (!title) return { ok: false, error: "that ladder step has moved; the board redraws" };
+      if (id.startsWith(STEP_PREFIX) || id.startsWith(MR_PREFIX)) {
+        const title = id.startsWith(MR_PREFIX) ? mrTitle(s.model, id) : stepTitle(s.model, id);
+        if (!title) return { ok: false, error: `${id} has moved; the board redraws` };
         inspect = { selected: id };
         await snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
         snapshots?.recompose(ATTENTION_KEY).catch(() => undefined);
         snapshots?.recompose(ENGINEERING_KEY).catch(() => undefined);
+        snapshots?.recompose(RADAR_KEY).catch(() => undefined);
         return {
           ok: true,
           data: {
@@ -374,6 +384,7 @@ const rib: Rib = {
       await snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
       snapshots?.recompose(ATTENTION_KEY).catch(() => undefined);
       snapshots?.recompose(ENGINEERING_KEY).catch(() => undefined);
+      snapshots?.recompose(RADAR_KEY).catch(() => undefined);
       if (read) readOthers(item);
       return {
         ok: true,

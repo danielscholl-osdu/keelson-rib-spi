@@ -75,12 +75,17 @@ function starved(line: LineModel): boolean {
   return !!line.halt || prRed(line.syncPr);
 }
 
+// The Upstream panel carries the full verdict; the table keeps the entry or value alone.
+function shortVerdict(text: string): string {
+  return text.replace(" · will halt on ", " · ").replace(/ queued$/, "");
+}
+
 function upstreamCell(line: LineModel): Cell {
   const lag = line.upstream?.lag;
   if (lag === undefined) return "?";
   if (lag === 0) return CLEAR;
   const text = line.stations.find((s) => s.id === "upstream")?.text ?? `${lag} behind`;
-  return station(text, starved(line) ? "warn" : "info");
+  return station(shortVerdict(text), starved(line) ? "warn" : "info");
 }
 
 function syncCell(line: LineModel, now: Date): Cell {

@@ -18,6 +18,7 @@ import { diffText, type ItemKind, type QueueItem, type Rung } from "../model/que
 import { age, plural, stamp, zoned } from "../util.ts";
 import { STEP_PREFIX, spreadText } from "./engineering.ts";
 import { names } from "./fold.ts";
+import { MR_PREFIX, mrBoard } from "./radar.ts";
 
 type Section = CanvasBoardView["sections"][number];
 type Row = Extract<Section, { kind: "rows" }>["items"][number];
@@ -296,6 +297,7 @@ export function inspectBoard(
   opts: InspectOptions = {},
 ): CanvasBoardView {
   if (state.selected?.startsWith(STEP_PREFIX)) return stepBoard(model, state.selected, now);
+  if (state.selected?.startsWith(MR_PREFIX)) return mrBoard(model, state.selected, now);
   const live = state.selected ? model.queue.items.find((i) => i.id === state.selected) : undefined;
   const item = live ?? state.item;
   if (!item) {

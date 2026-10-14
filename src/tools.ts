@@ -9,6 +9,7 @@
 import { type ToolDefinition, z } from "@keelson/shared";
 import { verdictLabel } from "./boards/attention.ts";
 import { doctorStatus } from "./boards/doctor.ts";
+import { nextSyncAt, radarBreaks } from "./boards/radar.ts";
 import { FORKS, REPOS, shortRepo } from "./config.ts";
 import { classifyPr, type PrClass, prFailures } from "./model/attribution.ts";
 import { prVerdict } from "./model/checks.ts";
@@ -449,6 +450,33 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
         return sweeper.model.measured
           ? { issues, ...(unread.length ? { unread } : {}) }
           : notMeasured(sweeper.model);
+      },
+    ),
+    tool(
+      "spi_radar",
+      "The upstream radar: per fork, what the next daily Sync Upstream (00:00 UTC) does with the commits already queued upstream and what each open GitLab MR would do if merged, classified with the fork's own .github/upstream-filter.yml as Halt (with the engine's code and the filter map and entry), Toolchain (Java or os-core-common moves), Port, Interface, Shared or Filtered; the fork's state; and the open MRs that would break a fork. A queued commit is certain, an open MR is possible; drafts are marked.",
+      z.object({}),
+      () => {
+        const m = sweeper.model;
+        return (
+          notMeasured(m) ?? {
+            nextSyncAt: nextSyncAt(now()),
+            services: Object.fromEntries(
+              Object.entries(m.radar.services).map(([svc, r]) => [
+                svc,
+                {
+                  state: r.state,
+                  queued: r.queued,
+                  mrs: r.mrs,
+                  certain: r.certain,
+                  possible: r.possible,
+                  filterSha: r.filterSha,
+                },
+              ]),
+            ),
+            breaks: radarBreaks(m),
+          }
+        );
       },
     ),
   ];

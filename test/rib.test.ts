@@ -72,6 +72,7 @@ describe("binding", () => {
       "spi_issues",
       "spi_line",
       "spi_prs",
+      "spi_radar",
       "spi_stack",
       "spi_template",
       "spi_watchstand",
