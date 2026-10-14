@@ -79,7 +79,8 @@ function upstreamCell(line: LineModel): Cell {
   const lag = line.upstream?.lag;
   if (lag === undefined) return "?";
   if (lag === 0) return CLEAR;
-  return station(`${lag} behind`, starved(line) ? "warn" : "info");
+  const text = line.stations.find((s) => s.id === "upstream")?.text ?? `${lag} behind`;
+  return station(text, starved(line) ? "warn" : "info");
 }
 
 function syncCell(line: LineModel, now: Date): Cell {

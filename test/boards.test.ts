@@ -220,7 +220,9 @@ describe("what the boards say", () => {
     expect(text(row("partition")?.template)).toBe("◷ v1.2.0 → v1.2.0 +14 · #174");
     expect(text(row("schema")?.template)).toBe("◷ v1.2.0 +2 → v1.2.0 +14 · #37");
     expect(row("partition")?.upstream).toEqual({ value: "●", tone: "ok" });
-    expect(text(row("entitlements")?.upstream)).toBe("2 behind");
+    expect(text(row("entitlements")?.upstream)).toBe(
+      "2 behind · held by the halt · will halt on schemathesis-tests",
+    );
     expect(tone(row("entitlements")?.upstream)).toBe("warn");
     expect(text(row("entitlements")?.sync)).toBe("✕ halted · 4d");
     expect(tone(row("entitlements")?.sync)).toBe("error");
