@@ -23,9 +23,10 @@ import {
   readRunJobs,
   readTemplateRuns,
 } from "./collect/runs.ts";
+import { readSecurity } from "./collect/security.ts";
 import { readTemplate, type TemplateState } from "./collect/template.ts";
 import { readUpstream, type UpstreamCompares } from "./collect/upstream.ts";
-import { FORKS, GITLAB_EVERY_MS, type LifecycleKind, REPOS } from "./config.ts";
+import { FORKS, GITLAB_EVERY_MS, type LifecycleKind, REPOS, SECURITY_EVERY_MS } from "./config.ts";
 import {
   AREAS,
   type AreaName,
@@ -322,6 +323,10 @@ export class Sweeper {
       await this.area("radar", () =>
         readRadar(gh, glab, this.facts.upstream.data ?? {}, this.cache.radar),
       );
+    }
+    const alertsAt = this.facts.security.at ? Date.parse(this.facts.security.at) : 0;
+    if (force || !this.facts.security.data || started.getTime() - alertsAt >= SECURITY_EVERY_MS) {
+      await this.area("security", () => readSecurity(gh, this.facts.security.data));
     }
     this.facts.sweep = {
       at: started.toISOString(),

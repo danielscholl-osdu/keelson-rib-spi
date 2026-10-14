@@ -31,6 +31,7 @@ const AREA_LABEL: Record<AreaName, string> = {
   radar: "GitLab MRs, queued diffs and fork filters",
   template: "template compares",
   auth: "sign-in probes",
+  security: "Dependabot and code-scanning alerts",
 };
 
 const MARK: Record<Health, string> = { ok: "✓", warn: "!", error: "✕", neutral: "·" };
@@ -40,6 +41,20 @@ interface Check {
   label: string;
   value: string;
   problem?: string;
+}
+
+// Lists GitHub hides from this token draw as unread, never as zero.
+function alertsNote(facts: Facts): string {
+  const repos = Object.values(facts.security.data ?? {});
+  if (repos.length === 0) return "";
+  const hidden = (n: number, what: string) => (n > 0 ? `${what} hidden on ${n}` : undefined);
+  return [
+    hidden(repos.filter((r) => !r.dependabot).length, "Dependabot"),
+    hidden(repos.filter((r) => !r.code).length, "code scanning"),
+    "secret scanning not read",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function checks(facts: Facts, now: Date): Check[] {
@@ -71,10 +86,11 @@ function checks(facts: Facts, now: Date): Check[] {
       const m = facts[a];
       const read = m.at ? `read ${stamp(m.at, now)}` : "not read yet";
       const failed = m.error ? `failed ${stamp(m.errorAt, now)}: ${clip(m.error, 140)}` : "";
+      const note = a === "security" ? alertsNote(facts) : "";
       return {
         health: m.error ? (m.at ? "warn" : "error") : m.at ? "ok" : "neutral",
         label: AREA_LABEL[a],
-        value: failed ? `${read} · ${failed}` : read,
+        value: [read, note, failed].filter(Boolean).join(" · "),
         ...(m.error ? { problem: `${AREA_LABEL[a]} ${failed}` } : {}),
       };
     }),

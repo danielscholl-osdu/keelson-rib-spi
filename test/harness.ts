@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CanvasBoardView, RibContext, RibExec, SnapshotManager } from "@keelson/shared";
-import type { Facts, TemplateChange } from "../src/facts";
+import { emptyFacts, type Facts, type TemplateChange } from "../src/facts";
 import fixture from "./fixtures/facts.json";
 
 type Composer = () => Promise<unknown>;
@@ -41,7 +41,7 @@ delete process.env.KEELSON_RIB_APPROVAL_GRANTS;
 export const FIXTURE_NOW = new Date("2026-10-12T21:58:30Z");
 
 export function fixtureFacts(): Facts {
-  return structuredClone(fixture) as unknown as Facts;
+  return { ...emptyFacts(), ...(structuredClone(fixture) as unknown as Partial<Facts>) };
 }
 
 export const NEW_HEAD = "c0de000000000000000000000000000000000130";

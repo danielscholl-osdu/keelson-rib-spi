@@ -46,6 +46,19 @@ export class Gh {
     return res.data;
   }
 
+  // Every page of a list, as the values a jq filter emits one per line.
+  async pages<T>(path: string, jq: string): Promise<T[]> {
+    this.counter.calls++;
+    const res = await this.exec.runText("gh", ["api", "--paginate", path, "--jq", jq], {
+      timeoutMs: 90_000,
+    });
+    if (!res.ok) throw new ForgeError(`gh api ${path}: ${res.error}`, res.code);
+    return res.data
+      .split("\n")
+      .filter((l) => l.trim())
+      .map((l) => JSON.parse(l) as T);
+  }
+
   async text(path: string): Promise<string> {
     this.counter.calls++;
     const res = await this.exec.runText("gh", ["api", "--allow-escape-sequences", path], {

@@ -169,4 +169,5 @@ export const HISTORY_DAYS = 21;
 
 export const SWEEP_MS = 5 * 60_000;
 export const GITLAB_EVERY_MS = 30 * 60_000;
+export const SECURITY_EVERY_MS = 30 * 60_000;
 export const INFLIGHT_POLL_MS = 15_000;

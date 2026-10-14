@@ -337,6 +337,43 @@ export interface RadarFacts {
   portRead?: { prs: number; commits: number };
 }
 
+export type Severity = "critical" | "high" | "medium" | "low";
+
+export interface DependencyAlertFact {
+  number: number;
+  severity: Severity;
+  package: string;
+  ecosystem: string;
+  manifest: string;
+  scope?: "runtime" | "development";
+  // The first patched version; undefined while no fix is published.
+  fixed?: string;
+  advisory: string;
+  cve?: string;
+  summary: string;
+  url: string;
+  createdAt: string;
+}
+
+export interface CodeAlertFact {
+  number: number;
+  // Undefined for a rule that carries no security severity.
+  severity?: Severity;
+  ruleSeverity?: string;
+  rule: string;
+  description: string;
+  tool: string;
+  path?: string;
+  url: string;
+  createdAt: string;
+}
+
+// A list is undefined when the repository does not show it to this token.
+export interface RepoAlerts {
+  dependabot?: DependencyAlertFact[];
+  code?: CodeAlertFact[];
+}
+
 export interface Facts {
   github: Measured<GithubFacts>;
   runs: Measured<Record<string, ForkRuns>>;
@@ -347,6 +384,7 @@ export interface Facts {
   radar: Measured<RadarFacts>;
   template: Measured<TemplateFacts>;
   auth: Measured<AuthFacts>;
+  security: Measured<Record<string, RepoAlerts>>;
   sweep?: { at: string; ms: number; calls: number; errors: number };
 }
 
@@ -360,6 +398,7 @@ export const AREAS = [
   "radar",
   "template",
   "auth",
+  "security",
 ] as const;
 export type AreaName = (typeof AREAS)[number];
 
@@ -374,5 +413,6 @@ export function emptyFacts(): Facts {
     radar: {},
     template: {},
     auth: {},
+    security: {},
   };
 }
