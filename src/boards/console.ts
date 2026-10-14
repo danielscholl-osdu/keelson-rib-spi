@@ -7,7 +7,17 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import { designTokenCssBlock } from "@keelson/shared";
-import type { BriefFact, Briefing, FocusItem, ReadyLine, Theme, Tone } from "../brief/index.ts";
+import type {
+  BriefFact,
+  Briefing,
+  Flow,
+  FlowCell,
+  FlowRow,
+  FocusItem,
+  ReadyLine,
+  Theme,
+  Tone,
+} from "../brief/index.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
 import { zoned } from "../util.ts";
 
@@ -108,6 +118,74 @@ function horizonHtml(b: Briefing): string {
 ${b.themes.length > 0 ? `<div class="split"><div class="focus">${rows}</div><div class="pane">${details}</div></div>` : ""}`;
 }
 
+function cellKey(row: FlowRow, c: FlowCell): string {
+  return `${row.fork}:${c.id}`;
+}
+
+function flowCell(row: FlowRow, c: FlowCell, selected: boolean): string {
+  return `<td><button type="button" class="cell s-${c.state}${selected ? " on" : ""}" data-cell="${esc(cellKey(row, c))}" aria-pressed="${selected}">${esc(c.text)}</button></td>`;
+}
+
+function cellDetail(f: Flow, row: FlowRow, c: FlowCell, i: number, selected: boolean): string {
+  const items = row.items.map((t) => `<li>${esc(t)}</li>`).join("");
+  return `<section class="detail" data-cell-detail="${esc(cellKey(row, c))}"${selected ? "" : " hidden"}>
+<p class="eyebrow">${esc(row.fork)} · ${esc(f.columns[i] ?? c.id)}</p>
+<h3 class="${TONE_CLASS[c.tone]}">${esc(c.full ?? c.text)}</h3>
+${items ? `<p class="dl">In the queue</p><ul class="items">${items}</ul>` : `<p class="dl">In the queue</p><p>Nothing for ${esc(row.fork)}.</p>`}
+${row.inspect ? `<button type="button" class="open" data-inspect="${esc(row.inspect)}">Open in inspector</button>` : ""}
+</section>`;
+}
+
+// The first stopped cell of the first fork, else its first cell that is not quiet.
+function firstCell(f: Flow): string | undefined {
+  const row = f.rows[0];
+  if (!row) return undefined;
+  const c =
+    row.cells.find((x) => x.state === "stopped") ??
+    row.cells.find((x) => x.state === "waiting") ??
+    row.cells[0];
+  return c ? cellKey(row, c) : undefined;
+}
+
+function flowHtml(b: Briefing): string {
+  const f = b.flow;
+  const env = f.environment;
+  const envBand = env.inspect
+    ? `<button type="button" class="envband ${TONE_CLASS[env.tone]}" data-inspect="${esc(env.inspect)}">${esc(env.text)}</button>`
+    : `<div class="envband ${TONE_CLASS[env.tone]}">${esc(env.text)}</div>`;
+  const first = firstCell(f);
+  const span = f.columns.length;
+  const head = `<thead><tr><th>Fork</th>${f.columns.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead>`;
+  const rows = f.rows
+    .map(
+      (r) =>
+        `<tr><th scope="row">${esc(r.fork)}</th>${r.cells.map((c) => flowCell(r, c, cellKey(r, c) === first)).join("")}</tr>`,
+    )
+    .join("");
+  const bands = f.bands
+    .map((band) => {
+      const text = band.inspect
+        ? `<button type="button" class="link" data-inspect="${esc(band.inspect)}">${esc(band.text)}</button>`
+        : esc(band.text);
+      return `<tr class="band ${TONE_CLASS[band.tone]}"><th scope="row">${esc(band.column)}</th><td colspan="${Math.max(span, 1)}">${text}</td></tr>`;
+    })
+    .join("");
+  const matrix =
+    rows || bands
+      ? `<div class="matrix"><table class="flow">${head}<tbody>${rows}${bands}</tbody></table></div>`
+      : "";
+  const fold = f.fold
+    ? `<p class="fold"><span class="k">${f.fold.forks.length} quiet</span> ${f.fold.forks.map(esc).join(", ")} <span class="ss">${esc(f.fold.text)}</span></p>`
+    : "";
+  const details = f.rows
+    .flatMap((r) => r.cells.map((c, i) => cellDetail(f, r, c, i, cellKey(r, c) === first)))
+    .join("");
+  return `<h2>${esc(f.headline)}</h2>
+${envBand}
+${matrix}${fold}
+${details ? `<div class="pane cells">${details}</div>` : ""}`;
+}
+
 function tab(view: string, label: string, on: boolean): string {
   return `<button type="button" role="tab" class="tab${on ? " on" : ""}" data-view="${view}" aria-selected="${on}">${label}</button>`;
 }
@@ -157,6 +235,27 @@ h2 { margin: 0 0 4px; font-size: 21px; line-height: 1.25; font-weight: 600; colo
 .detail p { margin: 2px 0 0; font-size: 13.5px; }
 .detail .ev { font-family: var(--mono); font-size: 12px; color: var(--muted); }
 .open { margin-top: 12px; font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--accent); color: var(--accent); background: none; cursor: pointer; }
+.envband { display: block; box-sizing: border-box; width: 100%; text-align: left; font: inherit; font-family: var(--mono); font-size: 12.5px; color: var(--fg-strong); padding: 7px 12px; margin: 10px 0 0; background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 6px; }
+button.envband { cursor: pointer; }
+.envband.t-bad { border-left-color: var(--crit); } .envband.t-warn { border-left-color: var(--warn); } .envband.t-ok { border-left-color: var(--good); }
+.matrix { overflow-x: auto; margin-top: 10px; }
+.flow { width: 100%; border-collapse: collapse; font-size: 13px; }
+.flow th { text-align: left; font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 4px 8px 4px 0; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.flow tbody th { text-transform: none; letter-spacing: 0; font-size: 12.5px; color: var(--fg-strong); }
+.flow td { padding: 3px 6px 3px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+.cell { display: block; width: 100%; min-width: 9ch; text-align: left; font: inherit; font-size: 12.5px; padding: 5px 8px; border: 1px solid transparent; border-left: 3px solid transparent; border-radius: 6px; background: none; color: var(--muted); cursor: pointer; }
+.cell:hover { background: var(--card-2); }
+.cell.on { background: var(--card); border-color: var(--accent); }
+.cell.s-stopped { color: var(--crit); border-left-color: var(--crit); font-weight: 600; }
+.cell.s-waiting { color: var(--warn); border-left-color: var(--warn); }
+.band td { color: var(--muted); font-size: 12.5px; padding: 6px 0; }
+.band.t-bad td { color: var(--crit); } .band.t-warn td { color: var(--warn); }
+.band .link { color: inherit; }
+.fold { margin: 8px 0 0; padding: 8px 10px; border: 1px dashed var(--border); border-radius: 6px; font-size: 13px; color: var(--fg); }
+.fold .k { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
+.cells { margin-top: 12px; }
+.detail h3.t-bad { color: var(--crit); } .detail h3.t-warn { color: var(--warn); }
+.items { margin: 2px 0 0; padding-left: 18px; font-size: 13.5px; }
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (max-width: 720px) {
   .split, .facts { grid-template-columns: minmax(0, 1fr); }
@@ -188,6 +287,7 @@ const SCRIPT = `(function () {
     ["view", "data-view", "data-view-pane", "aria-selected"],
     ["sel", "data-sel", "data-detail", "aria-pressed"],
     ["theme", "data-theme-sel", "data-theme-detail", "aria-pressed"],
+    ["cell", "data-cell", "data-cell-detail", "aria-pressed"],
   ];
   var state = {};
   KINDS.forEach(function (c) { state[c[0]] = current(c[1]); });
@@ -199,7 +299,7 @@ const SCRIPT = `(function () {
     });
   });
   document.addEventListener("click", function (e) {
-    var t = e.target && e.target.closest ? e.target.closest("[data-view],[data-sel],[data-theme-sel],[data-inspect]") : null;
+    var t = e.target && e.target.closest ? e.target.closest("[data-view],[data-sel],[data-theme-sel],[data-cell],[data-inspect]") : null;
     if (!t) return;
     for (var i = 0; i < KINDS.length; i++) {
       var c = KINDS[i];
@@ -207,7 +307,7 @@ const SCRIPT = `(function () {
       if (id === null) continue;
       if (show(c[1], c[2], id, c[3])) {
         state[c[0]] = id;
-        if (k.saveState) k.saveState({ view: state.view, sel: state.sel, theme: state.theme });
+        if (k.saveState) k.saveState({ view: state.view, sel: state.sel, theme: state.theme, cell: state.cell });
       }
       return;
     }
@@ -237,8 +337,9 @@ ${b.summary ? `<p class="summary">${esc(b.summary)}</p>` : ""}
 ${b.facts.length > 0 ? todayHtml(b) : ""}`;
   const views =
     b.facts.length > 0
-      ? `<div class="tabs" role="tablist">${tab("today", "Today", true)}${tab("horizon", "Horizon", false)}</div>
+      ? `<div class="tabs" role="tablist">${tab("today", "Today", true)}${tab("flow", "Flow", false)}${tab("horizon", "Horizon", false)}</div>
 <div data-view-pane="today">${today}</div>
+<div data-view-pane="flow" hidden>${flowHtml(b)}</div>
 <div data-view-pane="horizon" hidden>${horizonHtml(b)}</div>`
       : today;
   return `<style>${designTokenCssBlock()}${STYLE}</style>

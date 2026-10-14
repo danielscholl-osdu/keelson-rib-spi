@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { doctorStatus } from "../src/boards/doctor";
 import { buildBriefing, type DoctorView } from "../src/brief/index";
 import { buildModel, type Model } from "../src/model/index";
+import type { StationState } from "../src/model/lines";
 import type { QueueItem } from "../src/model/queue";
 import { FIXTURE_NOW, fixtureFacts } from "./harness";
 
@@ -304,5 +305,186 @@ describe("wording", () => {
     expect(buildBriefing(withQueue([bump]), CLEAR, FIXTURE_NOW).ready[0]?.text).toBe(
       "env bump to v0.28.6 is open",
     );
+  });
+});
+
+describe("the flow", () => {
+  const facts = fixtureFacts();
+  const flow = buildBriefing(fixtureModel(), doctorStatus(facts, FIXTURE_NOW), FIXTURE_NOW).flow;
+
+  // Every fork current, every station idle, the environment deployable.
+  function quiet(): Model {
+    const m = withQueue([]);
+    m.stack.deployable = { state: "yes", reason: "maintenance clear" };
+    m.stack.inflight = undefined;
+    for (const l of m.lines) {
+      l.stations = [
+        { id: "upstream", state: "idle", text: "0 behind" },
+        { id: "sync", state: "idle", text: "clean" },
+        { id: "cascade", state: "idle", text: "idle" },
+        { id: "main", state: "idle", text: "idle" },
+        { id: "release", state: "idle", text: "v1.2.0" },
+        { id: "lane", state: "idle", text: "last run ok" },
+      ];
+      const svc = m.radar.services[l.fork.id];
+      if (svc) svc.state = "clean";
+    }
+    return m;
+  }
+
+  function set(m: Model, fork: string, id: string, state: StationState, text: string): void {
+    const s = m.lines.find((l) => l.fork.id === fork)?.stations.find((x) => x.id === id);
+    if (s) Object.assign(s, { state, text });
+  }
+
+  const flowOf = (m: Model) => buildBriefing(m, CLEAR, FIXTURE_NOW).flow;
+
+  test("the recorded sweep stops at Sync for the halted and the red fork", () => {
+    expect(flow.headline).toBe("Change stops at Sync for entitlements and legal.");
+    expect(flow.rows.map((r) => r.fork)).toEqual(["entitlements", "legal"]);
+    expect(flow.rows.map((r) => r.inspect)).toEqual(["halt:entitlements", "gate1:legal"]);
+    expect(flow.rows[0]?.items[0]).toBe("Sync halted on schemathesis-tests");
+  });
+
+  test("the environment is one row, toned like its fact, opening the stack incident", () => {
+    expect(flow.environment).toEqual({
+      text: "Environment v0.28.0 · upgrade running · at verify · declares v0.28.2",
+      tone: "warn",
+      inspect: "stack:38181620856",
+    });
+  });
+
+  test("columns every fork agrees on band once and leave the matrix", () => {
+    expect(flow.bands.map((b) => [b.column, b.text])).toEqual([
+      ["Cascade", "idle in every fork"],
+      ["Main", "idle in every fork"],
+      ["Lane", "blocked by the stack in every fork"],
+    ]);
+    expect(flow.columns).toEqual(["Upstream", "Sync", "Release", "Template"]);
+    for (const r of flow.rows)
+      expect(r.cells.map((c) => c.id)).toEqual(["upstream", "sync", "release", "template"]);
+  });
+
+  test("a long station text shortens in the cell and keeps the whole in full", () => {
+    const up = flow.rows[0]?.cells[0];
+    expect(up).toMatchObject({
+      state: "waiting",
+      tone: "warn",
+      text: "2 behind · held by the halt",
+    });
+    expect(up?.full).toBe("2 behind · held by the halt · will halt on schemathesis-tests");
+    expect(flow.rows[0]?.cells[1]).toMatchObject({ state: "stopped", tone: "bad" });
+  });
+
+  test("a held stack stopping every lane does not show a fork; the rest fold", () => {
+    expect(flow.fold).toEqual({
+      forks: ["partition", "schema", "file"],
+      text: "upstream current, sync clean, main idle",
+    });
+  });
+
+  test("every inspect id is a queue item", () => {
+    const ids = new Set(fixtureModel().queue.items.map((i) => i.id));
+    const all = [
+      flow.environment.inspect,
+      ...flow.rows.map((r) => r.inspect),
+      ...flow.bands.map((b) => b.inspect),
+    ].filter((id): id is string => !!id);
+    for (const id of all) expect(ids.has(id)).toBe(true);
+  });
+
+  test("a quiet fleet folds every fork and says change is flowing", () => {
+    const f = flowOf(quiet());
+    expect(f.headline).toBe("Change is flowing from upstream to the environment.");
+    expect(f.rows).toEqual([]);
+    expect(f.fold?.forks).toHaveLength(5);
+    expect(f.fold?.text).toBe("upstream current, sync clean, main idle");
+    expect(f.environment).toMatchObject({
+      text: "Environment v0.28.0 · deployable · declares v0.28.2",
+      tone: "ok",
+    });
+  });
+
+  test("a fork with no lane run yet folds; a failed lane run shows", () => {
+    const m = quiet();
+    set(m, "partition", "lane", "unknown", "no run yet");
+    set(m, "schema", "lane", "unknown", "no run yet");
+    set(m, "legal", "lane", "waiting", "last run failed");
+    const f = flowOf(m);
+    expect(f.rows.map((r) => r.fork)).toEqual(["legal"]);
+    expect(f.fold?.forks).toEqual(["partition", "entitlements", "schema", "file"]);
+    expect(f.fold?.text).toBe("upstream current, sync clean, main idle · 2 with no lane run yet");
+    expect(f.rows[0]?.cells.find((c) => c.id === "lane")).toMatchObject({
+      state: "waiting",
+      text: "last run failed",
+    });
+  });
+
+  test("a radar state that will stop the fork shows it though every station is idle", () => {
+    const m = quiet();
+    const svc = m.radar.services.file;
+    if (svc) svc.state = "will-halt";
+    expect(flowOf(m).rows.map((r) => r.fork)).toEqual(["file"]);
+  });
+
+  test("a release band forms only when every fork has a release PR waiting", () => {
+    const m = quiet();
+    m.queue.items = [RELEASES];
+    for (const l of m.lines) set(m, l.fork.id, "release", "waiting", "gate 3 · PR #9");
+    expect(flowOf(m).bands.find((b) => b.column === "Release")).toEqual({
+      column: "Release",
+      text: "a release PR waits in every fork",
+      tone: "warn",
+      inspect: "releases",
+    });
+    set(m, "file", "release", "idle", "v1.2.0");
+    const f = flowOf(m);
+    expect(f.bands.some((b) => b.column === "Release")).toBe(false);
+    expect(f.columns).toContain("Release");
+  });
+
+  test("a template band names the one move every fork's PR makes", () => {
+    const m = quiet();
+    for (const r of m.template.rows) r.label = "v1.2.0";
+    const band = flowOf(m).bands.find((b) => b.column === "Template");
+    expect(band?.text).toBe("v1.2.0 → v1.2.0 +14 · a sync PR waits in every fork");
+    const row = m.template.rows.find((r) => r.service === "schema");
+    if (row) row.label = "v1.2.0 +2";
+    const f = flowOf(m);
+    expect(f.bands.some((b) => b.column === "Template")).toBe(false);
+    expect(f.columns).toContain("Template");
+  });
+
+  test("the headline groups stopped forks by their first stopped station", () => {
+    const m = quiet();
+    set(m, "entitlements", "sync", "stopped", "halted: UNKNOWN_TOP_LEVEL");
+    set(m, "file", "sync", "stopped", "PR #9 red");
+    set(m, "legal", "main", "stopped", "main red");
+    set(m, "legal", "lane", "waiting", "last run failed");
+    expect(flowOf(m).headline).toBe(
+      "Change stops at Sync for entitlements and file and at Main for legal.",
+    );
+  });
+
+  test("a fork queued to stop is named with the sync time unless it already stopped", () => {
+    const m = quiet();
+    set(m, "entitlements", "sync", "stopped", "halted: UNKNOWN_TOP_LEVEL");
+    set(m, "partition", "upstream", "waiting", "2 behind · Java 25 queued");
+    const svc = m.radar.services;
+    if (svc.partition) svc.partition.state = "toolchain-queued";
+    if (svc.entitlements) svc.entitlements.state = "will-halt";
+    expect(flowOf(m).headline).toBe(
+      "Change stops at Sync for entitlements. Partition is queued to stop at 00:00.",
+    );
+  });
+
+  test("a held environment with no fork stopped stops change at the environment", () => {
+    const m = quiet();
+    m.stack.deployable = { state: "no", reason: "The environment is in maintenance." };
+    for (const l of m.lines) set(m, l.fork.id, "lane", "stopped", "blocked by the stack");
+    const f = flowOf(m);
+    expect(f.headline).toBe("Change stops at the environment.");
+    expect(f.rows).toEqual([]);
+    expect(f.bands.find((b) => b.column === "Lane")).toMatchObject({ tone: "bad" });
   });
 });

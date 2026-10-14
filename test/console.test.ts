@@ -53,11 +53,86 @@ describe("the console frame", () => {
     expect(out).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
   });
 
-  test("a tab strip switches between Today, the default, and Horizon", () => {
-    expect(html).toContain('data-view="today" aria-selected="true"');
-    expect(html).toContain('data-view="horizon" aria-selected="false"');
+  test("a tab strip switches between Today, the default, Flow and Horizon", () => {
+    const tabs = [...html.matchAll(/data-view="([^"]+)" aria-selected="([^"]+)"/g)];
+    expect(tabs.map((m) => [m[1], m[2]])).toEqual([
+      ["today", "true"],
+      ["flow", "false"],
+      ["horizon", "false"],
+    ]);
+    expect(html).toContain('<div data-view-pane="flow" hidden>');
     expect(html).toContain('<div data-view-pane="horizon" hidden>');
-    expect(html).toContain("saveState({ view: state.view, sel: state.sel, theme: state.theme })");
+    expect(html).toContain(
+      "saveState({ view: state.view, sel: state.sel, theme: state.theme, cell: state.cell })",
+    );
+  });
+
+  describe("the Flow view", () => {
+    const flow = html.slice(
+      html.indexOf('data-view-pane="flow"'),
+      html.indexOf('data-view-pane="horizon"'),
+    );
+
+    test("leads with the flow headline and the environment row once", () => {
+      expect(flow).toContain(`<h2>${b.flow.headline}</h2>`);
+      expect(flow.split(b.flow.environment.text)).toHaveLength(2);
+    });
+
+    test("a banded column renders once, as a band, and never as a matrix column", () => {
+      const head = flow.slice(flow.indexOf("<thead>"), flow.indexOf("</thead>"));
+      expect(b.flow.bands.length).toBeGreaterThan(0);
+      for (const band of b.flow.bands) {
+        expect(head).not.toContain(`<th>${band.column}</th>`);
+        const row = `<th scope="row">${band.column}</th><td colspan="${b.flow.columns.length}">${band.text}</td>`;
+        expect(flow.split(row)).toHaveLength(2);
+      }
+      for (const r of b.flow.rows) {
+        for (const band of b.flow.bands) {
+          expect(flow).not.toContain(`data-cell="${r.fork}:${band.column.toLowerCase()}"`);
+        }
+      }
+    });
+
+    test("every inspector button opens a queue item", () => {
+      const queue = new Set(buildModel(fixtureFacts(), FIXTURE_NOW).queue.items.map((i) => i.id));
+      const ids = [...flow.matchAll(/data-inspect="([^"]+)"/g)].map((m) => m[1]);
+      expect(ids.length).toBeGreaterThan(0);
+      for (const id of ids) expect(queue.has(id as string)).toBe(true);
+    });
+
+    test("the fold row names every folded fork", () => {
+      const fold = flow.slice(flow.indexOf('class="fold"'));
+      for (const fork of b.flow.fold?.forks ?? []) expect(fold).toContain(fork);
+      expect(fold).toContain(b.flow.fold?.text ?? "?");
+    });
+
+    test("every shown cell selects a detail, the first stopped one by default", () => {
+      for (const r of b.flow.rows) {
+        for (const c of r.cells) {
+          expect(flow).toContain(`data-cell="${r.fork}:${c.id}"`);
+          expect(flow).toContain(`data-cell-detail="${r.fork}:${c.id}"`);
+        }
+      }
+      const shown = [...flow.matchAll(/data-cell-detail="([^"]+)"(?! hidden)>/g)].map((m) => m[1]);
+      expect(shown).toEqual(["entitlements:sync"]);
+    });
+
+    test("flow text from the forges is escaped", () => {
+      const row = b.flow.rows[0]!;
+      const evil: Briefing = {
+        ...b,
+        flow: {
+          ...b.flow,
+          rows: [{ ...row, fork: '"><i>', items: ["<b>x</b>"] }],
+          fold: { forks: ["<s>"], text: "&" },
+        },
+      };
+      const out = consoleHtml(evil, FIXTURE_NOW);
+      expect(out).not.toContain('"><i>');
+      expect(out).not.toContain("<b>x</b>");
+      expect(out).not.toContain("<s>");
+      expect(out).toContain("&lt;b&gt;x&lt;/b&gt;");
+    });
   });
 
   describe("the Horizon view", () => {

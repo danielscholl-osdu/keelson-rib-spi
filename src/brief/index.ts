@@ -82,6 +82,43 @@ export interface DoctorView {
   problems: string[];
 }
 
+export type FlowState = "stopped" | "waiting" | "quiet" | "unknown";
+
+export interface FlowCell {
+  id: string;
+  state: FlowState;
+  text: string;
+  tone: Tone;
+  // The station text in full, when the cell shortens it.
+  full?: string;
+}
+
+export interface FlowRow {
+  fork: string;
+  // One per column in Flow.columns, in the same order.
+  cells: FlowCell[];
+  inspect?: string;
+  items: string[];
+}
+
+// A column every fork agrees on, said once instead of per row.
+export interface FlowBand {
+  column: string;
+  text: string;
+  tone: Tone;
+  inspect?: string;
+}
+
+export interface Flow {
+  headline: string;
+  environment: { text: string; tone: Tone; inspect?: string };
+  // The columns the matrix draws; banded columns are left out.
+  columns: string[];
+  rows: FlowRow[];
+  bands: FlowBand[];
+  fold?: { forks: string[]; text: string };
+}
+
 export interface Briefing {
   sweptAt?: string;
   nextSyncAt?: string;
@@ -95,6 +132,7 @@ export interface Briefing {
   ready: ReadyLine[];
   themes: Theme[];
   horizon: { headline: string };
+  flow: Flow;
 }
 
 const FOCUS_MAX = 5;
@@ -862,6 +900,221 @@ function horizonOf(themes: readonly Theme[], next: string | undefined): string {
   return parts.length > 0 ? parts.join(" ") : "Nothing new reaches the forks at the next sync.";
 }
 
+const FLOW_COLUMNS: [string, string][] = [
+  ["upstream", "Upstream"],
+  ["sync", "Sync"],
+  ["cascade", "Cascade"],
+  ["main", "Main"],
+  ["release", "Release"],
+  ["lane", "Lane"],
+  ["template", "Template"],
+];
+const FLOW_MOVING = new Set(["upstream", "sync", "cascade", "main"]);
+const FLOW_RADAR = new Set(["halted", "toolchain-blocked", "will-halt", "toolchain-queued"]);
+const FLOW_QUEUED = new Set(["will-halt", "toolchain-queued"]);
+const CELL_SEGMENTS = 2;
+
+function cellOf(id: string, state: string, text: string): FlowCell {
+  const parts = text.split(" · ");
+  const short = parts.length > CELL_SEGMENTS ? parts.slice(0, CELL_SEGMENTS).join(" · ") : text;
+  const cell: FlowCell =
+    state === "stopped"
+      ? { id, state: "stopped", text: short, tone: "bad" }
+      : state === "waiting" || state === "moving"
+        ? { id, state: "waiting", text: short, tone: "warn" }
+        : state === "idle"
+          ? { id, state: "quiet", text: short, tone: "neutral" }
+          : { id, state: "unknown", text: short, tone: "neutral" };
+  return short === text ? cell : { ...cell, full: text };
+}
+
+function templateCell(model: Model, fork: string): FlowCell {
+  const row = model.template.rows.find((r) => r.service === fork);
+  if (!row || (!row.label && !row.pr)) return cellOf("template", "unknown", "unmeasured");
+  if (row.delivery.state === "failed") return cellOf("template", "stopped", "Sync Template failed");
+  // ENV and POLICY reds are the stack's or a reviewer's, as the line's own pill reads them.
+  const red = row.failures.some((f) => !f.hidden && f.cls !== "ENV" && f.cls !== "POLICY");
+  if (row.pr && row.verdict === "red" && red) {
+    return cellOf("template", "stopped", `PR #${row.pr.number} red`);
+  }
+  if (row.pr) {
+    const move = row.label && row.target ? `${row.label} → ${row.target}` : `PR #${row.pr.number}`;
+    return cellOf("template", "waiting", move);
+  }
+  if (row.behind && !row.awaitingRun) {
+    return cellOf("template", "stopped", `${row.behind} behind · no PR`);
+  }
+  if (row.awaitingRun) return cellOf("template", "waiting", "awaits Sync Template");
+  return cellOf("template", "idle", row.label ?? "current");
+}
+
+function forkCells(model: Model, line: LineModel): FlowCell[] {
+  return FLOW_COLUMNS.map(([id]) => {
+    if (id === "template") return templateCell(model, line.fork.id);
+    const s = line.stations.find((st) => st.id === id);
+    return s ? cellOf(id, s.state, s.text) : cellOf(id, "unknown", "unread");
+  });
+}
+
+// A held stack stops every lane; the environment row says that once.
+function laneHeld(model: Model, cell: FlowCell): boolean {
+  return cell.id === "lane" && cell.state === "stopped" && model.stack.deployable.state === "no";
+}
+
+function forkStops(model: Model, cells: readonly FlowCell[]): FlowCell | undefined {
+  return cells.find((c) => c.state === "stopped" && !laneHeld(model, c));
+}
+
+function shows(model: Model, fork: string, cells: readonly FlowCell[]): boolean {
+  const radar = model.radar.services[fork]?.state;
+  if (radar && FLOW_RADAR.has(radar)) return true;
+  return cells.some((c) => {
+    if (FLOW_MOVING.has(c.id)) return c.state !== "quiet";
+    if (c.id === "lane")
+      return c.state === "waiting" || (c.state === "stopped" && !laneHeld(model, c));
+    return c.id === "template" && c.state === "stopped";
+  });
+}
+
+function bandOf(model: Model, index: number, all: readonly FlowCell[][]): FlowBand | undefined {
+  const [id, column] = FLOW_COLUMNS[index] as [string, string];
+  const cells = all.map((c) => c[index] as FlowCell);
+  const first = cells[0];
+  if (!first || cells.length < 2 || cells.some((c) => c.state !== first.state)) return undefined;
+  const queued = (kind: string) => model.queue.items.find((i) => i.kind === kind)?.id;
+  const band = (text: string, inspect?: string): FlowBand => ({
+    column,
+    text,
+    tone: first.tone,
+    ...(inspect ? { inspect } : {}),
+  });
+  if (id === "template" && first.state === "waiting") {
+    const rows = model.lines.map((l) => model.template.rows.find((r) => r.service === l.fork.id));
+    const head = rows[0];
+    const same = rows.every(
+      (r) => r?.pr && r.label && r.label === head?.label && r.target && r.target === head?.target,
+    );
+    return same && head
+      ? band(
+          `${head.label} → ${head.target} · a sync PR waits in every fork`,
+          queued("template-set"),
+        )
+      : undefined;
+  }
+  if (id === "release" && first.state === "waiting") {
+    return band("a release PR waits in every fork", queued("releases"));
+  }
+  const full = (c: FlowCell) => c.full ?? c.text;
+  return cells.every((c) => full(c) === full(first))
+    ? band(`${full(first)} in every fork`)
+    : undefined;
+}
+
+function foldText(folded: readonly LineModel[], banded: ReadonlySet<string>): string {
+  const all = (id: string, state: string) =>
+    folded.every((l) => l.stations.find((s) => s.id === id)?.state === state);
+  const parts = [
+    all("upstream", "idle") ? "upstream current" : undefined,
+    all("sync", "idle") ? "sync clean" : undefined,
+    all("main", "idle") ? "main idle" : undefined,
+  ].filter((p): p is string => !!p);
+  const head = parts.length > 0 ? parts.join(", ") : "nothing stopped or waiting";
+  const unrun = banded.has("Lane")
+    ? 0
+    : folded.filter((l) => l.stations.find((s) => s.id === "lane")?.state === "unknown").length;
+  if (unrun === 0) return head;
+  return `${head} · ${unrun === folded.length ? "no lane run yet" : `${unrun} with no lane run yet`}`;
+}
+
+function flowEnvironment(model: Model, env: BriefFact | undefined): Flow["environment"] {
+  const inspect = model.queue.items.find((i) => i.kind === "stack" || i.kind === "maintenance")?.id;
+  const sub =
+    env?.sub
+      .split(" · ")
+      .filter((p) => !p.startsWith("green at"))
+      .join(" · ") ?? "deployability unread";
+  return {
+    text: `Environment ${env?.figure ?? "?"} · ${sub}`,
+    tone: env?.tone ?? "neutral",
+    ...(inspect ? { inspect } : {}),
+  };
+}
+
+function flowHeadline(
+  model: Model,
+  stopped: Map<string, string[]>,
+  queued: readonly string[],
+  next: string | undefined,
+): string {
+  const parts: string[] = [];
+  const groups = FLOW_COLUMNS.filter(([id]) => stopped.has(id)).map(
+    ([id, label]) => `at ${label} for ${list(stopped.get(id) ?? [])}`,
+  );
+  if (groups.length > 0) parts.push(`Change stops ${list(groups)}.`);
+  else if (model.stack.deployable.state === "no") parts.push("Change stops at the environment.");
+  if (queued.length > 0) {
+    parts.push(
+      sentence(
+        `${list(queued)} ${queued.length === 1 ? "is" : "are"} queued to stop ${next ? `at ${next}` : "at the next sync"}`,
+      ),
+    );
+  }
+  return parts.length > 0 ? parts.join(" ") : "Change is flowing from upstream to the environment.";
+}
+
+function flowOf(
+  model: Model,
+  facts: readonly BriefFact[],
+  stuck: readonly QueueItem[],
+  next: string | undefined,
+  now: Date,
+): Flow {
+  const all = model.lines.map((l) => forkCells(model, l));
+  const bands = FLOW_COLUMNS.map((_, i) => bandOf(model, i, all));
+  const banded = new Set(bands.filter((b): b is FlowBand => !!b).map((b) => b.column));
+  const keep = <T>(xs: readonly T[]) => xs.filter((_, i) => !bands[i]);
+  const stopped = new Map<string, string[]>();
+  const queued: string[] = [];
+  const shown: { row: FlowRow; stop: number }[] = [];
+  const folded: LineModel[] = [];
+  model.lines.forEach((line, i) => {
+    const fork = line.fork.id;
+    const cells = all[i] ?? [];
+    const stop = forkStops(model, cells);
+    if (stop) stopped.set(stop.id, [...(stopped.get(stop.id) ?? []), fork]);
+    else if (FLOW_QUEUED.has(model.radar.services[fork]?.state ?? "")) queued.push(fork);
+    if (!shows(model, fork, cells)) {
+      folded.push(line);
+      return;
+    }
+    const items = model.queue.items
+      .filter((q) => q.scope === fork)
+      .sort((a, b) => rank(a) - rank(b));
+    const lead = items[0];
+    shown.push({
+      row: {
+        fork,
+        cells: keep(cells),
+        ...(lead ? { inspect: lead.id } : {}),
+        items: items.slice(0, 3).map((q) => describe(model, q, stuck, next, now).title),
+      },
+      stop: stop ? 0 : 1,
+    });
+  });
+  const fold =
+    folded.length > 0
+      ? { forks: folded.map((l) => l.fork.id), text: foldText(folded, banded) }
+      : undefined;
+  return {
+    headline: flowHeadline(model, stopped, queued, next),
+    environment: flowEnvironment(model, facts[0]),
+    columns: keep(FLOW_COLUMNS.map(([, label]) => label)),
+    rows: shown.sort((a, b) => a.stop - b.stop).map((s) => s.row),
+    bands: bands.filter((b): b is FlowBand => !!b),
+    ...(fold ? { fold } : {}),
+  };
+}
+
 // Pure: the same model, doctor and clock always write the same briefing.
 export function buildBriefing(model: Model, doctor: DoctorView, now: Date): Briefing {
   const nextIso = syncAt(now);
@@ -882,6 +1135,13 @@ export function buildBriefing(model: Model, doctor: DoctorView, now: Date): Brie
       ready: [],
       themes: [],
       horizon: { headline },
+      flow: {
+        headline,
+        environment: { text: "Environment ?", tone: "neutral" },
+        columns: [],
+        rows: [],
+        bands: [],
+      },
     };
   }
   const focusable = model.queue.items.filter((i) => i.rung <= 1);
@@ -889,6 +1149,8 @@ export function buildBriefing(model: Model, doctor: DoctorView, now: Date): Brie
   const readyCount = ready.reduce((n, r) => n + r.count, 0);
   const focus = focusOf(model, focusable, next, now);
   const themes = themesOf(model, now, next);
+  const facts = factsOf(model, now);
+  const stuck = model.queue.items.filter((i) => i.incident).sort((a, b) => rank(a) - rank(b));
   const headline =
     doctor.state === "dark"
       ? `${sentence(problemText(doctor) || "GitHub cannot be read")} Figures are from the last good read.`
@@ -897,11 +1159,12 @@ export function buildBriefing(model: Model, doctor: DoctorView, now: Date): Brie
     ...base,
     headline,
     summary: summaryOf(model, focusable, readyCount, doctor, now),
-    facts: factsOf(model, now),
+    facts,
     focus: focus.slice(0, FOCUS_MAX),
     more: Math.max(0, focus.length - FOCUS_MAX),
     ready,
     themes,
     horizon: { headline: horizonOf(themes, next) },
+    flow: flowOf(model, facts, stuck, next, now),
   };
 }
