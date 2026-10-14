@@ -23,6 +23,7 @@ import type {
 } from "../brief/index.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
 import { span, stamp, zoned } from "../util.ts";
+import { DOCTOR_ID } from "./doctor.ts";
 
 // A console past this size means the briefing stopped folding.
 export const CONSOLE_MAX_BYTES = 256_000;
@@ -81,11 +82,11 @@ function todayHtml(b: Briefing): string {
   const first = b.focus[0]?.id;
   const rows = b.focus.map((f) => focusRow(f, f.id === first)).join("");
   const more =
-    b.more > 0
-      ? `<p class="more">${b.more} more in the queue; the panels below list them.</p>`
+    b.rest.length > 0
+      ? `<details class="more"><summary>${b.rest.length} more in the queue</summary>${b.rest.map((f) => focusRow(f, false)).join("")}</details>`
       : "";
   const list = `<div class="focus">${rows}${more}${readyHtml(b.ready)}</div>`;
-  const details = b.focus.map((f) => detail(f, f.id === first)).join("");
+  const details = [...b.focus, ...b.rest].map((f) => detail(f, f.id === first)).join("");
   return `<div class="facts">${b.facts.map(factHtml).join("")}</div>
 ${b.focus.length > 0 ? `<div class="split">${list}<div class="pane">${details}</div></div>` : list}`;
 }
@@ -100,7 +101,8 @@ function themeDetail(t: Theme, selected: boolean): string {
   const rows = [
     ...t.certain.map((f) => `<tr><td>${esc(f.fork)}</td><td>${esc(f.state)}</td></tr>`),
     ...t.possible.map(
-      (f) => `<tr class="maybe"><td>${esc(f.fork)}</td><td>possible · ${esc(f.state)}</td></tr>`,
+      (f) =>
+        `<tr class="maybe"><td>${esc(f.fork)}</td><td>${f.inspect ? `<button type="button" class="link" data-inspect="${esc(f.inspect)}">possible · ${esc(f.state)}</button>` : `possible · ${esc(f.state)}`}</td></tr>`,
     ),
   ].join("");
   return `<section class="detail" data-theme-detail="${esc(t.id)}"${selected ? "" : " hidden"}>
@@ -384,6 +386,8 @@ h2 { margin: 0 0 4px; font-size: 21px; line-height: 1.25; font-weight: 600; colo
 .ss { display: block; font-size: 12.5px; color: var(--fg); }
 .ready, .more { margin: 8px 0 0; padding: 8px 10px 0; border-top: 1px dashed var(--border); font-size: 13px; color: var(--fg); }
 .more { border-top: none; color: var(--muted); }
+.more summary { cursor: pointer; padding: 4px 10px; }
+.link.quiet { color: inherit; text-decoration-style: dotted; }
 .ready b { color: var(--fg-strong); font-weight: 600; }
 .link { background: none; border: none; padding: 0; font: inherit; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .pane { min-width: 0; }
@@ -516,7 +520,7 @@ export function consoleHtml(b: Briefing, now: Date): string {
         : b.doctor.state === "dark"
           ? "GitHub unread"
           : "first sweep running";
-  const meta = `<div class="meta"><span>${swept ? `swept ${esc(swept)} · ` : ""}${read}</span>${
+  const meta = `<div class="meta"><span>${swept ? `swept ${esc(swept)} · ` : ""}<button type="button" class="link quiet" data-inspect="${DOCTOR_ID}">${read}</button></span>${
     b.nextSyncAt
       ? `<span class="right">next Sync Upstream ${esc(zoned(b.nextSyncAt, now) ?? "")}</span>`
       : ""

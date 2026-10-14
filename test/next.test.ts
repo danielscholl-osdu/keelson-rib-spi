@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { attentionBoard } from "../src/boards/attention";
 import { inspectBoard } from "../src/boards/inspect";
 import { buildModel } from "../src/model/index";
 import { CLASS_VERB, itemClass, nextText, verbOf } from "../src/model/next";
@@ -193,10 +192,12 @@ describe("the banner on the recorded sweep", () => {
     expect(releases?.text).toBe(
       "2 release PRs · osdu-spi v1.2.1 and 1 first release · review required",
     );
-    const rows = attentionBoard(model, f, FIXTURE_NOW).sections[0];
-    if (rows?.kind !== "rows") throw new Error("queue first");
-    const row = rows.items.find((r) => r.text.startsWith("fleet · 2 release PRs"));
-    expect(row?.chip?.label).toBe("P2 · READY");
-    expect(row?.trailing).toStartWith("Review on GitHub · ");
+    if (!releases) throw new Error("releases item");
+    expect(releases.scope).toBe("fleet");
+    expect([releases.rung, itemClass(releases), verbOf(releases)]).toEqual([
+      2,
+      "READY",
+      "Review on GitHub",
+    ]);
   });
 });

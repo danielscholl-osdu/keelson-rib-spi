@@ -123,42 +123,6 @@ export function actChecks(facts: Facts, act: Readiness | undefined): Check[] {
   return checks;
 }
 
-const SOURCE_LABEL: Record<AreaName, string> = {
-  github: "GitHub",
-  runs: "fork runs",
-  approvals: "approvals",
-  lifecycle: "lifecycle runs",
-  details: "job steps",
-  upstream: "GitLab",
-  radar: "upstream radar",
-  template: "template compares",
-  auth: "sign-in",
-};
-
-// What each panel is drawn from, so a failed read marks the panels it leaves behind.
-export const PANEL_SOURCES = {
-  stack: ["github", "lifecycle"],
-  engineering: ["github", "runs", "template"],
-  lines: ["github", "runs", "upstream", "template"],
-  radar: ["github", "upstream", "radar"],
-} as const satisfies Record<string, readonly AreaName[]>;
-
-// "⚠ GitHub unread since 13:41" when a panel's latest read of a source failed.
-export function staleText(
-  facts: Facts,
-  sources: readonly AreaName[],
-  now: Date,
-): string | undefined {
-  const failed = sources.filter((a) => facts[a].error);
-  if (failed.length === 0) return undefined;
-  const last = failed
-    .map((a) => facts[a].at)
-    .filter((at): at is string => !!at)
-    .sort()[0];
-  const names = failed.map((a) => SOURCE_LABEL[a]).join(", ");
-  return last ? `⚠ ${names} unread since ${stamp(last, now)}` : `⚠ ${names} never read`;
-}
-
 export interface DoctorStatus {
   state: "dark" | "partial" | "clear" | "waiting";
   problems: string[];
@@ -234,5 +198,59 @@ export function doctorRow(
         },
       ],
     },
+  };
+}
+
+export const DOCTOR_ID = "doctor";
+
+// The console's read line opens this: every source with its last read, then what the verbs need.
+export function doctorBoard(facts: Facts, now: Date, act?: Readiness): CanvasBoardView {
+  const row = doctorRow(facts, now, act);
+  if (!row) {
+    return {
+      view: "board",
+      sections: [
+        { kind: "rows", items: [{ glyph: "neutral", text: "The first sweep has not finished." }] },
+      ],
+    };
+  }
+  const line = (c: Check) => ({ glyph: c.health, text: c.label, trailing: c.value });
+  const head = row.section.kind === "rows" ? row.section.items[0] : undefined;
+  return {
+    view: "board",
+    header: {
+      status: {
+        label: row.tone === "ok" ? "ALL CLEAR" : row.tone === "warn" ? "PARTIAL" : "DARK",
+        tone: row.tone,
+      },
+    },
+    sections: [
+      {
+        kind: "rows",
+        items: [
+          {
+            glyph: row.tone,
+            text: head?.text ?? "Doctor",
+            ...(head?.trailing ? { trailing: head.trailing } : {}),
+          },
+        ],
+      },
+      { kind: "rows", title: "Sources", boxed: true, items: checks(facts, now).map(line) },
+      {
+        kind: "rows",
+        title: "What the verbs need",
+        boxed: true,
+        items: actChecks(facts, act).map(line),
+      },
+      {
+        kind: "rows",
+        items: [
+          {
+            glyph: "neutral",
+            text: `Sweeps every ${SWEEP_MS / 60_000} min, GitLab every ${GITLAB_EVERY_MS / 60_000} min. Watching ${FORKS.map((f) => f.id).join(", ")}${PLANNED.length ? `; ${PLANNED.map((p) => p.id).join(", ")} planned` : ""}.`,
+          },
+        ],
+      },
+    ],
   };
 }

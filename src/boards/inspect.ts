@@ -16,9 +16,9 @@ import type { Model } from "../model/index.ts";
 import { itemClass, nextText, verbOf } from "../model/next.ts";
 import { diffText, type ItemKind, type QueueItem, type Rung } from "../model/queue.ts";
 import { age, plural, stamp, zoned } from "../util.ts";
-import { STEP_PREFIX, spreadText } from "./engineering.ts";
 import { names } from "./fold.ts";
 import { MR_PREFIX, mrBoard } from "./radar.ts";
+import { ladderSection, rolloutSection, STEP_PREFIX, spreadText } from "./template.ts";
 
 type Section = CanvasBoardView["sections"][number];
 type Row = Extract<Section, { kind: "rows" }>["items"][number];
@@ -310,7 +310,7 @@ export function inspectBoard(
           items: [
             {
               glyph: "neutral",
-              text: "Pick an item in Needs attention to see its cause and effects.",
+              text: "Pick an item in the console to see its cause and effects.",
             },
           ],
         },
@@ -366,6 +366,11 @@ export function inspectBoard(
   }
   const verbs = stackActions(item, model, opts, now);
   if (verbs) sections.push(verbs);
+  if (item.kind === "template-set") {
+    sections.push(rolloutSection(model, now, writeBlocked(model.sweptAt, opts.scopes)));
+    const steps = ladderSection(model);
+    if (steps) sections.push(steps);
+  }
   const same = sameEntry(item, state);
   if (same) sections.push(same);
   sections.push(lastAction(last, now));

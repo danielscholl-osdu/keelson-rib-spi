@@ -11,19 +11,6 @@ export const SURFACE_ID = "spi";
 
 // The console is html, not a board: one region drawn from the briefing.
 export const CONSOLE_KEY = "rib:spi:console";
-export const ATTENTION_KEY = "rib:spi:attention";
 export const BADGE_KEY = "rib:spi:badge";
-export const STACK_KEY = "rib:spi:stack";
-export const ENGINEERING_KEY = "rib:spi:engineering";
-export const RADAR_KEY = "rib:spi:radar";
-export const LINES_KEY = "rib:spi:lines";
 // The side inspector has no region; an inspect action opens it in the canvas drawer.
 export const INSPECT_KEY = "rib:spi:inspect";
-
-export const BOARD_KEYS = [
-  ATTENTION_KEY,
-  STACK_KEY,
-  ENGINEERING_KEY,
-  RADAR_KEY,
-  LINES_KEY,
-] as const;

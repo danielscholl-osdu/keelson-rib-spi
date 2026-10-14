@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { CONSOLE_MAX_BYTES, consoleHtml, expectHtml } from "../src/boards/console";
-import { doctorStatus } from "../src/boards/doctor";
+import { DOCTOR_ID, doctorStatus } from "../src/boards/doctor";
+import { MR_PREFIX, mrTitle } from "../src/boards/radar";
 import { type Briefing, buildBriefing } from "../src/brief/index";
 import { buildModel } from "../src/model/index";
 import { FIXTURE_NOW, fixtureFacts } from "./harness";
@@ -39,6 +40,25 @@ describe("the console frame", () => {
   test("the first focus item is selected and the other details stay hidden", () => {
     const shown = [...html.matchAll(/data-detail="([^"]+)"(?! hidden)>/g)].map((m) => m[1]);
     expect(shown).toEqual([b.focus[0]?.id]);
+  });
+
+  test("the read line opens the doctor", () => {
+    expect(html).toMatch(
+      new RegExp(`<button type="button" class="link quiet" data-inspect="${DOCTOR_ID}">`),
+    );
+  });
+
+  test("focus past the cap folds into a details list whose rows still select a detail", () => {
+    const rest = b.focus.slice(0, 2).map((f) => ({ ...f, id: `${f.id}:more` }));
+    const out = consoleHtml({ ...b, more: rest.length, rest }, FIXTURE_NOW);
+    const more = out.slice(out.indexOf('<details class="more">'), out.indexOf("</details>"));
+    expect(more).toStartWith('<details class="more"><summary>2 more in the queue</summary>');
+    for (const f of rest) {
+      expect(more).toContain(`data-sel="${f.id}" aria-pressed="false"`);
+      expect(out).toContain(`data-detail="${f.id}" hidden>`);
+      expect(out).toContain(`data-inspect="${f.id}"`);
+    }
+    expect(html).not.toContain('<details class="more">');
   });
 
   test("the frame carries no links, since a sandboxed frame cannot open them", () => {
@@ -156,11 +176,17 @@ describe("the console frame", () => {
       expect(shown).toEqual([b.themes[0]?.id]);
     });
 
-    test("every inspector button opens a queue item", () => {
-      const queue = new Set(buildModel(fixtureFacts(), FIXTURE_NOW).queue.items.map((i) => i.id));
-      const ids = [...horizon.matchAll(/data-inspect="([^"]+)"/g)].map((m) => m[1]);
-      expect(ids.length).toBe(b.themes.filter((t) => t.inspect).length);
-      for (const id of ids) expect(queue.has(id as string)).toBe(true);
+    test("every theme button opens a queue item and every possible fork's button an MR", () => {
+      const model = buildModel(fixtureFacts(), FIXTURE_NOW);
+      const queue = new Set(model.queue.items.map((i) => i.id));
+      const ids = [...horizon.matchAll(/data-inspect="([^"]+)"/g)].map((m) => m[1] as string);
+      const mrs = ids.filter((id) => id.startsWith(MR_PREFIX));
+      const items = ids.filter((id) => !id.startsWith(MR_PREFIX));
+      expect(items.length).toBe(b.themes.filter((t) => t.inspect).length);
+      for (const id of items) expect(queue.has(id)).toBe(true);
+      expect(mrs.length).toBeGreaterThan(0);
+      expect(mrs).toEqual(b.themes.flatMap((t) => t.possible.flatMap((f) => f.inspect ?? [])));
+      for (const id of mrs) expect(mrTitle(model, id)).toBeDefined();
     });
 
     test("theme text from the forges is escaped", () => {

@@ -3,7 +3,6 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { RibExec } from "@keelson/shared";
-import { engineeringBoard } from "../src/boards/engineering";
 import { emptyFacts, type LifecycleRun } from "../src/facts";
 import { Store } from "../src/store";
 import { Sweeper } from "../src/sweep";
@@ -179,31 +178,24 @@ describe("the in-flight poll", () => {
 
     sweeper.expectTemplateRuns([LEGAL], FIXTURE_NOW.toISOString());
     expect(sweeper.hasInflight()).toBe(true);
-    const cell = () => {
-      const table = engineeringBoard(sweeper.model, FIXTURE_NOW).sections.find(
-        (x) => x.kind === "table",
-      );
-      if (table?.kind !== "table") throw new Error("rollout table");
-      const row = table.rows.find((r) => (r.fork as { value: string }).value === "legal");
-      return String((row?.sync as { value: string } | undefined)?.value).replaceAll("\u00a0", " ");
-    };
-    expect(cell()).toMatch(/^↻ starting · \d\d:\d\d$/);
+    const legal = () => sweeper.model.template.rows.find((r) => r.repo === LEGAL);
+    expect(legal()?.dispatched).toBe(FIXTURE_NOW.toISOString());
+    expect(legal()?.syncing).toBeUndefined();
 
     await sweeper.pollInflight();
     expect(reads).toHaveLength(1);
-    expect(cell()).toStartWith("↻ starting");
+    expect(legal()?.dispatched).toBeDefined();
 
     state.run = { status: "queued", conclusion: null };
     await sweeper.pollInflight();
-    expect(cell()).toMatch(/^↻ queued · \d\d:\d\d$/);
-    expect(sweeper.model.template.rows.find((r) => r.service === "legal")?.dispatched).toBe(
-      undefined,
-    );
+    expect(legal()?.syncing?.status).toBe("queued");
+    expect(legal()?.dispatched).toBe(undefined);
 
     state.run = { status: "completed", conclusion: "success" };
     await sweeper.pollInflight();
     expect(sweeper.hasInflight()).toBe(false);
-    expect(cell()).toMatch(/^● \d\d:\d\d$/);
+    expect(legal()?.syncing).toBeUndefined();
+    expect(legal()?.delivery).toMatchObject({ state: "ok", run: { id: 77 } });
     expect(sweeper.facts.sweep?.at).toBe(FIXTURE_NOW.toISOString());
   });
 

@@ -33,30 +33,17 @@ import {
 import { ROLL_OUT, ROLLOUT_ITEM, SYNC_FORKS } from "./act/rollout.ts";
 import { ACT_ACTION, registerVerb } from "./act/verbs.ts";
 import { AGENTS, resolveAgent } from "./agent.ts";
-import { attentionBoard, badge } from "./boards/attention.ts";
+import { badge } from "./boards/badge.ts";
 import { consoleHtml, expectHtml } from "./boards/console.ts";
-import { doctorStatus, PANEL_SOURCES, staleText } from "./boards/doctor.ts";
-import { engineeringBoard, STEP_PREFIX } from "./boards/engineering.ts";
+import { DOCTOR_ID, doctorBoard, doctorStatus } from "./boards/doctor.ts";
 import { type InspectState, inspectBoard, inspectTitle, stepTitle } from "./boards/inspect.ts";
-import { linesBoard } from "./boards/lines.ts";
-import { MR_PREFIX, mrTitle, radarBoard } from "./boards/radar.ts";
-import { stackBoard } from "./boards/stack.ts";
+import { MR_PREFIX, mrTitle } from "./boards/radar.ts";
+import { STEP_PREFIX } from "./boards/template.ts";
 import { buildBriefing } from "./brief/index.ts";
 import { checkable, entryAcrossForks, type ForkEntry } from "./collect/filters.ts";
 import { FORKS, INFLIGHT_POLL_MS, SWEEP_MS } from "./config.ts";
 import { Gh, Glab } from "./forge.ts";
-import {
-  ATTENTION_KEY,
-  BADGE_KEY,
-  BOARD_KEYS,
-  CONSOLE_KEY,
-  ENGINEERING_KEY,
-  INSPECT_KEY,
-  LINES_KEY,
-  RADAR_KEY,
-  RIB_ID,
-  STACK_KEY,
-} from "./keys.ts";
+import { BADGE_KEY, CONSOLE_KEY, INSPECT_KEY, RIB_ID } from "./keys.ts";
 import type { QueueItem } from "./model/queue.ts";
 import { Store } from "./store.ts";
 import { INSPECT_ACTION, REFRESH_ACTION, SURFACES } from "./surfaces.ts";
@@ -68,7 +55,7 @@ type Composer = (sweeper: Sweeper, now: Date) => CanvasBoardView;
 // Filter files and upstream trees move slowly; one read serves repeat opens of a halt.
 const OTHERS_TTL_MS = 10 * 60_000;
 
-const VIEW_KEYS = [...BOARD_KEYS, INSPECT_KEY] as const;
+const VIEW_KEYS = [INSPECT_KEY] as const;
 
 let inspect: InspectState = {};
 let actionLog = new ActionLog(undefined);
@@ -78,32 +65,20 @@ const othersCache = new Map<string, { at: number; entries: ForkEntry[] }>();
 const waits = new Map<string, DeployableWait>();
 
 const COMPOSERS: Record<(typeof VIEW_KEYS)[number], Composer> = {
-  [ATTENTION_KEY]: (s, now) =>
-    attentionBoard(s.model, s.facts, now, { selected: inspect.selected, act: readiness }),
-  [STACK_KEY]: (s, now) =>
-    stackBoard(s.model, now, { stale: staleText(s.facts, PANEL_SOURCES.stack, now) }),
-  [ENGINEERING_KEY]: (s, now) =>
-    engineeringBoard(s.model, now, {
-      selected: inspect.selected,
-      stale: staleText(s.facts, PANEL_SOURCES.engineering, now),
-      scopes: s.facts.auth.data?.gh.scopes,
-      last: actionLog.lastFor(ROLLOUT_ITEM),
-    }),
-  [RADAR_KEY]: (s, now) =>
-    radarBoard(s.model, now, {
-      selected: inspect.selected,
-      stale: staleText(s.facts, PANEL_SOURCES.radar, now),
-      readAt: s.facts.radar.at,
-    }),
-  [LINES_KEY]: (s, now) =>
-    linesBoard(s.model, now, { stale: staleText(s.facts, PANEL_SOURCES.lines, now) }),
   [INSPECT_KEY]: (s, now) =>
-    inspectBoard(s.model, inspect, now, actionLog.lastFor(inspect.selected), {
-      scopes: s.facts.auth.data?.gh.scopes,
-      ops: !!context?.registerOp,
-      ...waitingFor(inspect.selected),
-    }),
+    inspect.selected === DOCTOR_ID
+      ? doctorBoard(s.facts, now, readiness)
+      : inspectBoard(s.model, inspect, now, actionLog.lastFor(lastKey(inspect.selected)), {
+          scopes: s.facts.auth.data?.gh.scopes,
+          ops: !!context?.registerOp,
+          ...waitingFor(inspect.selected),
+        }),
 };
+
+// Rollout verbs log under one item, whichever template-set id the inspector shows.
+function lastKey(selected: string | undefined): string | undefined {
+  return selected === "template-set" ? ROLLOUT_ITEM : selected;
+}
 
 function badgeOf(data: unknown): RibSurfaceBadge {
   const count = (data as RibSurfaceBadge | null)?.count;
@@ -229,7 +204,7 @@ function refreshReadiness(): void {
     .then((r) => {
       if (context !== ctx) return;
       readiness = r;
-      snapshots?.recompose(ATTENTION_KEY).catch(() => undefined);
+      snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
     })
     .catch(() => undefined);
 }
@@ -362,8 +337,6 @@ const rib: Rib = {
         );
       }
       snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
-      snapshots?.recompose(ENGINEERING_KEY).catch(() => undefined);
-      snapshots?.recompose(RADAR_KEY).catch(() => undefined);
       return result;
     }
     if (action.type === WAIT_ACTION) {
@@ -374,14 +347,24 @@ const rib: Rib = {
       if (typeof id !== "string" || !id) {
         return { ok: false, error: "inspect payload must be { id: string }" };
       }
+      if (id === DOCTOR_ID) {
+        inspect = { selected: DOCTOR_ID };
+        await snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
+        return {
+          ok: true,
+          data: {
+            effect: "open-canvas" as const,
+            key: INSPECT_KEY,
+            title: "Doctor",
+            placement: "side" as const,
+          },
+        };
+      }
       if (id.startsWith(STEP_PREFIX) || id.startsWith(MR_PREFIX)) {
         const title = id.startsWith(MR_PREFIX) ? mrTitle(s.model, id) : stepTitle(s.model, id);
         if (!title) return { ok: false, error: `${id} has moved; the board redraws` };
         inspect = { selected: id };
         await snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
-        snapshots?.recompose(ATTENTION_KEY).catch(() => undefined);
-        snapshots?.recompose(ENGINEERING_KEY).catch(() => undefined);
-        snapshots?.recompose(RADAR_KEY).catch(() => undefined);
         return {
           ok: true,
           data: {
@@ -404,9 +387,6 @@ const rib: Rib = {
       };
       // The drawer opens on this snapshot, so it must hold the item just clicked.
       await snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
-      snapshots?.recompose(ATTENTION_KEY).catch(() => undefined);
-      snapshots?.recompose(ENGINEERING_KEY).catch(() => undefined);
-      snapshots?.recompose(RADAR_KEY).catch(() => undefined);
       if (read) readOthers(item);
       return {
         ok: true,

@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { expectView } from "@keelson/shared";
 import { inspectBoard } from "../src/boards/inspect";
-import { radarBoard } from "../src/boards/radar";
 import {
   emptyLedgerState,
   mrRefs,
@@ -13,12 +12,11 @@ import {
 } from "../src/collect/ledgers";
 import type { Facts } from "../src/facts";
 import { Gh, Glab } from "../src/forge";
-import { INSPECT_KEY, RADAR_KEY } from "../src/keys";
+import { INSPECT_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
 import { itemClass, nextText, verbOf } from "../src/model/next";
 import { FIXTURE_NOW, fixtureFacts } from "./harness";
 
-const AT = new Date("2026-10-13T23:30:00Z");
 const ENT = "osdu/platform/security-and-compliance/entitlements";
 
 function model(edit?: (f: Facts) => void) {
@@ -27,17 +25,10 @@ function model(edit?: (f: Facts) => void) {
   return buildModel(f, FIXTURE_NOW);
 }
 
-const plain = (v: unknown) =>
-  typeof v === "object" && v !== null && "value" in v
-    ? String((v as { value: unknown }).value).replaceAll(" ", " ")
-    : v;
-
-function portsCells(m: ReturnType<typeof buildModel>) {
-  const b = radarBoard(m, AT);
-  expect(() => expectView(RADAR_KEY, "board")(b)).not.toThrow();
-  const table = b.sections.find((s) => s.kind === "table");
-  if (table?.kind !== "table") throw new Error("next-sync table");
-  return Object.fromEntries(table.rows.map((r) => [plain(r.fork), plain(r.ports)]));
+function owed(m: ReturnType<typeof buildModel>) {
+  return Object.fromEntries(
+    Object.entries(m.radar.services).map(([svc, r]) => [svc, r.ports?.owed.map((o) => o.iid)]),
+  );
 }
 
 describe("the port ledger", () => {
@@ -71,8 +62,8 @@ describe("the port ledger", () => {
     });
   });
 
-  test("an owed MR shows on the fork's row and as a P1 item with its Next line", () => {
-    expect(portsCells(model())).toMatchObject({ entitlements: "!963, !956", legal: "!783" });
+  test("an owed MR is owed on its fork and a P1 item with its Next line", () => {
+    expect(owed(model())).toMatchObject({ entitlements: [963, 956], legal: [783] });
     const m = model();
     const item = m.queue.items.find((i) => i.id === "port:entitlements");
     expect(item).toMatchObject({
@@ -132,7 +123,7 @@ describe("the port ledger", () => {
     });
     expect(m.radar.services.entitlements?.ports).toBeUndefined();
     expect(m.radar.services.legal?.ports).toBeUndefined();
-    expect(portsCells(m)).toMatchObject({ entitlements: "?", legal: "?" });
+    expect(owed(m)).toMatchObject({ entitlements: undefined, legal: undefined });
     expect(m.queue.items.some((i) => i.kind === "port")).toBe(false);
   });
 });
@@ -227,11 +218,9 @@ describe("the port ledger reads", () => {
 
 describe("library skew", () => {
   function libraries(m: ReturnType<typeof buildModel>) {
-    const b = radarBoard(m, AT);
-    expect(() => expectView(RADAR_KEY, "board")(b)).not.toThrow();
-    const sec = b.sections.find((s) => s.kind === "rows" && s.title === "Libraries");
-    if (sec?.kind !== "rows") throw new Error("libraries section");
-    return sec.items.map((i) => [i.chip?.label ?? i.glyph, i.text, i.trailing]);
+    return Object.fromEntries(
+      Object.entries(m.radar.services).map(([svc, r]) => [svc, r.libraries?.state]),
+    );
   }
 
   test("pins come from os-core-common.version and core-lib-azure.version, or the artifact's own version", () => {
@@ -248,29 +237,24 @@ describe("library skew", () => {
     expect(pinsOf("<os-core-common.version>${core.version}</os-core-common.version>")).toEqual({});
   });
 
-  test("a fork behind upstream is skewed; one on upstream folds, counting those behind the latest release", () => {
-    expect(libraries(model())).toEqual([
-      [
-        "entitlements",
-        "os-core-common · fork 7.1.3 · upstream 8.2.0 · latest 9.3.0",
-        "core-lib-azure 3.0.1 · latest 3.0.4",
-      ],
-      [
-        "legal",
-        "os-core-common · fork 7.1.3 · upstream 9.2.0 · latest 9.3.0",
-        "core-lib-azure 3.0.1 · latest 3.0.4",
-      ],
-      [
-        "info",
-        "3 forks match upstream · partition, schema and file",
-        "3 behind the latest release",
-      ],
-    ]);
-    expect(model().radar.services.entitlements?.libraries?.state).toBe("skewed");
+  test("a fork behind upstream is skewed; one on upstream but behind the latest release is behind", () => {
+    const m = model();
+    expect(libraries(m)).toEqual({
+      partition: "behind",
+      entitlements: "skewed",
+      legal: "skewed",
+      schema: "behind",
+      file: "behind",
+    });
+    expect(m.radar.services.entitlements?.libraries).toMatchObject({
+      osCoreCommon: { fork: "7.1.3", upstream: "8.2.0", latest: "9.3.0" },
+      coreLibAzure: { fork: "3.0.1", latest: "3.0.4" },
+    });
+    expect(m.radar.services.legal?.libraries?.osCoreCommon.upstream).toBe("9.2.0");
   });
 
-  test("an unread pom draws '?' and never counts as matching", () => {
-    const rows = libraries(
+  test("an unread pom is unread and never counts as matching", () => {
+    const states = libraries(
       model((f) => {
         const legal = f.radar.data?.services.legal;
         const file = f.radar.data?.services.file;
@@ -279,14 +263,9 @@ describe("library skew", () => {
         file.pins = { upstream: file.pins.upstream };
       }),
     );
-    expect(rows.at(-1)).toEqual([
-      "neutral",
-      "2 forks unread · legal and file",
-      "os-core-common ? · upstream ?",
-    ]);
-    expect(rows.some((r) => String(r[1]).includes("match upstream · partition and schema"))).toBe(
-      true,
-    );
+    expect(states).toMatchObject({ partition: "behind", schema: "behind" });
+    expect(states.legal).toBeUndefined();
+    expect(states.file).toBe("unread");
   });
 
   test("the latest release is the newest semver tag, read at most hourly", async () => {
@@ -354,21 +333,13 @@ describe("the Azure removal stage", () => {
     expect(m.radar.services.partition?.removal).toBe("fork-only");
   });
 
-  test("a service no removal issue names reads '?', in the row and in the tile", () => {
+  test("a service no removal issue names has no stage", () => {
     const m = model((f) => {
       const removal = f.radar.data?.removal;
       if (!removal) throw new Error("fixture has removal labels");
       delete removal.labels["osdu/platform/security-and-compliance/legal"];
     });
     expect(m.radar.services.legal?.removal).toBeUndefined();
-    const b = radarBoard(m, AT);
-    const tiles = b.sections[0];
-    if (tiles?.kind !== "stats") throw new Error("tiles first");
-    expect(tiles.items[2]?.sub).toBe("0 pending · 4 established · 0 fork-only · 1 ?");
-    const table = b.sections.find((s) => s.kind === "table");
-    if (table?.kind !== "table") throw new Error("next-sync table");
-    const legal = table.rows.find((r) => plain(r.fork) === "legal");
-    expect(legal?.removal).toBe("?");
   });
 });
 

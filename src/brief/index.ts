@@ -6,7 +6,6 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-import { ago as agoText, deployableStat, streakText } from "../boards/stack.ts";
 import {
   AZURE_REMOVAL_DUE,
   HISTORY_DAYS,
@@ -30,6 +29,7 @@ import {
   viewRun,
 } from "../model/stack.ts";
 import { age, plural, span, stamp } from "../util.ts";
+import { ago as agoText, deployableWords, streakText } from "./words.ts";
 
 export type Tone = "bad" | "warn" | "ok" | "neutral";
 
@@ -72,6 +72,8 @@ export interface ThemeFork {
   fork: string;
   state: string;
   url?: string;
+  // An open MR's inspector id, so the console can open what it would do.
+  inspect?: string;
 }
 
 export type ThemeKind = "halt" | "toolchain" | "port" | "rollout" | "deadline";
@@ -175,6 +177,7 @@ export interface Briefing {
   focus: FocusItem[];
   // Focus rows past the cap, still in the queue and the inspector.
   more: number;
+  rest: FocusItem[];
   ready: ReadyLine[];
   themes: Theme[];
   horizon: { headline: string };
@@ -664,6 +667,14 @@ function mrState(v: Verdict): ThemeFork["state"] {
   return v.mr ? `open MR !${v.mr.iid}${v.mr.draft ? " (draft)" : ""}` : "open MR";
 }
 
+function mrFork(fork: string, v: Verdict): ThemeFork {
+  return {
+    fork,
+    state: mrState(v),
+    ...(v.mr ? { url: v.mr.url, inspect: `mr:${fork}:${v.mr.iid}` } : {}),
+  };
+}
+
 function haltThemes(model: Model, now: Date, next: string | undefined): Theme[] {
   const byKey = new Map<string, Theme & { haltedAt?: string }>();
   const theme = (map: string, entry: string) => {
@@ -706,7 +717,7 @@ function haltThemes(model: Model, now: Date, next: string | undefined): Theme[] 
     }
     for (const v of svc.possible) {
       if (v.bucket !== "Halt" || !v.map || !v.entry) continue;
-      addFork(theme(v.map, v.entry).possible, { fork, state: mrState(v), url: v.mr?.url });
+      addFork(theme(v.map, v.entry).possible, mrFork(fork, v));
     }
   }
   const out: Theme[] = [];
@@ -781,7 +792,7 @@ function javaThemes(model: Model, now: Date, next: string | undefined): Theme[] 
     }
     for (const v of svc.possible) {
       if (v.bucket !== "Toolchain" || !v.value?.startsWith("Java ")) continue;
-      addFork(theme(v.value).possible, { fork, state: mrState(v), url: v.mr?.url });
+      addFork(theme(v.value).possible, mrFork(fork, v));
     }
   }
   const out: Theme[] = [];
@@ -1380,12 +1391,12 @@ function envFacts(
     running.sub = `not deployable · ${attemptLine(stopped)}${declares}`;
     running.tone = "bad";
   }
-  const d = deployableStat(model, now);
+  const d = deployableWords(model, now);
   const heldNow = stack.availability?.heldNow ?? false;
   const deployable: BriefFact = {
     label: d.label,
-    figure: d.value === null || d.value === undefined ? "?" : String(d.value),
-    sub: d.sub ?? "",
+    figure: d.figure ?? "?",
+    sub: d.sub,
     tone: heldNow ? (stack.inflight ? "warn" : "bad") : "neutral",
   };
   return [running, deployable, proofFact(model, now)];
@@ -1434,6 +1445,7 @@ export function buildBriefing(model: Model, doctor: DoctorView, now: Date): Brie
       facts: [],
       focus: [],
       more: 0,
+      rest: [],
       ready: [],
       themes: [],
       horizon: { headline },
@@ -1471,6 +1483,7 @@ export function buildBriefing(model: Model, doctor: DoctorView, now: Date): Brie
     facts,
     focus: focus.slice(0, FOCUS_MAX),
     more: Math.max(0, focus.length - FOCUS_MAX),
+    rest: focus.slice(FOCUS_MAX),
     ready,
     themes,
     horizon: { headline: horizonOf(themes, next) },

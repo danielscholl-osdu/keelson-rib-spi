@@ -1,28 +1,21 @@
 #!/usr/bin/env bun
 // One live sweep with the operator's gh and glab, outside Keelson: prints the
-// verdict, the queue and each line, and validates every board the way the host
-// would. Usage: bun dev/sweep.ts [data-dir] [--json]
+// verdict, the queue and each line, and validates the console frame and every
+// inspector the way the host would. Usage: bun dev/sweep.ts [data-dir] [--json]
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expectView } from "@keelson/shared";
 import { runJSON, runText } from "@keelson/shared/exec";
-import { attentionBoard, badge } from "../src/boards/attention.ts";
-import { engineeringBoard } from "../src/boards/engineering.ts";
+import { badge } from "../src/boards/badge.ts";
+import { consoleHtml, expectHtml } from "../src/boards/console.ts";
+import { DOCTOR_ID, doctorBoard, doctorStatus } from "../src/boards/doctor.ts";
 import { inspectBoard } from "../src/boards/inspect.ts";
-import { linesBoard } from "../src/boards/lines.ts";
-import { radarBoard } from "../src/boards/radar.ts";
-import { stackBoard } from "../src/boards/stack.ts";
+import { STEP_PREFIX } from "../src/boards/template.ts";
+import { buildBriefing } from "../src/brief/index.ts";
 import { checkable, entryAcrossForks } from "../src/collect/filters.ts";
 import { Gh, Glab } from "../src/forge.ts";
-import {
-  ATTENTION_KEY,
-  ENGINEERING_KEY,
-  INSPECT_KEY,
-  LINES_KEY,
-  RADAR_KEY,
-  STACK_KEY,
-} from "../src/keys.ts";
+import { INSPECT_KEY } from "../src/keys.ts";
 import { attemptText, overdue, usualText } from "../src/model/stack.ts";
 import { Store } from "../src/store.ts";
 import { Sweeper } from "../src/sweep.ts";
@@ -116,20 +109,28 @@ for (const w of [m.work.template, m.work.stack, ...m.work.forks]) {
   );
 }
 
-const boards = {
-  [ATTENTION_KEY]: attentionBoard(m, sweeper.facts, now),
-  [STACK_KEY]: stackBoard(m, now),
-  [ENGINEERING_KEY]: engineeringBoard(m, now),
-  [RADAR_KEY]: radarBoard(m, now, { readAt: sweeper.facts.radar.at }),
-  [LINES_KEY]: linesBoard(m, now),
-};
+const briefing = buildBriefing(m, doctorStatus(sweeper.facts, now), now);
+console.log(`\nCONSOLE ${briefing.headline}`);
 let bad = 0;
-for (const [key, board] of Object.entries(boards)) {
+try {
+  expectHtml(consoleHtml(briefing, now));
+} catch (err) {
+  bad++;
+  console.error(`\nINVALID console: ${err instanceof Error ? err.message : err}`);
+}
+const extra = [
+  [DOCTOR_ID, doctorBoard(sweeper.facts, now)],
+  ...m.template.steps.map((st) => {
+    const id = `${STEP_PREFIX}${st.marker}`;
+    return [id, inspectBoard(m, { selected: id }, now)] as const;
+  }),
+] as const;
+for (const [id, board] of extra) {
   try {
-    expectView(key, "board")(board);
+    expectView(INSPECT_KEY, "board")(board);
   } catch (err) {
     bad++;
-    console.error(`\nINVALID ${key}: ${err instanceof Error ? err.message.slice(0, 2000) : err}`);
+    console.error(`\nINVALID ${id}: ${err instanceof Error ? err.message.slice(0, 2000) : err}`);
   }
 }
 
@@ -158,6 +159,6 @@ for (const item of m.queue.items) {
     );
   }
 }
-console.log(bad === 0 ? "\nall boards valid" : `\n${bad} invalid boards`);
-if (args.includes("--json")) console.log(JSON.stringify(boards, null, 1));
+console.log(bad === 0 ? "\nconsole and inspectors valid" : `\n${bad} invalid`);
+if (args.includes("--json")) console.log(JSON.stringify(briefing, null, 1));
 process.exit(bad === 0 ? 0 : 1);

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { doctorStatus } from "../src/boards/doctor";
 import { type BriefFact, buildBriefing, type DoctorView } from "../src/brief/index";
+import { ago, deployableWords, streakText } from "../src/brief/words";
 import type { Facts, LifecycleRun } from "../src/facts";
 import { buildModel, type Model } from "../src/model/index";
 import type { StationState } from "../src/model/lines";
@@ -226,6 +227,10 @@ describe("other days", () => {
     expect(b.headline).toBe("Restore the environment. Unhalt a. 3 more causes below.");
     expect(b.focus).toHaveLength(5);
     expect(b.more).toBe(1);
+    expect(b.rest).toHaveLength(1);
+    const ids = [...b.focus, ...b.rest].map((f) => f.id);
+    expect(new Set(ids).size).toBe(6);
+    expect(ids.sort()).toEqual(m.queue.items.map((i) => i.id).sort());
   });
 
   test("a dark GitHub leads with the source and its last read", () => {
@@ -616,5 +621,43 @@ describe("the environment", () => {
     figuresHold(env.facts);
     expect(env.facts.map((f) => f.figure)).toEqual(["v0.28.2", "?", "?"]);
     expect(env.lanes.every((l) => l.events.length === 0)).toBe(true);
+  });
+});
+
+describe("shared wording", () => {
+  test("deployable is the share of the window not held, with its long holds and the hold now", () => {
+    const d = deployableWords(fixtureModel(), FIXTURE_NOW);
+    expect(d).toMatchObject({ label: "Deployable · 21 days", figure: "63%" });
+    expect(d.sub).toMatch(/^6 holds over an hour, 7 d 14 h in all · held since 10-11 22:44$/);
+  });
+
+  test("an environment back up says since when; one with no lifecycle read has no figure", () => {
+    const f = fixtureFacts();
+    const lc = f.lifecycle.data;
+    if (!lc) throw new Error("fixture has lifecycle runs");
+    const cut = Date.parse("2026-10-11T22:00:00Z");
+    f.lifecycle.data = {
+      ...lc,
+      refresh: lc.refresh.filter((r) => Date.parse(r.createdAt) < cut),
+      upgrade: lc.upgrade.filter((r) => Date.parse(r.createdAt) < cut),
+    };
+    expect(deployableWords(buildModel(f, FIXTURE_NOW), FIXTURE_NOW).sub).toMatch(
+      / · up since 10-11 21:4\d$/,
+    );
+    const none = fixtureFacts();
+    none.lifecycle.data = { refresh: [], upgrade: [], smoke: [], sweeper: [] };
+    expect(deployableWords(buildModel(none, FIXTURE_NOW), FIXTURE_NOW)).toEqual({
+      label: "Deployable · 21 days",
+      figure: null,
+      sub: "no lifecycle run read",
+    });
+  });
+
+  test("a streak reads from two runs, and ago reads a span", () => {
+    const smoke = fixtureModel().stack.lifecycle.smoke;
+    expect(streakText(smoke)).toBe("7 in a row");
+    expect(streakText({ ...smoke, streak: { n: 1, green: true } })).toBeUndefined();
+    expect(streakText({ ...smoke, streak: { n: 2, green: false } })).toBe("red 2 in a row");
+    expect(ago("2026-10-12T20:58:30Z", FIXTURE_NOW)).toBe("1 h ago");
   });
 });

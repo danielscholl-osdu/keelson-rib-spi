@@ -4,13 +4,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   columnRegions,
+  expectView,
   ribIdSchema,
   ribSurfaceDescriptorSchema,
   ribViewDescriptorSchema,
 } from "@keelson/shared";
+import { ROLLOUT_ITEM, SYNC_FORKS } from "../src/act/rollout";
 import { registerVerb } from "../src/act/verbs";
+import { DOCTOR_ID } from "../src/boards/doctor";
 import rib from "../src/index";
-import { ATTENTION_KEY, BADGE_KEY, BOARD_KEYS, CONSOLE_KEY, INSPECT_KEY } from "../src/keys";
+import { BADGE_KEY, CONSOLE_KEY, INSPECT_KEY } from "../src/keys";
 import { failingExec, fakeContext, fixtureFacts } from "./harness";
 
 afterEach(async () => {
@@ -35,21 +38,20 @@ describe("rib contract shape", () => {
     for (const surface of rib.surfaces ?? []) ribSurfaceDescriptorSchema.parse(surface);
   });
 
-  test("one SPI tab: the console banner over the collapsed board panels", () => {
+  test("one SPI tab: the console banner is its only region", () => {
     const surface = rib.surfaces?.[0];
     expect(rib.surfaces).toHaveLength(1);
     expect(surface?.title).toBe("SPI");
     expect(surface?.badgeKey).toBe(BADGE_KEY);
     expect(surface?.layout.banner?.key).toBe(CONSOLE_KEY);
-    expect(regionKeys()).toEqual([CONSOLE_KEY, ...BOARD_KEYS]);
-    const rows = surface?.layout.rows.flatMap((r) => r.columns.flatMap((c) => columnRegions(c)));
-    expect(rows?.every((r) => r.collapsed === true)).toBe(true);
+    expect(surface?.layout.rows).toEqual([]);
+    expect(regionKeys()).toEqual([CONSOLE_KEY]);
     expect(rib.views?.find((v) => v.key === CONSOLE_KEY)?.canvasKind).toBe("html");
   });
 
   test("every key lives under the rib namespace and every region binds a declared view", () => {
     const views = new Set((rib.views ?? []).map((v) => v.key));
-    for (const key of [...BOARD_KEYS, BADGE_KEY, ...regionKeys()])
+    for (const key of [INSPECT_KEY, BADGE_KEY, ...regionKeys()])
       expect(key.startsWith("rib:spi:")).toBe(true);
     for (const key of regionKeys()) expect(views.has(key)).toBe(true);
   });
@@ -64,14 +66,12 @@ describe("rib contract shape", () => {
 });
 
 describe("binding", () => {
-  test("registers every board and the badge, and each resting frame passes its validator", async () => {
+  test("registers the console, the inspector and the badge, and each resting frame passes its validator", async () => {
     const { ctx, snapshots } = fakeContext();
     const tools = rib.registerTools?.(ctx) ?? [];
-    expect(snapshots.keys().sort()).toEqual(
-      [...BOARD_KEYS, INSPECT_KEY, CONSOLE_KEY, BADGE_KEY].sort(),
-    );
+    expect(snapshots.keys().sort()).toEqual([BADGE_KEY, CONSOLE_KEY, INSPECT_KEY].sort());
     const frames = await snapshots.composeAll();
-    expect(frames.size).toBe(BOARD_KEYS.length + 3);
+    expect(frames.size).toBe(3);
     expect(tools.map((t) => t.name).sort()).toEqual([
       "spi_brief",
       "spi_incidents",
@@ -91,10 +91,8 @@ describe("binding", () => {
     writeFileSync(join(dir, "facts.json"), JSON.stringify(fixtureFacts()));
     const { ctx, snapshots } = fakeContext({ getDataDir: () => dir });
     rib.registerTools?.(ctx);
-    const frame = await snapshots.recompose(ATTENTION_KEY);
-    expect(
-      (frame.data as { header?: { status?: { label: string } } }).header?.status?.label,
-    ).toMatch(/^BLOCKED/);
+    const frame = await snapshots.recompose(CONSOLE_KEY);
+    expect(frame.data as string).toContain("Restore the environment.");
     const badge = await snapshots.recompose(BADGE_KEY);
     expect((badge.data as { count: number }).count).toBeGreaterThan(0);
   });
@@ -232,6 +230,51 @@ describe("inspect", () => {
     } finally {
       unregister();
     }
+  });
+
+  test("the doctor opens the side inspector, from the drawer or the console frame", async () => {
+    for (const origin of [undefined, "canvas-html"] as const) {
+      const { ctx, snapshots } = stored();
+      rib.registerTools?.(ctx);
+      const res = await rib.onAction?.(
+        { type: "inspect", payload: { id: DOCTOR_ID }, ...(origin ? { origin } : {}) },
+        ctx,
+      );
+      expect(res).toEqual({
+        ok: true,
+        data: { effect: "open-canvas", key: INSPECT_KEY, title: "Doctor", placement: "side" },
+      });
+      const frame = snapshots.latest(INSPECT_KEY)?.data;
+      expect(() => expectView(INSPECT_KEY, "board")(frame)).not.toThrow();
+      expect((frame as { sections: { title?: string }[] }).sections.map((s) => s.title)).toContain(
+        "Sources",
+      );
+      await rib.dispose?.();
+    }
+  });
+
+  test("the template-set inspector shows the last rollout verb as its last action", async () => {
+    const { ctx, snapshots } = stored();
+    rib.registerTools?.(ctx);
+    const res = await rib.onAction?.(
+      {
+        type: "act",
+        payload: {
+          verb: SYNC_FORKS.id,
+          item: ROLLOUT_ITEM,
+          swept: "2026-10-12T21:58:30Z",
+          targets: [{ repo: "Azure/osdu-spi-legal", kind: "repo", label: "legal" }],
+        },
+      },
+      ctx,
+    );
+    expect(res?.ok).toBe(false);
+    await rib.onAction?.({ type: "inspect", payload: { id: "template-set" } }, ctx);
+    const frame = snapshots.latest(INSPECT_KEY)?.data as {
+      sections: { title?: string; items?: { text: string }[] }[];
+    };
+    const last = frame.sections.find((s) => s.title === "Last action");
+    expect(last?.items?.[0]?.text).toBe("Sync all forks · 0 of 1 done");
   });
 
   test("a missing or stale id fails without opening anything", async () => {

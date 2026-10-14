@@ -16,10 +16,10 @@ Slice 2 (Act on the queue) adds verbs on top of one action path.
 
 ```bash
 bun install
-bun test                 # model, board and contract coverage on a recorded sweep
+bun test                 # model, briefing, console and contract coverage on a recorded sweep
 bun run typecheck        # tsc --noEmit
 bun run check            # Biome lint + format
-bun dev/sweep.ts         # one live sweep with your gh and glab, boards validated
+bun dev/sweep.ts         # one live sweep with your gh and glab, console and inspectors validated
 
 keelson rib add "$PWD"   # install into the keelson home, then `keelson restart`
 ```
@@ -38,8 +38,10 @@ A change needs `bun run check`, `bun run typecheck` and `bun test` green.
   currency and the ranked queue out. Every region and tool reads this one model.
 - `src/brief/` is pure: the model, the doctor and a clock in, the briefing out.
   It decides the words (headline, focus with cause, effect and next, themes
-  across forks); the console and `spi_brief` only show them.
-- `src/boards/` turns the model into canvas boards. No I/O in a composer.
+  across forks); the console and `spi_brief` only show them. It never imports
+  from `src/boards/`; shared wording lives in `src/brief/words.ts`.
+- `src/boards/` draws: the console html from the briefing (`console.ts`), the
+  side inspector boards, and the badge. No I/O in a composer.
 - `src/act/` is the only code that writes: the verb registry, the binding a
   button carries, revalidation, the action log and readiness for the doctor.
 

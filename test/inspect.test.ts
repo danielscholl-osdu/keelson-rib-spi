@@ -3,10 +3,9 @@ import type { RibExec } from "@keelson/shared";
 import { expectView } from "@keelson/shared";
 import { dispatchActions, NO_OPS, WAIT_ACTION } from "../src/act/rerun";
 import { inspectBoard } from "../src/boards/inspect";
-import { stackBoard } from "../src/boards/stack";
 import { entryAcrossForks, filterSection } from "../src/collect/filters";
 import { Gh, Glab } from "../src/forge";
-import { INSPECT_KEY, STACK_KEY } from "../src/keys";
+import { INSPECT_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
 import type { QueueItem } from "../src/model/queue";
 import { FIXTURE_NOW, fixtureFacts, laneFacts } from "./harness";
@@ -156,18 +155,6 @@ describe("the inspector", () => {
     const b = inspectBoard(model, {}, FIXTURE_NOW);
     expect(() => gate(b)).not.toThrow();
     expect(b.sections).toHaveLength(1);
-  });
-
-  test("the environment's incident attempts open the incident, not a run page", () => {
-    const b = stackBoard(model, FIXTURE_NOW);
-    expect(() => expectView(STACK_KEY, "board")(b)).not.toThrow();
-    const attempts = b.sections.find((s) => s.kind === "rows" && s.title?.startsWith("Attempts"));
-    if (attempts?.kind !== "rows") throw new Error("the fixture is in incident mode");
-    const id = model.queue.items.find((i) => i.kind === "stack")?.id;
-    for (const r of attempts.items) {
-      expect(r.action).toEqual({ type: "inspect", payload: { id } });
-      expect(r.href).toBeUndefined();
-    }
   });
 });
 

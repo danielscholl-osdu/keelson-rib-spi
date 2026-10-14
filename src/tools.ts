@@ -7,7 +7,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import { type ToolDefinition, z } from "@keelson/shared";
-import { verdictLabel } from "./boards/attention.ts";
+import { verdictLabel } from "./boards/badge.ts";
 import { doctorStatus } from "./boards/doctor.ts";
 import { nextSyncAt, radarBreaks } from "./boards/radar.ts";
 import { buildBriefing } from "./brief/index.ts";

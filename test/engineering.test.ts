@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { expectView } from "@keelson/shared";
-import { engineeringBoard } from "../src/boards/engineering";
 import { inspectBoard } from "../src/boards/inspect";
 import type { Facts, PrFact } from "../src/facts";
-import { ENGINEERING_KEY, INSPECT_KEY } from "../src/keys";
+import { INSPECT_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
 import { FIXTURE_NOW, fixtureFacts, NEW_HEAD, releasedFacts as released } from "./harness";
 
@@ -25,47 +24,22 @@ function dependabotPr(repo: string, number: number): PrFact {
   };
 }
 
-const text = (cell: unknown) =>
-  typeof cell === "object" && cell !== null && "value" in cell
-    ? String(cell.value).replaceAll(" ", " ")
-    : cell;
-
 function model(edit?: (f: Facts) => void) {
   const f = released();
   edit?.(f);
   return buildModel(f, FIXTURE_NOW);
 }
 
-describe("the engineering system panel", () => {
-  test("leads with the release and the rollout", () => {
-    const b = engineeringBoard(
-      model((f) => {
-        const repo = f.github.data?.repos["Azure/osdu-spi"];
-        if (repo) repo.issues = [];
-      }),
-      FIXTURE_NOW,
-    );
-    expect(() => expectView(ENGINEERING_KEY, "board")(b)).not.toThrow();
-    expect(b.header?.status).toEqual({ label: "v1.3.0 ON 0 OF 5", tone: "info" });
-    const tiles = b.sections[0];
-    if (tiles?.kind !== "stats") throw new Error("tiles first");
-    expect(tiles.items.map((i) => i.label)).toEqual(["Release", "Rollout · oldest PR"]);
-    expect(b.sections.some((s) => s.kind === "rows" && s.title?.startsWith("Open on"))).toBe(false);
-    expect(tiles.items[0]).toMatchObject({
-      value: "v1.3.0",
-      delta: { text: "reached 0 of 5 forks", tone: "info" },
-      sub: "released 21:00 · main is the release · 8 changes past v1.2.0 +2",
-    });
-    expect(tiles.items[1]?.clock?.mode).toBe("since");
-    expect(tiles.items[1]?.sub).toMatch(
-      /^5 PRs carry v1\.2\.0 \+14 · next Sync Template 10-13 \d\d:00 · usually merged in /,
-    );
-  });
+function inspectSet(m: ReturnType<typeof buildModel>) {
+  const b = inspectBoard(m, { selected: "template-set" }, FIXTURE_NOW);
+  expect(() => expectView(INSPECT_KEY, "board")(b)).not.toThrow();
+  return b;
+}
 
+describe("the template-set inspector", () => {
   test("the ladder names each step by release and says no PR carries the newest yet", () => {
-    const b = engineeringBoard(model(), FIXTURE_NOW);
-    const ladder = b.sections.find(
-      (s) => s.kind === "rows" && s.title?.startsWith("Release ladder"),
+    const ladder = inspectSet(model()).sections.find(
+      (s) => s.kind === "rows" && s.title === "Release ladder · newest first",
     );
     if (ladder?.kind !== "rows") throw new Error("ladder");
     expect(ladder.items.map((i) => [i.chip?.label, i.trailing])).toEqual([
@@ -81,7 +55,27 @@ describe("the engineering system panel", () => {
     });
   });
 
-  test("the rollout table reads each fork's PR, checks, review, delivery and Dependabot", () => {
+  test("the rollout verbs sit above the ladder", () => {
+    const kinds = inspectSet(model()).sections.map((s) =>
+      s.kind === "actions" ? s.items.map((i) => i.label.split(" · ")[0]).join(", ") : s.title,
+    );
+    const verbs = kinds.indexOf("Sync all forks, Roll out");
+    expect(verbs).toBeGreaterThan(0);
+    expect(kinds[verbs + 1]).toBe("Release ladder · newest first");
+  });
+
+  test("with no ladder step the inspector draws the verbs alone", () => {
+    const m = model();
+    const b = inspectSet({ ...m, template: { ...m.template, steps: [] } });
+    expect(b.sections.some((s) => s.kind === "actions")).toBe(true);
+    expect(b.sections.some((s) => "title" in s && s.title?.startsWith("Release ladder"))).toBe(
+      false,
+    );
+  });
+});
+
+describe("the template rollout", () => {
+  test("each fork's row reads its position, PR, review and open Dependabot PRs", () => {
     const m = model((f) => {
       const repos = f.github.data?.repos;
       repos?.["Azure/osdu-spi-entitlements"]?.prs.push(
@@ -91,30 +85,12 @@ describe("the engineering system panel", () => {
       const legal = repos?.["Azure/osdu-spi-legal"]?.prs.find((p) => p.number === 33);
       if (legal) legal.reviewDecision = "APPROVED";
     });
-    const b = engineeringBoard(m, FIXTURE_NOW);
-    const table = b.sections.find((s) => s.kind === "table");
-    if (table?.kind !== "table") throw new Error("rollout table");
-    const row = (fork: string) => table.rows.find((r) => text(r.fork) === fork);
-    expect(text(row("schema")?.on)).toBe("v1.2.0 +2");
-    expect(text(row("entitlements")?.pr)).toBe("#48 → v1.2.0 +14");
-    expect(text(row("entitlements")?.checks)).toBe("⊘ red on the stack");
-    expect(row("entitlements")?.review).toMatchObject({ value: "needs\u00a0review", tone: "warn" });
-    expect(text(row("legal")?.review)).toBe("approved");
-    expect(row("entitlements")?.dependabot).toMatchObject({ value: "2\u00a0open", tone: "info" });
-    expect(row("file")?.dependabot).toMatchObject({ tone: "ok" });
-    expect(text(row("file")?.sync)).toMatch(/^● \d\d:\d\d$/);
-    const review = b.sections.at(-1);
-    if (review?.kind !== "rows") throw new Error("review link last");
-    expect(review.items[0]?.text).toBe(
-      "Held back from Roll out: partition #174, entitlements #48, legal #33, schema #37 and file #51 are red on the stack",
-    );
-    expect(review.items[1]?.text).toBe("Review on GitHub · 5 template-sync PRs in one list");
-    expect(review.items[1]?.trailing).toBe("5 PRs");
-    expect(review.items[1]?.detail).toBe(
-      "The list is empty until the browser signs in to the Azure org's SSO.",
-    );
-    expect(review.items[1]?.href).toStartWith("https://github.com/search?type=pullrequests&q=");
-    expect(review.items[1]?.href).toContain("label%3Atemplate-sync");
+    const row = (svc: string) => m.template.rows.find((r) => r.service === svc);
+    expect(row("schema")?.label).toBe("v1.2.0 +2");
+    expect(row("entitlements")?.pr?.number).toBe(48);
+    expect(row("entitlements")?.dependabot.map((p) => p.number)).toEqual([52, 54]);
+    expect(row("file")?.dependabot).toEqual([]);
+    expect(row("legal")?.pr?.reviewDecision).toBe("APPROVED");
   });
 
   test("a template-sync PR failing on its own counts as failing; one red on the stack does not", () => {
@@ -129,14 +105,6 @@ describe("the engineering system panel", () => {
     const step = m.template.steps.find((s) => s.label === "v1.2.0 +2");
     expect(step?.failing).toEqual(["file"]);
     expect(step?.waiting).toHaveLength(3);
-    const b = engineeringBoard(m, FIXTURE_NOW);
-    expect(b.header?.status).toEqual({ label: "v1.3.0 ON 0 OF 5 · 1 FAILING", tone: "warn" });
-    const table = b.sections.find((s) => s.kind === "table");
-    if (table?.kind !== "table") throw new Error("rollout table");
-    const file = table.rows.find((r) => text(r.fork) === "file");
-    expect(file?.checks).toMatchObject({ tone: "warn" });
-    expect(text(file?.checks)).toBe("✕ TEST Deploy and Test");
-    expect(file?.pr).toMatchObject({ tone: "warn" });
   });
 
   test("a ladder step opens an inspector with its changes and where each fork stands", () => {
@@ -157,7 +125,7 @@ describe("the engineering system panel", () => {
     expect(gone.header?.status?.label).toBe("MOVED");
   });
 
-  test("open PRs on osdu-spi list in the panel and wait in the banner", () => {
+  test("open PRs on osdu-spi wait in the queue; a draft does not", () => {
     const m = model((f) => {
       const repo = f.github.data?.repos["Azure/osdu-spi"];
       repo?.prs.push(
@@ -170,16 +138,6 @@ describe("the engineering system panel", () => {
         },
         { ...dependabotPr("Azure/osdu-spi", 262), head: "feat/x", author: "someone", draft: true },
       );
-      if (repo)
-        repo.pastPrs?.push({
-          number: 259,
-          title: "feat: y",
-          url: "",
-          head: "feat/y",
-          base: "main",
-          createdAt: "2026-10-12T21:10:00Z",
-          mergedAt: "2026-10-12T21:30:00Z",
-        });
     });
     const item = m.queue.items.find((i) => i.id === "template-pr:260");
     expect(item).toMatchObject({
@@ -190,35 +148,6 @@ describe("the engineering system panel", () => {
     });
     expect(m.queue.items.some((i) => i.id === "template-pr:262")).toBe(false);
     expect(m.queue.items.find((i) => i.id === "releases")?.text).toContain("osdu-spi v1.3.1");
-    const b = engineeringBoard(m, FIXTURE_NOW, { selected: "template-pr:260" });
-    expect(() => expectView(ENGINEERING_KEY, "board")(b)).not.toThrow();
-    const tiles = b.sections[0];
-    if (tiles?.kind !== "stats") throw new Error("tiles");
-    expect(tiles.items[0]?.sub).toContain("main is the release · 1 PR merged since ·");
-    const open = b.sections[1];
-    if (open?.kind !== "rows") throw new Error("open PRs under the tiles");
-    expect(open.title).toBe("Open on osdu-spi · 3 PRs · 7 issues");
-    expect(open.items.slice(0, 5).map((i) => [i.chip?.label, i.text])).toEqual([
-      ["Dependabot", "#260 build(deps): bump spring-boot"],
-      ["release", "#261 chore: release 1.3.1"],
-      [
-        "bug",
-        "#250 validate: duplicate PR runs push the same image tag and break the deploy lane pin",
-      ],
-      ["bug", "#245 Template sync skips file removal when the template tip is unchanged"],
-      ["feature", "#262 build(deps): bump spring-boot"],
-    ]);
-    expect(open.items).toHaveLength(7);
-    expect(open.items[5]?.href).toBe("https://github.com/Azure/osdu-spi/issues/241");
-    expect(open.items.at(-1)).toMatchObject({ icon: "↗", trailing: "open on GitHub" });
-    expect(open.items.at(-1)?.text).toMatch(/^and \d/);
-    expect(open.items[0]).toMatchObject({
-      action: { type: "inspect", payload: { id: "template-pr:260" } },
-      selected: true,
-    });
-    expect(open.items[1]?.action).toEqual({ type: "inspect", payload: { id: "releases" } });
-    expect(open.items[4]?.href).toBe("https://github.com/Azure/osdu-spi/pull/262");
-    expect(open.items[4]?.trailing).toStartWith("draft · ");
     const insp = inspectBoard(m, { selected: "template-pr:260" }, FIXTURE_NOW);
     expect(insp.header?.status?.label).toBe("READY");
   });
@@ -235,48 +164,6 @@ describe("the engineering system panel", () => {
     const item = m.queue.items.find((i) => i.id === "template-pr:263");
     expect(item?.rung).toBe(1);
     expect(item?.text).toEndWith("· fails Lint");
-  });
-
-  function rolloutRows(current: number) {
-    const m = model();
-    const rows = m.template.rows.map((r, i) =>
-      i < current
-        ? {
-            ...r,
-            behind: 0,
-            label: "v1.3.0",
-            pr: undefined,
-            delivery: { state: "ok" as const },
-            dependabot: i === 0 ? [dependabotPr(r.repo, 70)] : [],
-          }
-        : r,
-    );
-    const b = engineeringBoard({ ...m, template: { ...m.template, rows } }, FIXTURE_NOW);
-    expect(() => expectView(ENGINEERING_KEY, "board")(b)).not.toThrow();
-    const at = b.sections.findIndex((s) => s.kind === "table");
-    const table = b.sections[at];
-    if (table?.kind !== "table") throw new Error("rollout table");
-    const next = b.sections[at + 1];
-    const fold = next?.kind === "rows" && !next.title ? next.items[0] : undefined;
-    return { rows: table.rows, fold };
-  }
-
-  test("four forks on the head fold into one full-width line with their Dependabot total", () => {
-    const { rows, fold } = rolloutRows(4);
-    expect(rows).toHaveLength(1);
-    expect(fold).toMatchObject({
-      glyph: "ok",
-      text: "4 forks on v1.3.0 · entitlements, legal, partition and schema",
-      trailing: "current · 1 Dependabot open",
-      href: expect.stringContaining("repo%3AAzure%2Fosdu-spi-partition"),
-    });
-  });
-
-  test("three forks on the head stay as rows and read current", () => {
-    const { rows, fold } = rolloutRows(3);
-    expect(fold?.text ?? "").not.toContain("forks on");
-    expect(rows).toHaveLength(5);
-    expect(rows.filter((r) => text(r.pr) === "current")).toHaveLength(3);
   });
 });
 
@@ -303,26 +190,22 @@ describe("main past the latest tag with a release PR open", () => {
     return buildModel(f, FIXTURE_NOW);
   }
 
-  test("every surface names main as v1.2.0 +14 and v1.2.1 only as the release PR's version", () => {
+  test("the model and the inspector name main v1.2.0 +14; v1.2.1 is only the release PR's version", () => {
     const m = ahead();
     expect(m.template.next).toBe("v1.2.1");
     const line = (svc: string) => m.lines.find((l) => l.fork.id === svc)?.template;
     expect(line("partition")?.label).toBe("v1.2.0 +14");
     expect(line("file")).toMatchObject({ label: "v1.1.0 +3", target: "v1.2.0 +14" });
     expect(m.template.steps[0]?.label).toBe("v1.2.0 +14");
-    const b = engineeringBoard(m, FIXTURE_NOW);
-    expect(() => expectView(ENGINEERING_KEY, "board")(b)).not.toThrow();
-    expect(b.header?.status?.label).toStartWith("v1.2.0 +14 ON 4 OF 5");
-    const tiles = b.sections[0];
-    if (tiles?.kind !== "stats") throw new Error("tiles first");
-    const release = tiles.items[0];
-    expect(release).toMatchObject({
-      value: "v1.2.0",
-      delta: { text: "reached 4 of 5 forks", tone: "info" },
+    const b = inspectSet(m);
+    const ladder = b.sections.find(
+      (s) => s.kind === "rows" && s.title?.startsWith("Release ladder"),
+    );
+    if (ladder?.kind !== "rows") throw new Error("ladder");
+    expect(ladder.items[0]).toMatchObject({
+      chip: { label: "v1.2.0 +14" },
+      trailing: expect.stringMatching(/^4 of 5/),
     });
-    expect(release?.sub).toContain("4 forks on v1.2.0 +14");
-    expect(release?.sub).toMatch(/v1\.2\.1 in release PR #\d+/);
-    const said = JSON.stringify(b).replace(/v1\.2\.1 in release PR #\d+/g, "");
-    expect(said).not.toContain("v1.2.1");
+    expect(JSON.stringify(b)).not.toContain("v1.2.1");
   });
 });

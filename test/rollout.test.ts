@@ -11,10 +11,11 @@ import {
   SYNC_FORKS,
   syncTargets,
 } from "../src/act/rollout";
-import { commandText, registerVerb } from "../src/act/verbs";
-import { engineeringBoard } from "../src/boards/engineering";
+import { bindingSchema, commandText, registerVerb } from "../src/act/verbs";
+import { inspectBoard } from "../src/boards/inspect";
+import { rolloutSection } from "../src/boards/template";
 import type { Facts } from "../src/facts";
-import { ENGINEERING_KEY } from "../src/keys";
+import { INSPECT_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
 import { FIXTURE_NOW, NEW_HEAD, releasedFacts } from "./harness";
 
@@ -133,17 +134,30 @@ describe("Roll out", () => {
   });
 });
 
-describe("the panel's buttons", () => {
+describe("the template-set inspector's buttons", () => {
+  function actions(m: ReturnType<typeof model>, scopes?: string[]) {
+    const b = inspectBoard(m, { selected: "template-set" }, FIXTURE_NOW, undefined, { scopes });
+    expect(() => expectView(INSPECT_KEY, "board")(b)).not.toThrow();
+    const found = b.sections.find(
+      (s) => s.kind === "actions" && s.items[0]?.label.startsWith("Sync all forks"),
+    );
+    if (found?.kind !== "actions") throw new Error("rollout actions");
+    return found.items;
+  }
+
   test("Sync all forks names up to three forks, then counts", () => {
     const label = (behind: string[]) => {
       const m = model();
       const rows = m.template.rows.map((r) =>
         behind.includes(r.service) ? r : { ...r, behind: 0, pr: undefined },
       );
-      const b = engineeringBoard({ ...m, template: { ...m.template, rows } }, FIXTURE_NOW);
-      const actions = b.sections.find((s) => s.kind === "actions");
-      if (actions?.kind !== "actions") throw new Error("actions");
-      return actions.items[0];
+      const section = rolloutSection(
+        { ...m, template: { ...m.template, rows } },
+        FIXTURE_NOW,
+        undefined,
+      );
+      if (section.kind !== "actions") throw new Error("actions");
+      return section.items[0];
     };
     expect(label(["file"])).toMatchObject({
       label: "Sync all forks · file",
@@ -153,23 +167,33 @@ describe("the panel's buttons", () => {
     expect(label(["entitlements", "legal", "schema", "file"])?.label).toBe("Sync all forks · 4");
   });
 
-  test("sit under the rollout table and say why they cannot run", () => {
-    const b = engineeringBoard(model(), FIXTURE_NOW);
-    expect(() => expectView(ENGINEERING_KEY, "board")(b)).not.toThrow();
-    const actions = b.sections.find((s) => s.kind === "actions");
-    if (actions?.kind !== "actions") throw new Error("actions");
-    expect(actions.items.map((i) => i.label)).toEqual(["Sync all forks · 5", "Roll out · 0 ready"]);
-    expect(actions.items[0]?.pendingLabel).toBe("Dispatching 5…");
-    expect(actions.items[0]?.confirm?.body).toStartWith(
+  test("lead with Sync all forks and Roll out, and say why they cannot run", () => {
+    const items = actions(model());
+    expect(items.map((i) => i.label)).toEqual(["Sync all forks · 5", "Roll out · 0 ready"]);
+    expect(items[0]?.pendingLabel).toBe("Dispatching 5…");
+    expect(items[0]?.confirm?.body).toStartWith(
       "Dispatches Sync Template on partition, entitlements, legal, schema and file, so each template-sync PR moves to v1.3.0 now instead of at 10-13 08:00.",
     );
-    const scoped = engineeringBoard(model(), FIXTURE_NOW, { scopes: ["read:org"] });
-    const blocked = scoped.sections.find((s) => s.kind === "actions");
-    if (blocked?.kind !== "actions") throw new Error("actions");
-    expect(blocked.items[0]).toMatchObject({
+    expect(items[1]).toMatchObject({ disabled: true });
+    expect(items[1]?.reason).toStartWith("nothing is ready: ");
+    expect(actions(model(), ["read:org"])[0]).toMatchObject({
       disabled: true,
       reason: "gh's token lacks the repo scope; run gh auth refresh -s repo",
     });
+  });
+
+  test("Roll out binds the ready PRs to the rollout item", () => {
+    const [, roll] = actions(
+      model((f) => {
+        ready(f, "Azure/osdu-spi-legal", 33);
+        ready(f, "Azure/osdu-spi-schema", 37);
+      }),
+    );
+    expect(roll).toMatchObject({ type: "act", label: "Roll out · 2 ready" });
+    expect(roll?.disabled).toBeUndefined();
+    const binding = bindingSchema.parse(roll?.binding);
+    expect(binding).toMatchObject({ verb: ROLL_OUT.id, item: ROLLOUT_ITEM, ...SWEPT });
+    expect(binding.targets.map((t) => t.label)).toEqual(["legal #33", "schema #37"]);
   });
 });
 
