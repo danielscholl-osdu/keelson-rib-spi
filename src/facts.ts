@@ -299,6 +299,11 @@ export interface MergedMrFact {
   paths?: string[];
 }
 
+export interface LibraryPins {
+  osCoreCommon?: string;
+  coreLibAzure?: string;
+}
+
 // A fork PR, open or merged since the seed, and the upstream MRs its body or commits cite.
 export interface ForkPrFact {
   number: number;
@@ -318,9 +323,13 @@ export interface RadarFacts {
       // Undefined while unread; a list cut short by paging stays unread.
       merged?: MergedMrFact[];
       forkPrs?: ForkPrFact[];
+      // Library pins read from the fork's root and Azure provider poms and upstream's root pom.
+      pins?: { fork?: LibraryPins; upstream?: LibraryPins };
     }
   >;
   filters: Record<string, { sha: string; text: string }>;
+  // The newest release of each library, from its GitLab tags.
+  latest?: LibraryPins;
   // How many fork PRs and commit messages the port match read this time.
   portRead?: { prs: number; commits: number };
 }

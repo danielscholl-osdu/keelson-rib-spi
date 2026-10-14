@@ -2,7 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { expectView } from "@keelson/shared";
 import { inspectBoard } from "../src/boards/inspect";
 import { radarBoard } from "../src/boards/radar";
-import { emptyLedgerState, mrRefs, readMerged, readPortPrs } from "../src/collect/ledgers";
+import {
+  emptyLedgerState,
+  mrRefs,
+  pinsOf,
+  readLatest,
+  readMerged,
+  readPortPrs,
+} from "../src/collect/ledgers";
 import type { Facts } from "../src/facts";
 import { Gh, Glab } from "../src/forge";
 import { INSPECT_KEY, RADAR_KEY } from "../src/keys";
@@ -213,5 +220,99 @@ describe("the port ledger reads", () => {
     expect(merged.entitlements).toBeUndefined();
     const kept = await readMerged(new Glab(exec(() => new Error("timeout")).exec), state);
     expect(kept.partition?.map((m) => m.iid)).toEqual([826]);
+  });
+});
+
+describe("library skew", () => {
+  function libraries(m: ReturnType<typeof buildModel>) {
+    const b = radarBoard(m, AT);
+    expect(() => expectView(RADAR_KEY, "board")(b)).not.toThrow();
+    const sec = b.sections.find((s) => s.kind === "rows" && s.title === "Libraries");
+    if (sec?.kind !== "rows") throw new Error("libraries section");
+    return sec.items.map((i) => [i.chip?.label ?? i.glyph, i.text, i.trailing]);
+  }
+
+  test("pins come from os-core-common.version and core-lib-azure.version, or the artifact's own version", () => {
+    expect(
+      pinsOf(
+        "<properties>\n  <os-core-common.version>7.1.3</os-core-common.version>\n  <core-lib-azure.version>3.0.1</core-lib-azure.version>\n</properties>",
+      ),
+    ).toEqual({ osCoreCommon: "7.1.3", coreLibAzure: "3.0.1" });
+    expect(
+      pinsOf(
+        "<dependency><groupId>org.opengroup.osdu</groupId><artifactId>core-lib-azure</artifactId>\n<version>3.0.4</version></dependency>",
+      ),
+    ).toEqual({ coreLibAzure: "3.0.4" });
+    expect(pinsOf("<os-core-common.version>${core.version}</os-core-common.version>")).toEqual({});
+  });
+
+  test("a fork behind upstream is skewed; one on upstream folds, counting those behind the latest release", () => {
+    expect(libraries(model())).toEqual([
+      [
+        "entitlements",
+        "os-core-common · fork 7.1.3 · upstream 8.2.0 · latest 9.3.0",
+        "core-lib-azure 3.0.1 · latest 3.0.4",
+      ],
+      [
+        "legal",
+        "os-core-common · fork 7.1.3 · upstream 9.2.0 · latest 9.3.0",
+        "core-lib-azure 3.0.1 · latest 3.0.4",
+      ],
+      [
+        "info",
+        "3 forks match upstream · partition, schema and file",
+        "3 behind the latest release",
+      ],
+    ]);
+    expect(model().radar.services.entitlements?.libraries?.state).toBe("skewed");
+  });
+
+  test("an unread pom draws '?' and never counts as matching", () => {
+    const rows = libraries(
+      model((f) => {
+        const legal = f.radar.data?.services.legal;
+        const file = f.radar.data?.services.file;
+        if (!legal || !file?.pins) throw new Error("fixture pins");
+        delete legal.pins;
+        file.pins = { upstream: file.pins.upstream };
+      }),
+    );
+    expect(rows.at(-1)).toEqual([
+      "neutral",
+      "2 forks unread · legal and file",
+      "os-core-common ? · upstream ?",
+    ]);
+    expect(rows.some((r) => String(r[1]).includes("match upstream · partition and schema"))).toBe(
+      true,
+    );
+  });
+
+  test("the latest release is the newest semver tag, read at most hourly", async () => {
+    const state = emptyLedgerState();
+    let calls = 0;
+    const glab = new Glab({
+      runJSON: async () => {
+        calls++;
+        return {
+          ok: true as const,
+          data: [
+            { name: "v8.4.0" },
+            { name: "v9.3.0" },
+            { name: "v9.10.0-rc1" },
+            { name: "v9.2.0" },
+          ] as never,
+        };
+      },
+      runText: async () => ({ ok: false as const, error: "unused", code: 1 }),
+    });
+    const now = Date.parse("2026-10-13T23:00:00Z");
+    expect(await readLatest(glab, state, now)).toEqual({
+      osCoreCommon: "9.3.0",
+      coreLibAzure: "9.3.0",
+    });
+    await readLatest(glab, state, now + 30 * 60_000);
+    expect(calls).toBe(2);
+    await readLatest(glab, state, now + 61 * 60_000);
+    expect(calls).toBe(4);
   });
 });

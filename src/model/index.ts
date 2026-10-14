@@ -61,7 +61,7 @@ export function buildModel(
       now,
     }),
   );
-  const radar = buildRadar(predictions, lines);
+  const radar = buildRadar(predictions, lines, facts.radar.data);
   const template = buildTemplate(templateRepo, facts.template.data, lines, {
     syncCrons: [...new Set(FORKS.flatMap((f) => repos[f.repo]?.syncCrons ?? []))],
     now,

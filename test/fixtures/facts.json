@@ -26007,7 +26007,16 @@
               "state": "merged",
               "refs": []
             }
-          ]
+          ],
+          "pins": {
+            "upstream": {
+              "osCoreCommon": "7.1.3"
+            },
+            "fork": {
+              "osCoreCommon": "7.1.3",
+              "coreLibAzure": "3.0.1"
+            }
+          }
         },
         "entitlements": {
           "project": "osdu/platform/security-and-compliance/entitlements",
@@ -26661,7 +26670,16 @@
               "state": "merged",
               "refs": []
             }
-          ]
+          ],
+          "pins": {
+            "upstream": {
+              "osCoreCommon": "8.2.0"
+            },
+            "fork": {
+              "osCoreCommon": "7.1.3",
+              "coreLibAzure": "3.0.1"
+            }
+          }
         },
         "legal": {
           "project": "osdu/platform/security-and-compliance/legal",
@@ -27433,7 +27451,16 @@
               "state": "merged",
               "refs": []
             }
-          ]
+          ],
+          "pins": {
+            "upstream": {
+              "osCoreCommon": "9.2.0"
+            },
+            "fork": {
+              "osCoreCommon": "7.1.3",
+              "coreLibAzure": "3.0.1"
+            }
+          }
         },
         "file": {
           "project": "osdu/platform/system/file",
@@ -27790,7 +27817,16 @@
               "state": "merged",
               "refs": []
             }
-          ]
+          ],
+          "pins": {
+            "upstream": {
+              "osCoreCommon": "7.1.3"
+            },
+            "fork": {
+              "osCoreCommon": "7.1.3",
+              "coreLibAzure": "3.0.3"
+            }
+          }
         },
         "schema": {
           "project": "osdu/platform/system/schema-service",
@@ -28324,7 +28360,16 @@
               "state": "merged",
               "refs": []
             }
-          ]
+          ],
+          "pins": {
+            "upstream": {
+              "osCoreCommon": "7.1.3"
+            },
+            "fork": {
+              "osCoreCommon": "7.1.3",
+              "coreLibAzure": "3.0.1"
+            }
+          }
         }
       },
       "filters": {
@@ -28352,6 +28397,10 @@
       "portRead": {
         "prs": 122,
         "commits": 361
+      },
+      "latest": {
+        "osCoreCommon": "9.3.0",
+        "coreLibAzure": "3.0.4"
       }
     }
   },

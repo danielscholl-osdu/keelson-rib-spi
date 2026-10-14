@@ -23,10 +23,14 @@ export interface PortPrState {
 export interface LedgerState {
   merged: Record<string, MergedMrFact[]>;
   portPrs: Record<string, PortPrState>;
+  // Pins parsed from a pom, by blob oid or by upstream head sha.
+  poms: Record<string, PinRead>;
+  upstreamPoms: Record<string, PinRead>;
+  latest?: { at: string; pins: PinRead };
 }
 
 export function emptyLedgerState(): LedgerState {
-  return { merged: {}, portPrs: {} };
+  return { merged: {}, portPrs: {}, poms: {}, upstreamPoms: {} };
 }
 
 function seedOf(fork: ForkDef): string | undefined {
@@ -180,4 +184,137 @@ export async function readPortPrs(gh: Gh, state: LedgerState): Promise<PortPrRea
     out[f.id] = [...openPrs, ...Object.values(known.prs)];
   });
   return { prs: out, read };
+}
+
+export interface PinRead {
+  osCoreCommon?: string;
+  coreLibAzure?: string;
+}
+
+const LIBRARIES = {
+  osCoreCommon: "osdu/platform/system/lib/core/os-core-common",
+  coreLibAzure: "osdu/platform/system/lib/cloud/azure/os-core-lib-azure",
+} as const;
+const LATEST_MS = 60 * 60_000;
+
+// os-core-common.version and core-lib-azure.version, or core-lib-azure's own <version>.
+export function pinsOf(pom: string): PinRead {
+  const prop = (name: string) =>
+    new RegExp(`<${name.replace(/\./g, "\\.")}>\\s*([^<$\\s]+)\\s*<`).exec(pom)?.[1];
+  const artifact =
+    /<artifactId>\s*core-lib-azure\s*<\/artifactId>\s*<version>\s*([^<$\s]+)\s*</.exec(pom)?.[1];
+  const osCoreCommon = prop("os-core-common.version");
+  const coreLibAzure = prop("core-lib-azure.version") ?? artifact;
+  return {
+    ...(osCoreCommon ? { osCoreCommon } : {}),
+    ...(coreLibAzure ? { coreLibAzure } : {}),
+  };
+}
+
+function decode(content: string): string {
+  return Buffer.from(content.replace(/\s/g, ""), "base64").toString("utf8");
+}
+
+interface RawPoms {
+  root?: { oid?: string } | null;
+  azure?: { oid?: string } | null;
+}
+
+// Each fork's root and Azure provider pom by blob oid; a blob is read only the first time its oid shows.
+export async function readForkPins(
+  gh: Gh,
+  forks: readonly { id: string; repo: string; azure?: string }[],
+  state: LedgerState,
+): Promise<Record<string, { root?: PinRead; azure?: PinRead }>> {
+  const out: Record<string, { root?: PinRead; azure?: PinRead }> = {};
+  if (forks.length === 0) return out;
+  const fields = forks.map((f, i) => {
+    const [owner, name] = f.repo.split("/");
+    const azure = f.azure
+      ? ` azure: object(expression: "main:${f.azure}/pom.xml") { ... on Blob { oid } }`
+      : "";
+    return `pom${i}: repository(owner: "${owner}", name: "${name}") { root: object(expression: "main:pom.xml") { ... on Blob { oid } }${azure} }`;
+  });
+  let data: Record<string, RawPoms | null>;
+  try {
+    data = (await gh.graphql<Record<string, RawPoms | null>>(`query { ${fields.join(" ")} }`)).data;
+  } catch {
+    return out;
+  }
+  const blob = async (repo: string, oid: string | undefined): Promise<PinRead | undefined> => {
+    if (!oid) return undefined;
+    const known = state.poms[oid];
+    if (known) return known;
+    try {
+      const file = await gh.rest<{ content: string }>(`repos/${repo}/git/blobs/${oid}`);
+      const pins = pinsOf(decode(file.content));
+      state.poms[oid] = pins;
+      return pins;
+    } catch {
+      return undefined;
+    }
+  };
+  await Promise.all(
+    forks.map(async (f, i) => {
+      const raw = data[`pom${i}`];
+      if (!raw) return;
+      const root = await blob(f.repo, raw.root?.oid);
+      const azure = await blob(f.repo, raw.azure?.oid ?? undefined);
+      out[f.id] = { ...(root ? { root } : {}), ...(azure ? { azure } : {}) };
+    }),
+  );
+  return out;
+}
+
+// Upstream's root pom at master, read again only when master's head moves.
+export async function readUpstreamPins(
+  glab: Glab,
+  project: string,
+  head: string | undefined,
+  state: LedgerState,
+): Promise<PinRead | undefined> {
+  if (!head) return undefined;
+  const known = state.upstreamPoms[head];
+  if (known) return known;
+  try {
+    const file = await glab.rest<{ content: string }>(
+      `projects/${encodeURIComponent(project)}/repository/files/pom.xml?ref=${head}`,
+    );
+    const pins = pinsOf(decode(file.content));
+    state.upstreamPoms[head] = pins;
+    return pins;
+  } catch {
+    return undefined;
+  }
+}
+
+function newest(tags: readonly string[]): string | undefined {
+  const plain = tags.filter((t) => /^v?\d+\.\d+\.\d+$/.test(t)).map((t) => t.replace(/^v/, ""));
+  return plain.sort((a, b) => {
+    const pa = a.split(".").map(Number);
+    const pb = b.split(".").map(Number);
+    for (let i = 0; i < 3; i++)
+      if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pb[i] ?? 0) - (pa[i] ?? 0);
+    return 0;
+  })[0];
+}
+
+// The newest release of each library from its tags, read at most hourly.
+export async function readLatest(glab: Glab, state: LedgerState, now: number): Promise<PinRead> {
+  const held = state.latest;
+  if (held && now - Date.parse(held.at) < LATEST_MS) return held.pins;
+  const pins: PinRead = { ...(held?.pins ?? {}) };
+  for (const [key, project] of Object.entries(LIBRARIES) as [keyof PinRead, string][]) {
+    try {
+      const tags = await glab.rest<{ name: string }[]>(
+        `projects/${encodeURIComponent(project)}/repository/tags?per_page=100`,
+      );
+      const top = newest(tags.map((t) => t.name));
+      if (top) pins[key] = top;
+    } catch {
+      // The last good release stays.
+    }
+  }
+  state.latest = { at: new Date(now).toISOString(), pins };
+  return pins;
 }

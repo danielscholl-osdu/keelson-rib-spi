@@ -7,9 +7,10 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import { FORKS } from "../config.ts";
-import type { DiffFact, MrFact, RadarFacts } from "../facts.ts";
+import type { DiffFact, LibraryPins, MrFact, RadarFacts } from "../facts.ts";
 import { type FilterMap, parseFilter, type UpstreamFilter } from "./filter.ts";
 import type { LineModel } from "./lines.ts";
+import { semverCmp } from "./stack.ts";
 
 export type Bucket = "Port" | "Interface" | "Toolchain" | "Halt" | "Shared" | "Filtered";
 
@@ -75,6 +76,15 @@ export interface PortLedger {
   ported: { iid: number; pr: string }[];
 }
 
+export type LibraryState = "skewed" | "behind" | "match" | "unread";
+
+// A fork's library pins against upstream master and the newest release; undefined is unread.
+export interface LibrarySkew {
+  osCoreCommon: { fork?: string; upstream?: string; latest?: string };
+  coreLibAzure: { fork?: string; latest?: string };
+  state: LibraryState;
+}
+
 export interface RadarService {
   state: RadarState;
   queued: number;
@@ -84,6 +94,7 @@ export interface RadarService {
   filterSha?: string;
   // Undefined while the merged MRs, their diffs or the fork PRs are unread.
   ports?: PortLedger;
+  libraries?: LibrarySkew;
 }
 
 export interface RadarModel {
@@ -353,9 +364,39 @@ export function radarState(p: Prediction | undefined, line: LineModel | undefine
   return p.queued > 0 ? "lagging" : "clean";
 }
 
+function older(a: string | undefined, b: string | undefined): boolean {
+  return !!a && !!b && semverCmp(a, b) < 0;
+}
+
+export function librarySkew(
+  pins: RadarFacts["services"][string]["pins"],
+  latest: LibraryPins | undefined,
+): LibrarySkew | undefined {
+  if (!pins) return undefined;
+  const os = {
+    ...(pins.fork?.osCoreCommon ? { fork: pins.fork.osCoreCommon } : {}),
+    ...(pins.upstream?.osCoreCommon ? { upstream: pins.upstream.osCoreCommon } : {}),
+    ...(latest?.osCoreCommon ? { latest: latest.osCoreCommon } : {}),
+  };
+  const azure = {
+    ...(pins.fork?.coreLibAzure ? { fork: pins.fork.coreLibAzure } : {}),
+    ...(latest?.coreLibAzure ? { latest: latest.coreLibAzure } : {}),
+  };
+  const state: LibraryState =
+    !os.fork || !os.upstream
+      ? "unread"
+      : older(os.fork, os.upstream)
+        ? "skewed"
+        : older(os.fork, os.latest) || older(azure.fork, azure.latest)
+          ? "behind"
+          : "match";
+  return { osCoreCommon: os, coreLibAzure: azure, state };
+}
+
 export function buildRadar(
   predictions: Record<string, Prediction>,
   lines: readonly LineModel[],
+  facts?: RadarFacts,
 ): RadarModel {
   const services: Record<string, RadarService> = {};
   for (const line of lines) {
@@ -371,6 +412,8 @@ export function buildRadar(
           ...(p.ports ? { ports: p.ports } : {}),
         }
       : { state: "unmeasured", queued: 0, mrs: 0, certain: [], possible: [] };
+    const libraries = librarySkew(facts?.services[line.fork.id]?.pins, facts?.latest);
+    if (libraries) (services[line.fork.id] as RadarService).libraries = libraries;
   }
   return { services };
 }

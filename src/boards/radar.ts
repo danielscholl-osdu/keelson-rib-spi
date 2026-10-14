@@ -296,6 +296,39 @@ function alsoIn(forks: readonly string[]): string {
   return forks.length <= 3 ? names(forks) : plural(forks.length, "other fork");
 }
 
+function pin(v: string | undefined): string {
+  return v ?? "?";
+}
+
+function librariesSection(model: Model): Section | undefined {
+  const forks = FORKS.map((f) => [f.id, model.radar.services[f.id]?.libraries] as const);
+  if (forks.every(([, l]) => !l)) return undefined;
+  const skewed = forks.filter(([, l]) => l?.state === "skewed");
+  const matching = forks.filter(([, l]) => l?.state === "match" || l?.state === "behind");
+  const unread = forks.filter(([, l]) => !l || l.state === "unread");
+  const items: Row[] = skewed.map(([fork, l]) => ({
+    chip: { label: fork, tone: "warn" as const },
+    text: `os-core-common · fork ${pin(l?.osCoreCommon.fork)} · upstream ${pin(l?.osCoreCommon.upstream)} · latest ${pin(l?.osCoreCommon.latest)}`,
+    trailing: `core-lib-azure ${pin(l?.coreLibAzure.fork)} · latest ${pin(l?.coreLibAzure.latest)}`,
+  }));
+  if (matching.length > 0) {
+    const behind = matching.filter(([, l]) => l?.state === "behind").length;
+    items.push({
+      glyph: behind > 0 ? "info" : "ok",
+      text: `${plural(matching.length, "fork")} match upstream · ${names(matching.map(([f]) => f))}`,
+      trailing: behind > 0 ? `${behind} behind the latest release` : "on the latest release",
+    });
+  }
+  if (unread.length > 0) {
+    items.push({
+      glyph: "neutral",
+      text: `${plural(unread.length, "fork")} unread · ${names(unread.map(([f]) => f))}`,
+      trailing: "os-core-common ? · upstream ?",
+    });
+  }
+  return { kind: "rows", title: "Libraries", items };
+}
+
 function breakText(b: Break): string {
   const what = b.kind === "halt" ? `${b.bucket}: ${b.items.join(", ")}` : b.items.join(", ");
   return `!${b.iid} ${clip(b.title, 48)}${b.draft ? " · draft" : ""} · ${clip(what, 72)}`;
@@ -345,6 +378,8 @@ export interface RadarOptions {
 export function radarBoard(model: Model, now: Date, opts: RadarOptions = {}): CanvasBoardView {
   const breaks = radarBreaks(model);
   const sections: Section[] = [tiles(model, breaks, now), ...nextSync(model, breaks)];
+  const libs = librariesSection(model);
+  if (libs) sections.push(libs);
   const list = breaksSection(breaks, now, opts.selected);
   if (list) sections.push(list);
   const gitlab = stamp(opts.readAt, now);

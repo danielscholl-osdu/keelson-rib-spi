@@ -31,7 +31,7 @@ import { age } from "../src/util.ts";
 const args = process.argv.slice(2);
 const dir = args.find((a) => !a.startsWith("--")) ?? mkdtempSync(join(tmpdir(), "rib-spi-"));
 const RADAR_READ =
-  /merge_requests|mergeRequests|port_o0|\/commits\/[0-9a-f]+\/diff|upstream-filter\.yml/;
+  /merge_requests|mergeRequests|port_o0|pom0|git\/blobs|repository\/files\/pom|repository\/tags|\/commits\/[0-9a-f]+\/diff|upstream-filter\.yml/;
 let radarCalls = 0;
 const counted = <F extends (cmd: string, args: string[], ...rest: never[]) => unknown>(f: F): F =>
   ((cmd: string, a: string[], ...rest: never[]) => {

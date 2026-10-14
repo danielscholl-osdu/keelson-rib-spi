@@ -9,9 +9,19 @@
 import { FORKS } from "../config.ts";
 import type { DiffFact, MrFact, RadarFacts, UpstreamFact } from "../facts.ts";
 import { encodeProject, type Gh, type Glab } from "../forge.ts";
+import { parseFilter } from "../model/filter.ts";
+import { forkOwned } from "../model/radar.ts";
 import { pool } from "../util.ts";
 import { readFilterFile } from "./filters.ts";
-import { emptyLedgerState, type LedgerState, readMerged, readPortPrs } from "./ledgers.ts";
+import {
+  emptyLedgerState,
+  type LedgerState,
+  readForkPins,
+  readLatest,
+  readMerged,
+  readPortPrs,
+  readUpstreamPins,
+} from "./ledgers.ts";
 
 interface RawMr {
   iid: number;
@@ -147,12 +157,19 @@ export async function readRadar(
         })
       : undefined;
     const forkPrs = ports.prs[fork.id];
+    const upstreamPins = await readUpstreamPins(
+      glab,
+      fork.upstream,
+      upstream[fork.id]?.head?.sha,
+      state.ledgers,
+    );
     out.services[fork.id] = {
       project: fork.upstream,
       mrs,
       queued,
       ...(landed ? { merged: landed } : {}),
       ...(forkPrs ? { forkPrs } : {}),
+      ...(upstreamPins ? { pins: { upstream: upstreamPins } } : {}),
     };
     try {
       const file = await readFilterFile(gh, fork.repo);
@@ -162,6 +179,26 @@ export async function readRadar(
       // A fork whose filter cannot be read stays unread; the others still count.
     }
   });
+  const azure = (text: string | undefined) =>
+    text ? forkOwned(parseFilter(text)).find((p) => p.startsWith("provider/")) : undefined;
+  const pins = await readForkPins(
+    gh,
+    FORKS.map((f) => {
+      const tree = azure(out.filters[f.id]?.text);
+      return { id: f.id, repo: f.repo, ...(tree ? { azure: tree } : {}) };
+    }),
+    state.ledgers,
+  );
+  for (const [id, p] of Object.entries(pins)) {
+    const svc = out.services[id];
+    if (!svc || !p.root) continue;
+    const fork = {
+      ...(p.root ?? {}),
+      ...(p.azure?.coreLibAzure ? { coreLibAzure: p.azure.coreLibAzure } : {}),
+    };
+    svc.pins = { ...(svc.pins ?? {}), fork };
+  }
+  out.latest = await readLatest(glab, state.ledgers, Date.now());
   return out;
 }
 
@@ -179,6 +216,8 @@ export function pruneRadar(state: RadarState, facts: RadarFacts | undefined, cap
   capMap(state.mrDiffs, mrs, cap);
   capMap(state.commitDiffs, commits, cap);
   for (const key of Object.keys(state.filters)) if (!blobs.has(key)) delete state.filters[key];
+  capMap(state.ledgers.poms, new Set(), 60);
+  capMap(state.ledgers.upstreamPoms, new Set(), 60);
 }
 
 function capMap(map: Record<string, unknown>, keep: ReadonlySet<string>, cap: number): void {

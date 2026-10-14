@@ -9,6 +9,7 @@
 import type { RibExec } from "@keelson/shared";
 import { z } from "@keelson/shared";
 import { readGithub } from "./collect/github.ts";
+import { emptyLedgerState } from "./collect/ledgers.ts";
 import { emptyRadarState, pruneRadar, type RadarState, readRadar } from "./collect/radar.ts";
 import {
   DetailCache,
@@ -106,6 +107,9 @@ const cacheFileSchema = z.object({
         .object({
           merged: z.record(z.string(), z.array(z.unknown())),
           portPrs: z.record(z.string(), z.unknown()),
+          poms: z.record(z.string(), z.unknown()).optional(),
+          upstreamPoms: z.record(z.string(), z.unknown()).optional(),
+          latest: z.unknown().optional(),
         })
         .optional(),
     })
@@ -164,6 +168,7 @@ export class Sweeper {
     const cache = opts.store.read(CACHE_FILE, cacheFileSchema) as Partial<CacheFile> | undefined;
     this.cache = cache ? { ...emptyCache(), ...cache } : emptyCache();
     this.cache.radar = { ...emptyRadarState(), ...this.cache.radar };
+    this.cache.radar.ledgers = { ...emptyLedgerState(), ...this.cache.radar.ledgers };
     this.detailCache = new DetailCache(this.cache.details);
     const upstreamAt = this.facts.upstream.at ? Date.parse(this.facts.upstream.at) : 0;
     this.gitlabAt = Number.isFinite(upstreamAt) ? upstreamAt : 0;
