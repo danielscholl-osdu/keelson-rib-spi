@@ -110,7 +110,8 @@ export interface QueueItem {
   note?: string;
   effects: Effect[];
   cause: Fact[];
-  cls?: FailureClass;
+  // PORT is owed work: an upstream change to fork-owned code no fork PR carries yet.
+  cls?: FailureClass | "PORT";
   halt?: HaltEntries;
   approve?: ApprovePr[];
   lanes?: LaneRun[];
@@ -1087,6 +1088,7 @@ function portItems(
           url: prs,
         },
       ],
+      cls: "PORT",
       links: [
         ...owed.map((m) => ({ label: `Open MR !${m.iid}`, url: m.url })),
         { label: "Open fork PRs", url: prs },

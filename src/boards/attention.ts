@@ -65,8 +65,10 @@ export function attentionBoard(
       : problems > 0
         ? `⚠ DOCTOR · ${plural(problems, "PROBLEM", "PROBLEMS")} · `
         : "";
-  const gates = counts.p0 + counts.p1 - incidents;
-  const chip = `${flag}${incidents} broke · ${gates} gate · ${counts.p2} ready${model.sweptAt ? ` · ${zoned(model.sweptAt, now)}` : ""}`;
+  // A port owed is neither broken nor a gate; it counts apart so the words still sum to the badge.
+  const owed = items.filter((i) => i.cls === "PORT" && i.rung < 2).length;
+  const gates = counts.p0 + counts.p1 - incidents - owed;
+  const chip = `${flag}${incidents} broke · ${gates} gate${owed > 0 ? ` · ${owed} owed` : ""} · ${counts.p2} ready${model.sweptAt ? ` · ${zoned(model.sweptAt, now)}` : ""}`;
   const queue: Section = {
     kind: "rows",
     items:

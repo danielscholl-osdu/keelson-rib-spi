@@ -10,7 +10,7 @@ import type { FailureClass } from "./attribution.ts";
 import type { ItemKind, QueueItem } from "./queue.ts";
 import { pullFailure } from "./reason.ts";
 
-export type ItemClass = FailureClass | "INCIDENT" | "GATE" | "READY";
+export type ItemClass = FailureClass | "PORT" | "INCIDENT" | "GATE" | "READY";
 
 // A fork whose upstream filter already lists a halted entry, and what its rule says.
 export interface ListedEntry {
@@ -22,7 +22,7 @@ export function itemClass(item: QueueItem): ItemClass {
   return item.cls ?? (item.incident ? "INCIDENT" : item.rung === 1 ? "GATE" : "READY");
 }
 
-export const CLASS_VERB: Record<FailureClass | "INCIDENT", string> = {
+export const CLASS_VERB: Record<FailureClass | "PORT" | "INCIDENT", string> = {
   HALT: "Classify entry",
   TOOLCHAIN: "Absorb toolchain",
   BUILD: "Investigate",
@@ -32,6 +32,7 @@ export const CLASS_VERB: Record<FailureClass | "INCIDENT", string> = {
   POLICY: "Investigate",
   ENV: "Re-run lanes",
   ACCESS: "Open run, Open PR",
+  PORT: "Port",
   CONFLICT: "Investigate, then Dispatch cascade",
   INCIDENT: "Investigate",
 };
@@ -40,7 +41,6 @@ export const CLASS_VERB: Record<FailureClass | "INCIDENT", string> = {
 const KIND_VERB: Partial<Record<ItemKind, string>> = {
   stack: "Re-dispatch",
   maintenance: "Re-dispatch",
-  port: "Open MR",
   cascade: "Investigate, then Dispatch cascade",
   approvals: "Approve runs",
   gate1: "Review on GitHub",

@@ -67,7 +67,7 @@ describe("what the boards say", () => {
   test("the banner pill is the verdict with the incident count, and rows carry rung and class", () => {
     const b = attentionBoard(model, facts, FIXTURE_NOW);
     expect(b.header?.status?.label).toMatch(/^BLOCKED · \d+ INCIDENTS?$/);
-    expect(b.header?.chip).toBe("3 broke · 3 gate · 2 ready · 21:58 UTC");
+    expect(b.header?.chip).toBe("3 broke · 1 gate · 2 owed · 2 ready · 21:58 UTC");
     const rows = b.sections[0];
     expect(rows?.kind).toBe("rows");
     if (rows?.kind !== "rows") return;
@@ -90,8 +90,8 @@ describe("what the boards say", () => {
       ["P0 · ENV", "Re-dispatch"],
       ["P0 · HALT", "Classify entry"],
       ["P1 · TOOLCHAIN", "Absorb toolchain"],
-      ["P1 · GATE", "Open MR"],
-      ["P1 · GATE", "Open MR"],
+      ["P1 · PORT", "Port"],
+      ["P1 · PORT", "Port"],
       ["P1 · GATE", "Approve runs"],
       ["P2 · READY", "Review, then Roll out"],
       ["P2 · READY", "Review on GitHub"],

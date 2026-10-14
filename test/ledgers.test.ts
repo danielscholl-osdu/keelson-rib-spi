@@ -15,7 +15,7 @@ import type { Facts } from "../src/facts";
 import { Gh, Glab } from "../src/forge";
 import { INSPECT_KEY, RADAR_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
-import { nextText, verbOf } from "../src/model/next";
+import { itemClass, nextText, verbOf } from "../src/model/next";
 import { FIXTURE_NOW, fixtureFacts } from "./harness";
 
 const AT = new Date("2026-10-13T23:30:00Z");
@@ -92,7 +92,8 @@ describe("the port ledger", () => {
       "Open fork PRs",
     ]);
     if (!item) throw new Error("port item");
-    expect(verbOf(item)).toBe("Open MR");
+    expect(itemClass(item)).toBe("PORT");
+    expect(verbOf(item)).toBe("Port");
     expect(nextText(item)).toBe(
       "Port !963 into testing/entitlements-v2-test-azure; cite the MR URL in the PR body",
     );
