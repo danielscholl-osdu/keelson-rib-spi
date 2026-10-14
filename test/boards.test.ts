@@ -591,7 +591,10 @@ describe("the upstream panel", () => {
       sub: "entitlements halts on schemathesis-tests · legal carries Java 25",
     });
     expect(tiles.items[1]).toMatchObject({ value: "5", sub: "partition !830 · legal !756" });
-    expect(tiles.items[2]).toMatchObject({ value: "31 d", sub: "stages land in R4" });
+    expect(tiles.items[2]).toMatchObject({
+      value: "31 d",
+      sub: "0 pending · 5 established · 0 fork-only",
+    });
   });
 
   test("one row per fork with something queued; at-risk forks fold above the breaks list", () => {

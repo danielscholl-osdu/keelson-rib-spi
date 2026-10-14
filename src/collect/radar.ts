@@ -20,6 +20,7 @@ import {
   readLatest,
   readMerged,
   readPortPrs,
+  readRemoval,
   readUpstreamPins,
 } from "./ledgers.ts";
 
@@ -41,11 +42,14 @@ interface RawDiff {
   old_path: string;
   new_path: string;
   diff?: string;
+  deleted_file?: boolean;
 }
 
 export interface DiffEntry {
   paths: string[];
   hunks?: Record<string, string[]>;
+  // Paths the change deletes; absent on entries cached before deletions were recorded.
+  deleted?: string[];
 }
 
 export interface RadarState {
@@ -63,8 +67,10 @@ const HUNK_FILES = /(^|\/)(pom\.xml|\.fossa\.yml)$/;
 
 export function diffEntry(diffs: readonly RawDiff[]): DiffEntry {
   const paths = new Set<string>();
+  const deleted: string[] = [];
   const hunks: Record<string, string[]> = {};
   for (const d of diffs) {
+    if (d.deleted_file) deleted.push(d.old_path);
     paths.add(d.new_path);
     if (d.old_path !== d.new_path) paths.add(d.old_path);
     if (!HUNK_FILES.test(d.new_path)) continue;
@@ -73,7 +79,7 @@ export function diffEntry(diffs: readonly RawDiff[]): DiffEntry {
       .filter((l) => /^[+-]/.test(l) && !/^(\+\+\+|---) /.test(l));
     if (lines.length > 0) hunks[d.new_path] = lines;
   }
-  return { paths: [...paths], ...(Object.keys(hunks).length > 0 ? { hunks } : {}) };
+  return { paths: [...paths], ...(Object.keys(hunks).length > 0 ? { hunks } : {}), deleted };
 }
 
 export function mrKey(project: string, iid: number, sha: string): string {
@@ -148,12 +154,12 @@ export async function readRadar(
     const list = merged[fork.id];
     const landed = list
       ? await pool(list, 3, async (m) => {
-          const entry = await cachedDiff(
-            state.mrDiffs,
-            mrKey(fork.upstream, m.iid, m.headSha),
-            () => glab.restAll<RawDiff>(`projects/${project}/merge_requests/${m.iid}/diffs`),
+          const key = mrKey(fork.upstream, m.iid, m.headSha);
+          if (state.mrDiffs[key] && !state.mrDiffs[key].deleted) delete state.mrDiffs[key];
+          const entry = await cachedDiff(state.mrDiffs, key, () =>
+            glab.restAll<RawDiff>(`projects/${project}/merge_requests/${m.iid}/diffs`),
           );
-          return entry ? { ...m, paths: entry.paths } : m;
+          return entry ? { ...m, paths: entry.paths, deleted: entry.deleted ?? [] } : m;
         })
       : undefined;
     const forkPrs = ports.prs[fork.id];
@@ -199,6 +205,8 @@ export async function readRadar(
     svc.pins = { ...(svc.pins ?? {}), fork };
   }
   out.latest = await readLatest(glab, state.ledgers, Date.now());
+  const removal = await readRemoval(glab, state.ledgers, Date.now());
+  if (removal) out.removal = removal;
   return out;
 }
 

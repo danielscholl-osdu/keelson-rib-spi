@@ -9,6 +9,7 @@ import {
   readLatest,
   readMerged,
   readPortPrs,
+  readRemoval,
 } from "../src/collect/ledgers";
 import type { Facts } from "../src/facts";
 import { Gh, Glab } from "../src/forge";
@@ -314,5 +315,94 @@ describe("library skew", () => {
     expect(calls).toBe(2);
     await readLatest(glab, state, now + 61 * 60_000);
     expect(calls).toBe(4);
+  });
+});
+
+describe("the Azure removal stage", () => {
+  function stages(m: ReturnType<typeof buildModel>) {
+    return Object.fromEntries(Object.entries(m.radar.services).map(([svc, r]) => [svc, r.removal]));
+  }
+
+  test("each service takes its stage from its removal issue's SPI fork label", () => {
+    const m = model();
+    expect(stages(m)).toEqual({
+      partition: "established",
+      entitlements: "established",
+      legal: "established",
+      schema: "established",
+      file: "established",
+    });
+    expect(m.radar.removalDue).toBe("2026-11-13");
+  });
+
+  test("a merged MR that deletes the fork's Azure provider tree makes it fork-only", () => {
+    const m = model((f) => {
+      const partition = f.radar.data?.services.partition;
+      if (!partition?.merged) throw new Error("fixture has partition merged MRs");
+      const gone = ["provider/partition-azure/pom.xml", "provider/partition-azure/src/A.java"];
+      partition.merged.push({
+        iid: 999,
+        title: "Remove Azure provider",
+        url: "u",
+        mergedAt: "2026-10-13T00:00:00Z",
+        headSha: "f00",
+        paths: gone,
+        deleted: gone,
+      });
+    });
+    expect(m.radar.services.partition?.removal).toBe("fork-only");
+  });
+
+  test("a service no removal issue names reads '?', in the row and in the tile", () => {
+    const m = model((f) => {
+      const removal = f.radar.data?.removal;
+      if (!removal) throw new Error("fixture has removal labels");
+      delete removal.labels["osdu/platform/security-and-compliance/legal"];
+    });
+    expect(m.radar.services.legal?.removal).toBeUndefined();
+    const b = radarBoard(m, AT);
+    const tiles = b.sections[0];
+    if (tiles?.kind !== "stats") throw new Error("tiles first");
+    expect(tiles.items[2]?.sub).toBe("0 pending · 4 established · 0 fork-only · 1 ?");
+    const table = b.sections.find((s) => s.kind === "table");
+    if (table?.kind !== "table") throw new Error("next-sync table");
+    const legal = table.rows.find((r) => plain(r.fork) === "legal");
+    expect(legal?.removal).toBe("?");
+  });
+});
+
+describe("the removal read", () => {
+  test("labels map by upstream project, established wins, the milestone gives the due date", async () => {
+    const state = emptyLedgerState();
+    let fail = false;
+    const asked: string[] = [];
+    const glab = new Glab({
+      runJSON: async (_cmd: string, args: string[]) => {
+        const path = args[3] ?? "";
+        asked.push(path);
+        if (fail) return { ok: false as const, error: "HTTP 500", code: 1 };
+        const issue = (full: string) => ({
+          references: { full },
+          milestone: { due_date: "2026-11-13" },
+        });
+        const data = path.includes("pending")
+          ? [issue("osdu/platform/system/storage#1"), issue("osdu/platform/system/file#297")]
+          : [issue("osdu/platform/system/file#297")];
+        return { ok: true as const, data: data as never };
+      },
+      runText: async () => ({ ok: false as const, error: "unused", code: 1 }),
+    });
+    const now = Date.parse("2026-10-13T23:00:00Z");
+    const read = await readRemoval(glab, state, now);
+    expect(read).toEqual({
+      due: "2026-11-13",
+      labels: {
+        "osdu/platform/system/storage": "pending",
+        "osdu/platform/system/file": "established",
+      },
+    });
+    expect(asked[0]).toContain("groups/osdu%2Fplatform/issues?labels=SPI%20fork%3A%3Apending");
+    fail = true;
+    expect(await readRemoval(glab, state, now + 2 * 60 * 60_000)).toEqual(read);
   });
 });

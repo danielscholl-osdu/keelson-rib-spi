@@ -482,6 +482,12 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
               libraries: Object.fromEntries(
                 Object.entries(m.radar.services).map(([svc, r]) => [svc, r.libraries ?? null]),
               ),
+              removal: {
+                due: m.radar.removalDue ?? null,
+                stages: Object.fromEntries(
+                  Object.entries(m.radar.services).map(([svc, r]) => [svc, r.removal ?? null]),
+                ),
+              },
             },
           }
         );

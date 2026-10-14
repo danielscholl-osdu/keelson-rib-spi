@@ -85,6 +85,8 @@ export interface LibrarySkew {
   state: LibraryState;
 }
 
+export type RemovalStage = "pending" | "established" | "fork-only";
+
 export interface RadarService {
   state: RadarState;
   queued: number;
@@ -95,10 +97,14 @@ export interface RadarService {
   // Undefined while the merged MRs, their diffs or the fork PRs are unread.
   ports?: PortLedger;
   libraries?: LibrarySkew;
+  // Undefined while no removal issue for the service was read.
+  removal?: RemovalStage;
 }
 
 export interface RadarModel {
   services: Record<string, RadarService>;
+  // The M28 milestone's due date, when the removal issues carry it.
+  removalDue?: string;
 }
 
 // What the next sync does with the queued commits, and what open MRs would do.
@@ -393,6 +399,25 @@ export function librarySkew(
   return { osCoreCommon: os, coreLibAzure: azure, state };
 }
 
+// Fork-only once a merged upstream MR deletes the fork's Azure provider tree.
+export function removalStage(
+  fork: { id: string; upstream: string },
+  facts: RadarFacts | undefined,
+): RemovalStage | undefined {
+  const text = facts?.filters[fork.id]?.text;
+  const tree = text
+    ? forkOwned(parseFilter(text)).find((p) => p.startsWith("provider/"))
+    : undefined;
+  const merged = facts?.services[fork.id]?.merged ?? [];
+  const under = (p: string) => !!tree && p.startsWith(`${tree}/`);
+  const removed = merged.some((m) => {
+    const touched = (m.paths ?? []).filter(under);
+    return touched.length > 0 && touched.every((p) => (m.deleted ?? []).includes(p));
+  });
+  if (removed) return "fork-only";
+  return facts?.removal?.labels[fork.upstream];
+}
+
 export function buildRadar(
   predictions: Record<string, Prediction>,
   lines: readonly LineModel[],
@@ -412,10 +437,13 @@ export function buildRadar(
           ...(p.ports ? { ports: p.ports } : {}),
         }
       : { state: "unmeasured", queued: 0, mrs: 0, certain: [], possible: [] };
+    const svc = services[line.fork.id] as RadarService;
     const libraries = librarySkew(facts?.services[line.fork.id]?.pins, facts?.latest);
-    if (libraries) (services[line.fork.id] as RadarService).libraries = libraries;
+    if (libraries) svc.libraries = libraries;
+    const removal = removalStage(line.fork, facts);
+    if (removal) svc.removal = removal;
   }
-  return { services };
+  return { services, ...(facts?.removal?.due ? { removalDue: facts.removal.due } : {}) };
 }
 
 function names(list: readonly string[]): string {

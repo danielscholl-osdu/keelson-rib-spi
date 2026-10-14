@@ -7,7 +7,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import { FORKS, type ForkDef } from "../config.ts";
-import type { ForkPrFact, MergedMrFact } from "../facts.ts";
+import type { ForkPrFact, MergedMrFact, RadarFacts } from "../facts.ts";
 import type { Gh, Glab } from "../forge.ts";
 
 const PAGE = 100;
@@ -27,6 +27,7 @@ export interface LedgerState {
   poms: Record<string, PinRead>;
   upstreamPoms: Record<string, PinRead>;
   latest?: { at: string; pins: PinRead };
+  removal?: { at: string; read: RemovalRead };
 }
 
 export function emptyLedgerState(): LedgerState {
@@ -317,4 +318,49 @@ export async function readLatest(glab: Glab, state: LedgerState, now: number): P
   }
   state.latest = { at: new Date(now).toISOString(), pins };
   return pins;
+}
+
+const REMOVAL_GROUP = "osdu/platform";
+const REMOVAL_LABELS = {
+  pending: "SPI fork::pending",
+  established: "SPI fork::established",
+} as const;
+
+interface RawIssue {
+  references?: { full?: string };
+  milestone?: { due_date?: string | null } | null;
+}
+
+export type RemovalRead = NonNullable<RadarFacts["removal"]>;
+
+// The M28 removal issues by their SPI fork label, read at most hourly; a failed read keeps the last.
+export async function readRemoval(
+  glab: Glab,
+  state: LedgerState,
+  now: number,
+): Promise<RemovalRead | undefined> {
+  const held = state.removal;
+  if (held && now - Date.parse(held.at) < LATEST_MS) return held.read;
+  const labels: RemovalRead["labels"] = {};
+  let due: string | undefined;
+  try {
+    for (const [stage, label] of Object.entries(REMOVAL_LABELS) as [
+      keyof typeof REMOVAL_LABELS,
+      string,
+    ][]) {
+      const issues = await glab.restAll<RawIssue>(
+        `groups/${encodeURIComponent(REMOVAL_GROUP)}/issues?labels=${encodeURIComponent(label)}&state=all`,
+      );
+      for (const i of issues) {
+        const project = i.references?.full?.split("#")[0];
+        if (project && labels[project] !== "established") labels[project] = stage;
+        due ??= i.milestone?.due_date ?? undefined;
+      }
+    }
+  } catch {
+    return held?.read;
+  }
+  const read: RemovalRead = { ...(due ? { due } : {}), labels };
+  state.removal = { at: new Date(now).toISOString(), read };
+  return read;
 }

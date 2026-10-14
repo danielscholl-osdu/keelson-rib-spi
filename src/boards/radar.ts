@@ -145,6 +145,16 @@ function worstText(fork: string, certain: readonly Verdict[]): string | undefine
   return tool ? `${fork} carries ${tool.value}` : undefined;
 }
 
+const STAGES = ["pending", "established", "fork-only"] as const;
+
+// "5 pending · 5 established · 0 fork-only", with the forks no removal issue names.
+function removalText(model: Model): string {
+  const stages = FORKS.map((f) => model.radar.services[f.id]?.removal);
+  const parts = STAGES.map((s) => `${stages.filter((x) => x === s).length} ${s}`);
+  const unread = stages.filter((x) => !x).length;
+  return [...parts, ...(unread > 0 ? [`${unread} ?`] : [])].join(" · ");
+}
+
 function tiles(model: Model, breaks: readonly Break[], now: Date): Section {
   const read = measured(model);
   const at = nextSyncAt(now);
@@ -181,12 +191,13 @@ function tiles(model: Model, breaks: readonly Break[], now: Date): Section {
               .filter(Boolean)
               .join(" · ") || "no open MR breaks a fork",
         };
-  const days = Math.ceil((Date.parse(AZURE_REMOVAL_DUE) - now.getTime()) / DAY_MS);
+  const due = model.radar.removalDue ? `${model.radar.removalDue}T00:00:00Z` : AZURE_REMOVAL_DUE;
+  const days = Math.ceil((Date.parse(due) - now.getTime()) / DAY_MS);
   const removal: Stat = {
     label: "M28 · Azure removal",
     value: days >= 0 ? `${days} d` : "due",
     tone: days <= 14 ? "warn" : "info",
-    sub: "stages land in R4",
+    sub: removalText(model),
   };
   return { kind: "stats", items: [next, willBreak, removal] };
 }
@@ -233,6 +244,7 @@ function nextSync(model: Model, breaks: readonly Break[]): Section[] {
         { key: "next", label: "next sync" },
         { key: "mrs", label: "open MRs" },
         { key: "ports", label: "ports owed" },
+        { key: "removal", label: "removal" },
         { key: "filter", label: "filter" },
       ],
       rows: shown.map(([fork, r]) => {
@@ -253,6 +265,7 @@ function nextSync(model: Model, breaks: readonly Break[]): Section[] {
             def ? gitlabUrl(def.upstream, "/-/merge_requests") : undefined,
           ),
           ports: portsCell(r, def ? githubUrl(def.repo, "/pulls") : undefined),
+          removal: r.removal ? cell(r.removal, r.removal === "fork-only" ? "ok" : "neutral") : "?",
           filter: r.filterSha
             ? cell(
                 short(r.filterSha),

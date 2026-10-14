@@ -110,6 +110,7 @@ const cacheFileSchema = z.object({
           poms: z.record(z.string(), z.unknown()).optional(),
           upstreamPoms: z.record(z.string(), z.unknown()).optional(),
           latest: z.unknown().optional(),
+          removal: z.unknown().optional(),
         })
         .optional(),
     })

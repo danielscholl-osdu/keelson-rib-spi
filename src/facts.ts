@@ -297,6 +297,7 @@ export interface MergedMrFact {
   mergedAt: string;
   headSha: string;
   paths?: string[];
+  deleted?: string[];
 }
 
 export interface LibraryPins {
@@ -328,6 +329,8 @@ export interface RadarFacts {
     }
   >;
   filters: Record<string, { sha: string; text: string }>;
+  // The SPI fork labels on the M28 removal issues, by upstream project, and the milestone's due date.
+  removal?: { due?: string; labels: Record<string, "pending" | "established"> };
   // The newest release of each library, from its GitLab tags.
   latest?: LibraryPins;
   // How many fork PRs and commit messages the port match read this time.
