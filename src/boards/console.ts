@@ -377,9 +377,9 @@ function lineHtml(l: RepoLine): string {
 function repoDetail(r: RepoEntry, selected: boolean): string {
   const block = (s: RepoSection) =>
     `<p class="dl rsec"><span>${esc(s.title)}</span><span>${esc(s.count)}</span></p>${s.lines.map(lineHtml).join("")}`;
-  const work = r.sections.filter((s) => !s.quiet);
-  const alerts = r.sections.filter((s) => s.quiet);
-  const sections = `${work.map(block).join("")}${
+  const work = r.sections.filter((s) => s.weight !== "quiet");
+  const alerts = r.sections.filter((s) => s.weight === "quiet");
+  const sections = `${work.map((s) => (s.weight === "minor" ? `<div class="rminor">${block(s)}</div>` : block(s))).join("")}${
     alerts.length > 0 ? `<div class="rquiet">${alerts.map(block).join("")}</div>` : ""
   }`;
   return `<section class="detail" data-repo-detail="${esc(r.id)}"${selected ? "" : " hidden"}>
@@ -524,6 +524,11 @@ button.envband { cursor: pointer; }
 .tag.t-bad { color: var(--crit); border-color: var(--crit); } .tag.t-warn { color: var(--warn); border-color: var(--warn); } .tag.t-ok { color: var(--good); border-color: var(--good); }
 .rt { color: var(--fg-strong); overflow-wrap: anywhere; }
 .rs { grid-column: 2; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.detail > .rl .rt { font-weight: 600; }
+.rminor .rl { font-size: 12.5px; padding: 4px 0; }
+.rminor .rs { font-size: 11.5px; }
+.rminor .rt { color: var(--fg); }
+.rminor .tag:not(.t-bad) { color: var(--muted); border-color: var(--border); }
 .rquiet { margin-top: 14px; padding-top: 2px; border-top: 1px dashed var(--border); }
 .rquiet .rl { font-size: 12.5px; padding: 4px 0; }
 .rquiet .rs { font-size: 11.5px; }

@@ -45,8 +45,8 @@ export interface RepoSection {
   title: string;
   count: string;
   lines: RepoLine[];
-  // Alerts drain slowly, so they sit below the PRs at a lower weight.
-  quiet?: boolean;
+  // Bumps sit a step below the work; alerts drain slowly, so they sit lowest.
+  weight?: "minor" | "quiet";
 }
 
 export interface RepoEntry {
@@ -411,7 +411,13 @@ function alertSection(r: RepoRow, source: AlertGroup["source"]): RepoSection | u
     shown.length,
     `${mine.length} ours · ${inherited.length} upstream`,
   );
-  return s ? { ...s, quiet: true } : undefined;
+  return s ? { ...s, weight: "quiet" } : undefined;
+}
+
+const REACH_RANK: Record<DependencyPr["reach"], number> = { shipped: 0, tooling: 1, tests: 2 };
+
+function minor(s: RepoSection | undefined): RepoSection | undefined {
+  return s ? { ...s, weight: "minor" } : undefined;
 }
 
 function entryOf(r: RepoRow, now: Date): RepoEntry {
@@ -440,10 +446,14 @@ function entryOf(r: RepoRow, now: Date): RepoEntry {
       r.changes.map((c) => changeLine(c, now)),
       r.changes.length,
     ),
-    section(
-      "Dependabot Bumps",
-      [...r.dependabot].sort((a, b) => b.closes - a.closes).map(dependencyLine),
-      r.dependabot.length,
+    minor(
+      section(
+        "Dependabot Bumps",
+        [...r.dependabot]
+          .sort((a, b) => b.closes - a.closes || REACH_RANK[a.reach] - REACH_RANK[b.reach])
+          .map(dependencyLine),
+        r.dependabot.length,
+      ),
     ),
     vulns,
     code,

@@ -150,7 +150,8 @@ describe("a repository's detail", () => {
       "Vulnerabilities",
       "Code scanning",
     ]);
-    expect(partition?.sections.filter((s) => s.quiet).map((s) => s.title)).toEqual([
+    expect(partition?.sections.find((s) => s.title === "Dependabot Bumps")?.weight).toBe("minor");
+    expect(partition?.sections.filter((s) => s.weight === "quiet").map((s) => s.title)).toEqual([
       "Vulnerabilities",
       "Code scanning",
     ]);
