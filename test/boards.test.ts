@@ -442,10 +442,15 @@ describe("what the boards say", () => {
     expect(stats.items[0]?.sub).toMatch(
       /^v0\.28\.2 is latest · landed 10-0[56] \d\d:\d\d · 50 min after release, usually 33$/,
     );
-    expect(stats.items[1]).toMatchObject({ value: "GREEN", tone: "ok" });
+    expect(stats.items[1]).toMatchObject({
+      value: "26 min",
+      tone: "ok",
+      delta: { text: "8 min under usual", direction: "down", tone: "ok" },
+    });
     expect(stats.items[1]?.clock).toBeUndefined();
+    expect(stats.items[1]?.spark?.at(-1)).toBe(26);
     expect(stats.items[1]?.sub).toMatch(
-      /^12 h 52 min ago · fresh cluster to green in 26 min, usually 32 · next /,
+      /^fresh cluster to green · 7 in a row · 12 h 52 min ago · next /,
     );
     const kinds = b.sections.map((s) => s.kind);
     expect(kinds.slice(0, 4)).toEqual(["stats", "grid", "timeline", "rows"]);
@@ -490,9 +495,14 @@ describe("what the boards say", () => {
       "Greenfield · smoke",
       "Brownfield · refresh",
     ]);
-    expect(stats.items[2]).toMatchObject({ value: "GREEN", tone: "ok" });
+    expect(stats.items[2]).toMatchObject({
+      value: "2 min",
+      tone: "ok",
+      delta: { text: "as usual", direction: "flat", tone: "neutral" },
+    });
     expect(stats.items[2]?.clock).toBeUndefined();
-    expect(stats.items[2]?.sub).toMatch(/^24 h 14 min ago · re-proved in place in 2 min · next /);
+    expect(stats.items[2]?.spark?.at(-1)).toBe(2);
+    expect(stats.items[2]?.sub).toMatch(/^re-proved in place · 24 h 14 min ago · next /);
     expect(b.sections.some((s) => s.kind === "timeline")).toBe(false);
     expect(() => expectView(STACK_KEY, "board")(b)).not.toThrow();
   });
@@ -523,8 +533,9 @@ describe("what the boards say", () => {
     const refresh = stats.items[2];
     expect(refresh?.label).toBe("Brownfield · refresh");
     expect(refresh).toMatchObject({ value: "FAILED", tone: "warn" });
+    expect(refresh?.delta).toBeUndefined();
     expect(refresh?.sub).toMatch(
-      /^17 h 40 min ago · then env-upgrade v0\.28\.2 green \d\d:\d\d · next /,
+      /^at verify · 17 h 40 min ago · then env-upgrade v0\.28\.2 green \d\d:\d\d · next /,
     );
   });
 
@@ -547,7 +558,7 @@ describe("what the boards say", () => {
     return { smoke: stats.items[1], refresh: stats.items[2] };
   }
 
-  test("a stopped run leads with its result and puts its age first", () => {
+  test("a green proof leads with its time against the usual and a stopped run with its result", () => {
     const f = settled();
     const lc = f.lifecycle.data!;
     const [smoke, ...olderSmoke] = lc.smoke;
@@ -563,9 +574,11 @@ describe("what the boards say", () => {
     const calm = { ...m, stack: { ...m.stack, deployable: { state: "yes" as const, reason: "" } } };
     const { smoke: s, refresh: r } = proofTiles(calm);
     expect(s).toMatchObject({ value: "FAILED", tone: "error" });
+    expect(s?.delta).toBeUndefined();
+    expect(s?.spark).toBeUndefined();
     expect(s?.sub).toMatch(/^12 h 52 min ago · after 26 min · next /);
     expect(r).toMatchObject({ label: "Brownfield · refresh", value: "FAILED", tone: "error" });
-    expect(r?.sub).toMatch(/^24 h 14 min ago · after 2 min · next /);
+    expect(r?.sub).toMatch(/^red 2 in a row · 24 h 14 min ago · after 2 min · next /);
 
     f.lifecycle.data = {
       ...f.lifecycle.data,

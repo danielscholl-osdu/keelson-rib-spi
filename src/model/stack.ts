@@ -96,7 +96,8 @@ export interface StackModel {
   // The green upgrade that put the running version in place, and how long after its release.
   landed?: { at: string; release?: ReleaseFact; lagMs?: number };
   usualLagMs?: number;
-  durations: Record<"smoke" | "refresh", { lastMs?: number; usualMs?: number }>;
+  // greenMs is every green run's span in the window, oldest first.
+  durations: Record<"smoke" | "refresh", { lastMs?: number; usualMs?: number; greenMs: number[] }>;
 }
 
 const SET_STEP = /set maintenance/i;
@@ -350,13 +351,22 @@ function spanMs(run: LifecycleRun): number | undefined {
   return Number.isFinite(ms) && ms >= 0 ? ms : undefined;
 }
 
-function durations(runs: readonly LifecycleRun[]): { lastMs?: number; usualMs?: number } {
+function durations(
+  runs: readonly LifecycleRun[],
+  cutoff: number,
+): StackModel["durations"]["smoke"] {
   const done = runs
     .filter((r) => r.status === "completed" && r.conclusion !== "skipped")
     .sort((a, b) => byCreated(b, a));
   const last = done[0];
-  const green = done.filter((r) => r.conclusion === "success").flatMap((r) => spanMs(r) ?? []);
-  return { lastMs: last ? spanMs(last) : undefined, usualMs: median(green) };
+  const green = done
+    .filter((r) => r.conclusion === "success" && Date.parse(r.createdAt) >= cutoff)
+    .flatMap((r) => spanMs(r) ?? []);
+  return {
+    lastMs: last ? spanMs(last) : undefined,
+    usualMs: median(green),
+    greenMs: green.reverse(),
+  };
 }
 
 // Each version's first green upgrade, against the release that published it.
@@ -479,8 +489,8 @@ export function buildStack(
       landed.flatMap((l) => (l.lagMs !== undefined && Date.parse(l.at) >= cutoff ? [l.lagMs] : [])),
     ),
     durations: {
-      smoke: durations(lifecycle?.smoke ?? []),
-      refresh: durations(refresh),
+      smoke: durations(lifecycle?.smoke ?? [], cutoff),
+      refresh: durations(refresh, cutoff),
     },
   };
 }

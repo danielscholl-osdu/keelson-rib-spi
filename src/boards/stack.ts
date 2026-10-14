@@ -14,6 +14,7 @@ import type { Model } from "../model/index.ts";
 import { cadence, nextFire } from "../model/schedule.ts";
 import {
   attemptText,
+  type LifecycleStat,
   overdue,
   type RunView,
   runName,
@@ -23,6 +24,7 @@ import {
   semverCmp,
   stoppedAttempts,
   usualText,
+  viewRun,
 } from "../model/stack.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
 import { againstUsual, clip, span, stamp, took, zoned } from "../util.ts";
@@ -135,22 +137,74 @@ function nextText(model: Model, kind: LifecycleKind, now: Date): string | undefi
   return at === undefined ? undefined : `next ${stamp(new Date(at).toISOString(), now)}`;
 }
 
-function greenfieldStat(model: Model, now: Date): Stat {
+function usualDelta(lastMs: number | undefined, usualMs: number | undefined): Stat["delta"] {
+  if (lastMs === undefined || usualMs === undefined) return undefined;
+  const diff = lastMs - usualMs;
+  if (Math.abs(diff) < MINUTE / 2) return { text: "as usual", direction: "flat", tone: "neutral" };
+  const by = span(Math.abs(diff));
+  if (!by) return undefined;
+  return diff < 0
+    ? { text: `${by} under usual`, direction: "down", tone: "ok" }
+    : { text: `${by} over usual`, direction: "up", tone: "caution" };
+}
+
+function streakText(stat: LifecycleStat): string | undefined {
+  const s = stat.streak;
+  if (!s || s.n < 2) return undefined;
+  return s.green ? `${s.n} in a row` : `red ${s.n} in a row`;
+}
+
+// A green proof leads with its measure, the time the run took, read against the
+// usual; a stopped one leads with its result. Only an elapsed-time tile ticks.
+function proofStat(model: Model, kind: "smoke" | "refresh", now: Date): Stat {
   const { stack } = model;
-  const last = stack.lifecycle.smoke.last;
-  const label = "Greenfield · smoke";
-  if (!last) return { label, value: null, sub: `no smoke run in ${HISTORY_DAYS} days` };
-  const { lastMs, usualMs } = stack.durations.smoke;
-  const spent = runTone(last) === "ok" ? againstUsual(lastMs, usualMs) : span(lastMs);
-  const what =
-    runTone(last) === "ok"
-      ? spent && `fresh cluster to green in ${spent}`
-      : spent && `after ${spent}`;
+  const stat = stack.lifecycle[kind];
+  const last = stat.last;
+  const label = kind === "smoke" ? "Greenfield · smoke" : "Brownfield · refresh";
+  if (!last) {
+    const what = kind === "smoke" ? "smoke run" : "refresh";
+    return { label, value: null, sub: `no ${what} in ${HISTORY_DAYS} days` };
+  }
+  const { lastMs, usualMs, greenMs } = stack.durations[kind];
+  const next = nextText(model, kind, now);
+  const age = ago(last.updatedAt, now);
+  const streak = streakText(stat);
+  if (runTone(last) === "ok") {
+    const delta = usualDelta(lastMs, usualMs);
+    const spark = greenMs.length >= 2 ? greenMs.map((ms) => Math.round(ms / MINUTE)) : undefined;
+    const measure = kind === "smoke" ? "fresh cluster to green" : "re-proved in place";
+    return {
+      label,
+      value: span(lastMs) ?? null,
+      tone: "ok",
+      ...(delta ? { delta } : {}),
+      ...(spark ? { spark } : {}),
+      sub: [measure, streak, age, next].filter(Boolean).join(" · "),
+    };
+  }
+  // A later green upgrade proves the stack, so a failed refresh before it is amber.
+  const green = stack.lastGreen;
+  const proven =
+    kind === "refresh" &&
+    runTone(last) === "error" &&
+    green !== undefined &&
+    Date.parse(green.createdAt) > Date.parse(last.createdAt);
+  const view = viewRun(last);
+  const where = view.at?.stage ?? view.failedAt?.split(" › ")[0];
+  const after = span(lastMs);
   return {
     label,
     value: runResult(last).toUpperCase(),
-    tone: runTone(last),
-    sub: [ago(last.updatedAt, now), what, nextText(model, "smoke", now)]
+    tone: proven ? "warn" : runTone(last),
+    sub: [
+      where ? `at ${where}` : undefined,
+      proven ? undefined : streak,
+      age,
+      proven && green
+        ? `then ${runName(green)} green ${stamp(green.updatedAt, now) ?? ""}`.trim()
+        : after && `after ${after}`,
+      next,
+    ]
       .filter(Boolean)
       .join(" · "),
   };
@@ -189,33 +243,6 @@ function inflightStat(model: Model, now: Date): Stat | undefined {
     ...(startedAt ? { clock: { at: startedAt, mode: "since" as const } } : { value: null }),
     tone: overdue(stack, now) ? "warn" : "info",
     sub: [runName(live.run), live.at.step, usualText(stack.usual)].filter(Boolean).join(" · "),
-  };
-}
-
-// A later green upgrade proves the stack, so a failed refresh before it is amber.
-function brownfieldStat(model: Model, now: Date): Stat {
-  const { stack } = model;
-  const refresh = stack.lifecycle.refresh.last;
-  const label = "Brownfield · refresh";
-  if (!refresh) return { label, value: null, sub: `no refresh in ${HISTORY_DAYS} days` };
-  const green = stack.lastGreen;
-  const proven =
-    runTone(refresh) === "error" &&
-    green !== undefined &&
-    Date.parse(green.createdAt) > Date.parse(refresh.createdAt);
-  const { lastMs, usualMs } = stack.durations.refresh;
-  const what = proven
-    ? `then ${runName(green)} green ${stamp(green.updatedAt, now) ?? ""}`.trim()
-    : runTone(refresh) === "ok"
-      ? `re-proved in place in ${againstUsual(lastMs, usualMs) ?? "?"}`
-      : span(lastMs) && `after ${span(lastMs)}`;
-  return {
-    label,
-    value: runResult(refresh).toUpperCase(),
-    tone: proven ? "warn" : runTone(refresh),
-    sub: [ago(refresh.updatedAt, now), what, nextText(model, "refresh", now)]
-      .filter(Boolean)
-      .join(" · "),
   };
 }
 
@@ -510,8 +537,8 @@ export function stackBoard(
   const live = inflightStat(model, now);
   const tiles: Stat[] = [
     runningStat(model, now),
-    greenfieldStat(model, now),
-    hurt ? blockedStat(model, now) : (live ?? brownfieldStat(model, now)),
+    proofStat(model, "smoke", now),
+    hurt ? blockedStat(model, now) : (live ?? proofStat(model, "refresh", now)),
   ];
   const sections: Section[] = [{ kind: "stats", items: tiles }];
   const focus = stack.inflight ?? (hurt ? stack.attempts[stack.attempts.length - 1] : undefined);
