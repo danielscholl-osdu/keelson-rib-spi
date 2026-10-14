@@ -29,8 +29,9 @@ A change needs `bun run check`, `bun run typecheck` and `bun test` green.
 ## Architecture
 
 - `src/collect/` reads: one aliased GraphQL query for PRs, checks, issues,
-  markers and the lane ledger; REST for workflow runs, jobs, annotations, logs
-  and compares; `glab` for upstream heads and compares. Collectors only GET.
+  markers and the lane ledger; REST for workflow runs, jobs, annotations, logs,
+  compares and Dependabot and code-scanning alerts; `glab` for upstream heads
+  and compares. Collectors only GET.
 - `src/sweep.ts` runs the collectors on a timer, keeps each area's last good
   read beside its last error, caches immutable reads (completed jobs, compares,
   files at a sha) and persists both to the rib's data directory.
@@ -67,6 +68,9 @@ A change needs `bun run check`, `bun run typecheck` and `bun test` green.
   failures fold under the stack incident that explains them.
 - **Newest check wins.** Only the newest check per workflow and name counts; a
   skipped lane never hides a real result.
+- **Ownership comes from paths, not names.** An alert or PR is sorted by the
+  fork's sync filter (`fork_owned`), the template's synced paths and the
+  repository, never by a package, rule or service named in code.
 - **Identity is configuration.** Services come from `src/config.ts`, never from
   derived names.
 - **Local time.** Stamps print in the machine's local zone, the zone the host

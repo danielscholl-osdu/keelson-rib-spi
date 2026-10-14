@@ -10,7 +10,7 @@ import type { FailureClass } from "./attribution.ts";
 import type { ItemKind, QueueItem } from "./queue.ts";
 import { pullFailure } from "./reason.ts";
 
-export type ItemClass = FailureClass | "PORT" | "INCIDENT" | "GATE" | "READY";
+export type ItemClass = FailureClass | "PORT" | "SECURITY" | "INCIDENT" | "GATE" | "READY";
 
 // A fork whose upstream filter already lists a halted entry, and what its rule says.
 export interface ListedEntry {
@@ -22,7 +22,7 @@ export function itemClass(item: QueueItem): ItemClass {
   return item.cls ?? (item.incident ? "INCIDENT" : item.rung === 1 ? "GATE" : "READY");
 }
 
-export const CLASS_VERB: Record<FailureClass | "PORT" | "INCIDENT", string> = {
+export const CLASS_VERB: Record<FailureClass | "PORT" | "SECURITY" | "INCIDENT", string> = {
   HALT: "Classify entry",
   TOOLCHAIN: "Absorb toolchain",
   BUILD: "Investigate",
@@ -33,6 +33,7 @@ export const CLASS_VERB: Record<FailureClass | "PORT" | "INCIDENT", string> = {
   ENV: "Re-run lanes",
   ACCESS: "Open run, Open PR",
   PORT: "Port",
+  SECURITY: "Review alerts",
   CONFLICT: "Investigate, then Dispatch cascade",
   INCIDENT: "Investigate",
 };
@@ -162,6 +163,15 @@ export function nextText(item: QueueItem, listed: readonly ListedEntry[] = []): 
       return "Merge the env bump PR on GitHub to start env-upgrade";
     case "radar":
       return radarNext(item);
+    case "security": {
+      const fix = fact(item, "fix") ?? "";
+      const pr = item.cause.find((f) => f.label === "PR")?.value;
+      if (pr)
+        return `Review ${pr.replace(", opened by Dependabot", "")}, Dependabot's update for it`;
+      return /^no fixed release/.test(fix)
+        ? "No fixed release is published; replace the dependency or record the accepted risk"
+        : `Upgrade to ${fix} in the fork-owned manifest`;
+    }
     case "port": {
       const first = /!(\d+) \(([^)]+)\)/.exec(fact(item, "owed") ?? "");
       return `Port ${first ? `!${first[1]}` : "the MR"} into ${first?.[2] ?? "the fork-owned tree"}; cite the MR URL in the PR body`;

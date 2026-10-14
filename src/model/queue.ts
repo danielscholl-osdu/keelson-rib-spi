@@ -20,6 +20,7 @@ import { prReady, prVerdict } from "./checks.ts";
 import type { LineModel, LinePr } from "./lines.ts";
 import type { RadarModel } from "./radar.ts";
 import { summarizeReason } from "./reason.ts";
+import type { AlertGroup, RepoRow, ReposModel } from "./repos.ts";
 import {
   attemptText,
   overdue,
@@ -70,7 +71,8 @@ export type ItemKind =
   | "bump"
   | "access"
   | "radar"
-  | "port";
+  | "port"
+  | "security";
 
 // The entries a halt names, for checking whether other forks will halt on them too.
 export interface HaltEntries {
@@ -111,7 +113,7 @@ export interface QueueItem {
   effects: Effect[];
   cause: Fact[];
   // PORT is owed work: an upstream change to fork-owned code no fork PR carries yet.
-  cls?: FailureClass | "PORT";
+  cls?: FailureClass | "PORT" | "SECURITY";
   halt?: HaltEntries;
   approve?: ApprovePr[];
   lanes?: LaneRun[];
@@ -1100,6 +1102,69 @@ function portItems(
   return items;
 }
 
+// A critical alert in SPI-owned shipped code: one item per package or rule, across repositories.
+function securityItems(repositories: ReposModel | undefined): QueueItem[] {
+  const found = new Map<string, { g: AlertGroup; at: { repo: RepoRow; g: AlertGroup }[] }>();
+  for (const repo of repositories?.rows ?? []) {
+    for (const g of repo.alerts) {
+      if (g.owner === "upstream" || g.reach !== "shipped" || g.severity !== "critical") continue;
+      const key = `${g.source}:${g.name.toLowerCase()}`;
+      const entry = found.get(key) ?? { g, at: [] };
+      entry.at.push({ repo, g });
+      found.set(key, entry);
+    }
+  }
+  return [...found.entries()].map(([key, { g, at }]) => {
+    const name = g.source === "dependabot" ? (g.name.split(":").pop() ?? g.name) : g.name;
+    const count = at.reduce((n, a) => n + a.g.count, 0);
+    const fixes = at.map((a) => a.g.fix);
+    const fix = fixes.every((f) => f) ? fixes[0] : undefined;
+    const prs = at.flatMap((a) => (a.g.pr ? [{ repo: a.repo, pr: a.g.pr }] : []));
+    const fixWord =
+      g.source === "code" ? "found by code scanning" : fix ? `fixed in ${fix}` : "no fix published";
+    return {
+      id: `security:${key}`,
+      kind: "security" as const,
+      rung: 1 as const,
+      scope: at.map((a) => a.repo.name).join(", "),
+      text: `${name} is critical in SPI code · ${plural(count, "alert")}, ${fixWord}`,
+      url: g.url,
+      effects: at.map((a) => ({
+        text: `${a.repo.name}: ${plural(a.g.count, "alert")} in ${a.g.where || "the repository"}, shipped`,
+        url: a.g.url,
+      })),
+      cause: [
+        { label: g.source === "dependabot" ? "package" : "rule", value: g.name, url: g.url },
+        { label: "where", value: at.map((a) => `${a.repo.name} ${a.g.where}`).join(", ") },
+        {
+          label: "fix",
+          value:
+            g.source === "code"
+              ? (g.tool ?? "code scanning")
+              : fix
+                ? fix
+                : "no fixed release published",
+        },
+        ...prs.map((p) => ({
+          label: "PR",
+          value: `${p.repo.name} #${p.pr}, opened by Dependabot`,
+          url: githubUrl(p.repo.repo, `/pull/${p.pr}`),
+        })),
+      ],
+      cls: "SECURITY" as const,
+      links: [
+        ...at.map((a) => ({ label: `Open ${a.repo.name} alerts`, url: a.g.url })),
+        ...prs.map((p) => ({
+          label: `Open ${p.repo.name} #${p.pr}`,
+          url: githubUrl(p.repo.repo, `/pull/${p.pr}`),
+        })),
+      ],
+      incident: false,
+      blocks: 0,
+    };
+  });
+}
+
 export function buildQueue(input: {
   stack: StackModel;
   lines: readonly LineModel[];
@@ -1108,6 +1173,7 @@ export function buildQueue(input: {
   details: Parameters<typeof prFailures>[1];
   approvals: Record<string, WaitingRun[]> | undefined;
   radar?: RadarModel;
+  repositories?: ReposModel;
   now: Date;
 }): Queue {
   const { stack, lines, template, repos, details, approvals, radar, now } = input;
@@ -1123,6 +1189,7 @@ export function buildQueue(input: {
   items.push(...templatePrItems(repos[TEMPLATE_REPO], details, now));
   const bump = bumpItem(stack);
   if (bump) items.push(bump);
+  items.push(...securityItems(input.repositories));
 
   items.sort(
     (a, b) =>

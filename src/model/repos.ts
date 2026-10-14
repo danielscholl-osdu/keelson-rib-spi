@@ -92,6 +92,7 @@ export interface AlertGroup {
   unfixed: number;
   pr?: number;
   tool?: string;
+  rule?: string;
   url: string;
   // Other repositories where the same package or rule is ours, by short name.
   elsewhere: string[];
@@ -294,6 +295,7 @@ function codeGroups(alerts: readonly CodeAlertFact[], p: Paths): AlertGroup[] {
         counts: {},
         unfixed: 0,
         tool: a.tool,
+        rule: a.rule,
         url: a.url,
         elsewhere: [],
       };

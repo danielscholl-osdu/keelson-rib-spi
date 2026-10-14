@@ -14,7 +14,7 @@ GitLab or touches the cluster, and the `spi_*` tools stay read-only.
 
 ## What the tab shows
 
-The tab is one console with four views. Each answers one question in a
+The tab is one console with five views. Each answers one question in a
 sentence, then shows only what supports it. The words come from one pure
 briefing (`src/brief/`), which `spi_brief` returns to chat as well.
 
@@ -24,6 +24,20 @@ briefing (`src/brief/`), which `spi_brief` returns to chat as well.
 | Flow | Where is change stuck? | One row per fork that needs a person, one column per station (upstream, sync, cascade, main, release, lane, template). A column every fork agrees on becomes one band, the environment is one row above the table, and quiet forks fold into one row. |
 | Horizon | What will affect us next? | One row per upstream cause across forks (a halt entry, a Java move, ports owed, the template rollout, the Azure removal deadline), queued commits kept apart from open MRs. |
 | Environment | Is the environment dependable? | The running version, the 21-day deployable share and the last proof, over a 24-hour timeline of upgrades, refreshes, smoke runs and maintenance holds. |
+| Repositories | What is open on each repository, and which of it is ours? | One row per repository (the template, the stack, then each fork) with its change PRs, Dependabot PRs, issues, and critical or high alerts split into ours and upstream. Selecting a row shows what leads it beside the table. |
+
+The Repositories view sorts every open item by properties the rib reads, never
+by package or service name. A PR's kind comes from its conventional-commit
+title and author. An alert's owner comes from the path: the fork's own tree
+(its sync filter's `fork_owned` paths) and the program's repositories are SPI,
+files synced from `osdu-spi` are the template's, and everything else came from
+upstream and is fixed by a later Sync Upstream. Its reach is shipped, tests
+(GitHub's development scope or a test directory) or tooling (deployment and
+helper scripts). Dependabot alerts group by package and manifest, with the one
+version that fixes the group and any Dependabot PR open on it; code-scanning
+alerts group by rule and tree. A Dependabot PR that edits an inherited file is
+marked, because merging it diverges the fork from upstream. A critical alert in
+SPI-owned shipped code also joins Today as one P1 item per package.
 
 The nav badge counts P0 and P1 items. P0 broke unattended, P1 is a gate or a
 decision, P2 is ready work. A red check is classified by its failed step before
@@ -67,6 +81,12 @@ probes, the GitHub budget, each source's last read, and what the verbs need
 (the `gh` token's scopes, Keelson projects for the forks, and the workflow and
 gate grants). A source that fails keeps its last good read until it reads again.
 
+A repository's inspector opens from **Open in inspector** on its row. Its
+tabs list every alert group (ours, upstream, tests), change PR, Dependabot PR
+and issue, each linked to GitHub. A list GitHub hides from the token, such as
+code scanning that is off, says so instead of reading as zero. Secret scanning
+is not read.
+
 ## Services
 
 | Service | Fork | Upstream project |
@@ -83,7 +103,7 @@ map lives in `src/config.ts`.
 ## Tools and agent
 
 `spi_brief`, `spi_watchstand`, `spi_incidents`, `spi_line`, `spi_stack`,
-`spi_template` and `spi_prs` answer from the same sweep the console renders, so chat, workflows and
+`spi_template`, `spi_prs`, `spi_issues` and `spi_security` answer from the same sweep the console renders, so chat, workflows and
 Keelson MCP clients get the same counts as the tab. The **SPI Watch Officer**
 agent answers from those tools.
 
@@ -112,6 +132,6 @@ host's render gate.
 ## Cadence
 
 One in-process sweep every 5 minutes, whether or not the tab is open, so the
-badge stays current. GitLab is read every 30 minutes, and a refresh or upgrade
+badge stays current. GitLab and the security alerts are read every 30 minutes, and a refresh or upgrade
 in flight is re-read every 15 seconds. Completed jobs, compares and file reads
 never change, so they are read once and kept in the rib's data directory.

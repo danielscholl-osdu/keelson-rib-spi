@@ -79,6 +79,7 @@ describe("binding", () => {
       "spi_line",
       "spi_prs",
       "spi_radar",
+      "spi_security",
       "spi_stack",
       "spi_template",
       "spi_watchstand",
@@ -230,6 +231,29 @@ describe("inspect", () => {
     } finally {
       unregister();
     }
+  });
+
+  test("a repository row opens its inspector from the console frame", async () => {
+    const { ctx, snapshots } = stored();
+    rib.registerTools?.(ctx);
+    const res = await rib.onAction?.(
+      { type: "inspect", payload: { id: "repo:partition" }, origin: "canvas-html" },
+      ctx,
+    );
+    expect(res).toEqual({
+      ok: true,
+      data: {
+        effect: "open-canvas",
+        key: INSPECT_KEY,
+        title: "osdu-spi-partition",
+        placement: "side",
+      },
+    });
+    const frame = snapshots.latest(INSPECT_KEY)?.data;
+    expect(() => expectView(INSPECT_KEY, "board")(frame)).not.toThrow();
+    const gone = await rib.onAction?.({ type: "inspect", payload: { id: "repo:nope" } }, ctx);
+    expect(gone?.ok).toBe(false);
+    await rib.dispose?.();
   });
 
   test("the doctor opens the side inspector, from the drawer or the console frame", async () => {

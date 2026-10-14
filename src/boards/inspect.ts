@@ -12,6 +12,7 @@ import type { ActionEntry } from "../act/log.ts";
 import { dispatchActions, laneActions } from "../act/rerun.ts";
 import { writeBlocked } from "../act/verbs.ts";
 import { type Reading, readItem } from "../brief/index.ts";
+import { REPO_PREFIX } from "../brief/repos.ts";
 import type { EntryState, ForkEntry } from "../collect/filters.ts";
 import type { Model } from "../model/index.ts";
 import { itemClass, nextText } from "../model/next.ts";
@@ -26,6 +27,7 @@ import { INSPECT_ACTION } from "../surfaces.ts";
 import { age, plural, stamp, zoned } from "../util.ts";
 import { names } from "./fold.ts";
 import { MR_PREFIX, mrBoard } from "./radar.ts";
+import { repoBoard } from "./repo.ts";
 import { ladderSection, rolloutActionItems, STEP_PREFIX, spreadText } from "./template.ts";
 
 type Section = CanvasBoardView["sections"][number];
@@ -56,6 +58,7 @@ export const KIND_TITLE: Record<ItemKind, string> = {
   access: "fork image cannot be pulled",
   radar: "next sync predicted",
   port: "upstream change owed a port",
+  security: "critical alert in SPI code",
 };
 
 // A listed rule is the one to copy; absent forks fold into one line.
@@ -383,6 +386,7 @@ export function inspectBoard(
 ): CanvasBoardView {
   if (state.selected?.startsWith(STEP_PREFIX)) return stepBoard(model, state.selected, now);
   if (state.selected?.startsWith(MR_PREFIX)) return mrBoard(model, state.selected, now);
+  if (state.selected?.startsWith(REPO_PREFIX)) return repoBoard(model, state.selected, now);
   const live = state.selected ? model.queue.items.find((i) => i.id === state.selected) : undefined;
   const item = live ?? state.item;
   if (!item) {

@@ -38,8 +38,10 @@ import { consoleHtml, expectHtml } from "./boards/console.ts";
 import { DOCTOR_ID, doctorBoard, doctorStatus } from "./boards/doctor.ts";
 import { type InspectState, inspectBoard, inspectTitle, stepTitle } from "./boards/inspect.ts";
 import { MR_PREFIX, mrTitle } from "./boards/radar.ts";
+import { repoTitle } from "./boards/repo.ts";
 import { STEP_PREFIX } from "./boards/template.ts";
 import { buildBriefing } from "./brief/index.ts";
+import { REPO_PREFIX } from "./brief/repos.ts";
 import { checkable, entryAcrossForks, type ForkEntry } from "./collect/filters.ts";
 import { FORKS, INFLIGHT_POLL_MS, SWEEP_MS } from "./config.ts";
 import { Gh, Glab } from "./forge.ts";
@@ -360,8 +362,12 @@ const rib: Rib = {
           },
         };
       }
-      if (id.startsWith(STEP_PREFIX) || id.startsWith(MR_PREFIX)) {
-        const title = id.startsWith(MR_PREFIX) ? mrTitle(s.model, id) : stepTitle(s.model, id);
+      if (id.startsWith(STEP_PREFIX) || id.startsWith(MR_PREFIX) || id.startsWith(REPO_PREFIX)) {
+        const title = id.startsWith(MR_PREFIX)
+          ? mrTitle(s.model, id)
+          : id.startsWith(REPO_PREFIX)
+            ? repoTitle(s.model, id)
+            : stepTitle(s.model, id);
         if (!title) return { ok: false, error: `${id} has moved; the board redraws` };
         inspect = { selected: id };
         await snapshots?.recompose(INSPECT_KEY).catch(() => undefined);

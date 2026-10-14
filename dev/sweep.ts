@@ -111,6 +111,8 @@ for (const w of [m.work.template, m.work.stack, ...m.work.forks]) {
 
 const briefing = buildBriefing(m, doctorStatus(sweeper.facts, now), now);
 console.log(`\nCONSOLE ${briefing.headline}`);
+console.log(`REPOSITORIES ${briefing.repositories.headline}`);
+for (const f of briefing.repositories.facts) console.log(`  ${f.label} ${f.figure} · ${f.sub}`);
 let bad = 0;
 try {
   expectHtml(consoleHtml(briefing, now));
@@ -124,6 +126,9 @@ const extra = [
     const id = `${STEP_PREFIX}${st.marker}`;
     return [id, inspectBoard(m, { selected: id }, now)] as const;
   }),
+  ...briefing.repositories.rows.map(
+    (r) => [r.id, inspectBoard(m, { selected: r.id }, now)] as const,
+  ),
 ] as const;
 for (const [id, board] of extra) {
   try {

@@ -16,6 +16,7 @@ import { classifyPr, type PrClass, prFailures } from "./model/attribution.ts";
 import { prVerdict } from "./model/checks.ts";
 import type { Model } from "./model/index.ts";
 import type { LinePr } from "./model/lines.ts";
+import { conventional, prState } from "./model/repos.ts";
 import { attemptText, overdue, type RunView, usualText } from "./model/stack.ts";
 import { type IssueKind, issueKind, outsider, prKind } from "./model/work.ts";
 import type { Sweeper } from "./sweep.ts";
@@ -384,7 +385,7 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
     ),
     tool(
       "spi_prs",
-      "Open PRs across the template, the stack and every fork, each with its class (sync, cascade, template, release, bump, agent, dependabot, human), its kind (people, bots, pipeline), whether its author is outside the organization, check verdict and attributed failures. Filter by repository short name or class.",
+      "Open PRs across the template, the stack and every fork, each with its class (sync, cascade, template, release, bump, agent, dependabot, human), its kind (people, bots, pipeline), its conventional-commit type from the title (feat, fix, chore...), its state (draft, conflicts, red, needs review, behind, running, ready), whether its author is outside the organization, check verdict and attributed failures. Filter by repository short name or class.",
       z.object({
         repo: z.string().optional(),
         class: z.enum(PR_CLASSES).optional(),
@@ -405,6 +406,8 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
               title: pr.title,
               class: prClass,
               kind: prKind(pr),
+              type: conventional(pr.title).type || undefined,
+              state: prState(pr),
               author: pr.author,
               outside: outsider(pr),
               draft: pr.draft,
@@ -460,6 +463,49 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
         return sweeper.model.measured
           ? { issues, ...(unread.length ? { unread } : {}) }
           : notMeasured(sweeper.model);
+      },
+    ),
+    tool(
+      "spi_security",
+      "Open Dependabot and code-scanning alerts per repository, grouped by package (Dependabot) or rule (code scanning), each group with its owner (spi: the fork's own tree or the program's repositories; template: files synced from osdu-spi; upstream: code inherited from GitLab, fixed by a later Sync Upstream), its reach (shipped, tests, tooling), worst severity, count, the version that fixes every alert in it (absent when one has no published fix), an open Dependabot PR, and other repositories where the same package or rule is ours. Per repository, shipped and code tally critical and high alerts as ours and upstream; a list GitHub hides from this token is absent, never zero. Filter by repository short name, owner or minimum severity.",
+      z.object({
+        repo: z.string().optional(),
+        owner: z.enum(["spi", "template", "upstream"]).optional(),
+        severity: z.enum(["critical", "high", "medium", "low"]).optional(),
+      }),
+      ({ repo, owner, severity }) => {
+        const m = sweeper.model;
+        const order = ["critical", "high", "medium", "low"];
+        const floor = severity ? order.indexOf(severity) : order.length;
+        const repositories = m.repositories.rows
+          .filter((r) => repoMatch(r.repo, repo))
+          .map((r) => ({
+            repo: r.name,
+            ...(r.dependabotAlerts !== undefined ? { dependabot: r.dependabotAlerts } : {}),
+            ...(r.codeAlerts !== undefined ? { code: r.codeAlerts } : {}),
+            ...(r.shipped ? { shipped: r.shipped } : {}),
+            ...(r.code ? { codeSevere: r.code } : {}),
+            groups: r.alerts
+              .filter((g) => !owner || g.owner === owner)
+              .filter((g) => !severity || (g.severity && order.indexOf(g.severity) <= floor))
+              .map((g) => ({
+                source: g.source,
+                name: g.name,
+                where: g.where,
+                owner: g.owner,
+                reach: g.reach,
+                severity: g.severity,
+                count: g.count,
+                ...(g.source === "dependabot" ? { fix: g.fix ?? null } : { tool: g.tool }),
+                ...(g.pr ? { pr: g.pr } : {}),
+                ...(g.elsewhere.length > 0 ? { elsewhere: g.elsewhere } : {}),
+                url: g.url,
+              })),
+          }));
+        if (!m.measured) return notMeasured(m);
+        return m.repositories.alertsAt
+          ? { read: m.repositories.alertsAt, repositories }
+          : { error: "alerts have not been read yet", repositories: [] };
       },
     ),
     tool(

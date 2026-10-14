@@ -78,6 +78,12 @@ export function buildModel(
     now,
     details,
   });
+  const repositories = buildRepos({
+    repos,
+    alerts: facts.security,
+    filters: facts.radar.data?.filters,
+    synced: facts.template.data?.synced,
+  });
   const queue = buildQueue({
     stack,
     lines,
@@ -86,6 +92,7 @@ export function buildModel(
     details,
     approvals: facts.approvals.data,
     radar,
+    repositories,
     now,
   });
   return {
@@ -103,11 +110,6 @@ export function buildModel(
     queue,
     radar,
     work: buildWork(repos),
-    repositories: buildRepos({
-      repos,
-      alerts: facts.security,
-      filters: facts.radar.data?.filters,
-      synced: facts.template.data?.synced,
-    }),
+    repositories,
   };
 }
