@@ -644,9 +644,7 @@ describe("the upstream panel", () => {
       ["file", "!752 Schemathesis fix · UNKNOWN_TOP_LEVEL: schemathesis-tests"],
       ["file", "!752 Schemathesis fix · os-core-common 8.4.0"],
     ]);
-    expect(list.items[1]?.trailing).toStartWith(
-      "also in partition, entitlements, schema and file · ",
-    );
+    expect(list.items[1]?.trailing).toStartWith("also in 4 other forks · ");
     expect(list.items[1]?.action).toEqual({ type: "inspect", payload: { id: "mr:legal:756" } });
   });
 

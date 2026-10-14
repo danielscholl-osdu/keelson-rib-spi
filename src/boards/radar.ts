@@ -268,6 +268,11 @@ function nextSync(model: Model, breaks: readonly Break[]): Section[] {
   return sections;
 }
 
+// Past three forks the row counts them; the inspector names every one.
+function alsoIn(forks: readonly string[]): string {
+  return forks.length <= 3 ? names(forks) : plural(forks.length, "other fork");
+}
+
 function breakText(b: Break): string {
   const what = b.kind === "halt" ? `${b.bucket}: ${b.items.join(", ")}` : b.items.join(", ");
   return `!${b.iid} ${clip(b.title, 48)}${b.draft ? " · draft" : ""} · ${clip(what, 72)}`;
@@ -286,7 +291,7 @@ function breaksSection(
       chip: { label: b.fork, tone: b.draft ? "neutral" : b.kind === "halt" ? "warn" : "info" },
       text: breakText(b),
       trailing: [
-        b.elsewhere.length > 0 ? `also in ${names(b.elsewhere)}` : undefined,
+        b.elsewhere.length > 0 ? `also in ${alsoIn(b.elsewhere)}` : undefined,
         since(b.createdAt, now),
       ]
         .filter(Boolean)
