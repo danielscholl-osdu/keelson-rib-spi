@@ -21,10 +21,10 @@ briefing (`src/brief/`), which `spi_brief` returns to chat as well.
 | View | Question | What it shows |
 |---|---|---|
 | Today | What needs me now? | A headline naming at most two causes, three facts (environment version, forks with sync stopped, template adoption), up to five focus items with cause, effect and next step, and one line of ready work. |
+| Repositories | What is open on each repository, and which of it is ours? | One row per repository (the template, the stack, then each fork) with its issues (human-required · other: an issue labeled `human-required` waits on a person and shows in red), pull requests and Dependabot bumps, and two security columns read ours · upstream, with the upstream figure faded: **Vulnerabilities** (Dependabot alerts on the libraries a service uses) and **Code scanning** (CodeQL and Scorecard findings in the source itself). Both count critical and high alerts in shipped code only. Selecting a row shows its issues and PRs first, then its alerts at a lower weight, beside the table. |
+| Environment | Is the environment dependable? | The running version, the 21-day deployable share and the last proof, over a 24-hour timeline of upgrades, refreshes, smoke runs and maintenance holds. |
 | Flow | Where is change stuck? | One row per fork that needs a person, one column per station (upstream, sync, cascade, main, release, lane, template). A column every fork agrees on becomes one band, the environment is one row above the table, and quiet forks fold into one row. |
 | Horizon | What will affect us next? | One row per upstream cause across forks (a halt entry, a Java move, ports owed, the template rollout, the Azure removal deadline), queued commits kept apart from open MRs. |
-| Environment | Is the environment dependable? | The running version, the 21-day deployable share and the last proof, over a 24-hour timeline of upgrades, refreshes, smoke runs and maintenance holds. |
-| Repositories | What is open on each repository, and which of it is ours? | One row per repository (the template, the stack, then each fork) with its change PRs, Dependabot PRs and issues, and two security columns read ours · upstream: **Vulnerabilities** (Dependabot alerts on the libraries a service uses) and **Code scanning** (CodeQL and Scorecard findings in the source itself). Both count critical and high alerts in shipped code only. Selecting a row shows what leads it beside the table. |
 
 The Repositories view sorts every open item by properties the rib reads, never
 by package or service name. A PR's kind comes from its conventional-commit
@@ -83,8 +83,8 @@ probes, the GitHub budget, each source's last read, and what the verbs need
 gate grants). A source that fails keeps its last good read until it reads again.
 
 A repository's inspector opens from **Open in inspector** on its row. Its
-tabs are Vulnerabilities, Code scanning, PRs (change PRs and Dependabot PRs)
-and Issues; each alert tab splits ours, upstream and tests, and every row
+tabs are Issues (human-required first), PRs (pull requests and Dependabot
+bumps), Vulnerabilities and Code scanning; each alert tab splits ours, upstream and tests, and every row
 links to GitHub. A list GitHub hides from the token, such as
 code scanning that is off, says so instead of reading as zero. Secret scanning
 is not read.

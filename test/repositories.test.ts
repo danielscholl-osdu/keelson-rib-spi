@@ -70,15 +70,15 @@ describe("the Repositories briefing", () => {
   test("leads with the absence of severe alerts in our shipped code when there are none", () => {
     const r = repositoriesOf(model(), FIXTURE_NOW);
     expect(r.facts.map((f) => f.label)).toEqual([
-      "Change PRs",
-      "Dependabot PRs",
       "Issues",
+      "Pull Requests",
+      "Dependabot Bumps",
       "Vulnerabilities · ours",
       "Code scanning · ours",
     ]);
     expect(r.rows.map((x) => x.id)).toContain("repo:partition");
     const partition = r.rows.find((x) => x.name === "partition");
-    expect(partition?.cells.vulnerabilities.text).toBe("0 · 3");
+    expect(partition?.cells.vulnerabilities).toMatchObject({ text: "0", rest: " · 3", fade: true });
     expect(partition?.sections.map((s) => s.title)).toEqual(["Vulnerabilities", "Code scanning"]);
     expect(partition?.sections[0]?.count).toBe("0 ours · 1 upstream");
   });
@@ -91,7 +91,12 @@ describe("the Repositories briefing", () => {
     expect(r.first).toBe("repo:partition");
     const partition = r.rows.find((x) => x.name === "partition");
     expect(partition?.title).toBe("Critical vulnerability in async-http-client");
-    expect(partition?.cells.vulnerabilities).toEqual({ text: "1 · 3", tone: "bad" });
+    expect(partition?.cells.vulnerabilities).toEqual({
+      text: "1",
+      tone: "bad",
+      rest: " · 3",
+      fade: true,
+    });
     expect(r.facts[3]).toMatchObject({ figure: "4", tone: "bad" });
     expect(r.facts[4]?.label).toBe("Code scanning · ours");
   });
@@ -112,7 +117,10 @@ describe("the Repositories briefing", () => {
 describe("the Repositories tab", () => {
   const b = buildBriefing(model(withCritical), { state: "clear", problems: [] }, FIXTURE_NOW);
   const html = consoleHtml(b, FIXTURE_NOW);
-  const pane = html.slice(html.indexOf('data-view-pane="repositories"'), html.indexOf("<script>"));
+  const pane = html.slice(
+    html.indexOf('data-view-pane="repositories"'),
+    html.indexOf('data-view-pane="environment"'),
+  );
 
   test("lists the program, then the forks, one selectable row each", () => {
     const rows = [...pane.matchAll(/data-repo="([^"]+)"/g)].map((m) => m[1]);
@@ -134,11 +142,11 @@ describe("a repository's detail", () => {
     const partition = repositoriesOf(model(withPrs), FIXTURE_NOW).rows.find(
       (x) => x.name === "partition",
     );
-    expect(partition?.title).toBe("1 change PR waiting on review");
-    expect(partition?.sub).toContain("1 Dependabot PR open; #71 closes 1 vulnerability.");
+    expect(partition?.title).toBe("1 pull request waiting on review");
+    expect(partition?.sub).toContain("1 Dependabot bump open; #71 closes 1 vulnerability.");
     expect(partition?.sections.map((s) => s.title)).toEqual([
-      "Change PRs",
-      "Dependabot PRs",
+      "Pull Requests",
+      "Dependabot Bumps",
       "Vulnerabilities",
       "Code scanning",
     ]);
@@ -161,7 +169,7 @@ describe("a repository's detail", () => {
       }),
       FIXTURE_NOW,
     ).rows.find((x) => x.name === "partition");
-    expect(partition?.title).toBe("1 Dependabot PR open");
+    expect(partition?.title).toBe("1 Dependabot bump open");
     expect(partition?.sub).toBe(
       "#71 bumps async-http-client 2.16.0 to 2.16.1 and closes 1 vulnerability; needs review.",
     );
@@ -175,9 +183,52 @@ describe("a repository's detail", () => {
       html.indexOf("</section>", html.indexOf('data-repo-detail="repo:partition"')),
     );
     const quiet = detail.slice(detail.indexOf('<div class="rquiet">'));
-    expect(detail.indexOf("Change PRs")).toBeLessThan(detail.indexOf('<div class="rquiet">'));
+    expect(detail.indexOf("Pull Requests")).toBeLessThan(detail.indexOf('<div class="rquiet">'));
     expect(quiet).toMatch(/<div class="rl"><span class="tag t-bad">Critical<\/span>/);
     expect(quiet).toMatch(/<div class="rl up"><span class="tag [^"]*">High<\/span>/);
+  });
+});
+
+describe("human-required issues", () => {
+  const r = repositoriesOf(model(), FIXTURE_NOW);
+  const entitlements = r.rows.find((x) => x.name === "entitlements");
+
+  test("split out in the Issues cell, the tile, and lead the detail", () => {
+    expect(entitlements?.cells.issues).toMatchObject({ text: "1", tone: "bad", rest: " · 0" });
+    expect(r.facts[0]).toMatchObject({ label: "Issues", tone: "bad" });
+    expect(r.facts[0]?.sub).toStartWith("2 human-required");
+    expect(entitlements?.title).toBe("1 issue needs a person");
+    expect(entitlements?.sections[0]).toMatchObject({
+      title: "Issues",
+      count: "1 human-required · 0 other",
+    });
+    expect(entitlements?.sections[0]?.lines[0]).toMatchObject({
+      tag: "human-required",
+      tone: "bad",
+    });
+  });
+
+  test("come first in the inspector's Issues tab", () => {
+    const board = repoBoard(model(), "repo:entitlements", FIXTURE_NOW);
+    const tabs = board.sections.find((s) => s.kind === "tabs");
+    const issues = tabs?.kind === "tabs" ? tabs.tabs[0] : undefined;
+    const list = issues?.sections[0];
+    expect(issues?.label).toBe("Issues");
+    expect(list?.kind === "rows" && list.items[0]?.chip).toEqual({
+      label: "human-required",
+      tone: "error",
+    });
+  });
+
+  test("the table leads with Issues and fades upstream figures", () => {
+    const b = buildBriefing(model(), { state: "clear", problems: [] }, FIXTURE_NOW);
+    const html = consoleHtml(b, FIXTURE_NOW);
+    expect(html).toContain(
+      "<span>Repository</span><span>Issues<small>human-required · other</small></span><span>Pull Requests</span><span>Dependabot Bumps</span>",
+    );
+    expect(html).toMatch(
+      /<span class="rc"><span class="z">0<\/span><span class="rup"> · 3<\/span><\/span>/,
+    );
   });
 });
 
@@ -188,10 +239,10 @@ describe("the repository inspector", () => {
     expect(board.title).toBe("Critical vulnerability in async-http-client");
     const tabs = board.sections.find((s) => s.kind === "tabs");
     expect(tabs?.kind === "tabs" && tabs.tabs.map((t) => t.label)).toEqual([
+      "Issues",
+      "PRs",
       "Vulnerabilities",
       "Code scanning",
-      "PRs",
-      "Issues",
     ]);
   });
 

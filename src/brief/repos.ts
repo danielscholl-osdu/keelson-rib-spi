@@ -6,7 +6,7 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-import type { Severity } from "../facts.ts";
+import type { IssueFact, Severity } from "../facts.ts";
 import type { Model } from "../model/index.ts";
 import type {
   AlertGroup,
@@ -17,6 +17,7 @@ import type {
   RepoRow,
   Tally,
 } from "../model/repos.ts";
+import { needsHuman } from "../model/work.ts";
 import { age, plural } from "../util.ts";
 import type { BriefFact, Tone } from "./index.ts";
 
@@ -26,6 +27,9 @@ const SECTION_MAX = 3;
 export interface RepoCell {
   text: string;
   tone: Tone;
+  // The second figure of a pair, drawn after text; faded when it is upstream's.
+  rest?: string;
+  fade?: boolean;
 }
 
 export interface RepoLine {
@@ -222,8 +226,44 @@ export function dependencyLine(d: DependencyPr): RepoLine {
   return { tag: "deps", tone: STATE_TONE[d.state], text, sub: sub.join(" · ") };
 }
 
-function issueCount(r: RepoRow): number {
-  return Object.values(r.issues).reduce((n, list) => n + list.length, 0);
+function allIssues(r: RepoRow): IssueFact[] {
+  return Object.values(r.issues).flat();
+}
+
+function humanIssues(r: RepoRow): IssueFact[] {
+  return allIssues(r).filter(needsHuman);
+}
+
+function issueCell(r: RepoRow): RepoCell {
+  const human = humanIssues(r).length;
+  const other = allIssues(r).length - human;
+  return {
+    text: String(human),
+    tone: human > 0 ? "bad" : "neutral",
+    rest: ` · ${other}${r.unreadIssues > 0 ? "+" : ""}`,
+  };
+}
+
+function issueLine(r: RepoRow, i: IssueFact, now: Date): RepoLine {
+  const human = needsHuman(i);
+  return {
+    tag: human
+      ? "human-required"
+      : r.issues.bug.includes(i)
+        ? "bug"
+        : r.issues.enhancement.includes(i)
+          ? "enhancement"
+          : "issue",
+    tone: human ? "bad" : "neutral",
+    text: `${i.title} · #${i.number}`,
+    sub: [
+      age(i.createdAt, now) ? `opened ${age(i.createdAt, now)} ago` : undefined,
+      plural(i.comments, "comment"),
+      r.issues.automation.includes(i) ? "from the sync engine" : undefined,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  };
 }
 
 function countCell(n: number, unread: number, tone: Tone = "neutral"): RepoCell {
@@ -233,8 +273,10 @@ function countCell(n: number, unread: number, tone: Tone = "neutral"): RepoCell 
 function pairCell(t: Tally | undefined, critical: boolean): RepoCell {
   if (!t) return { text: "?", tone: "neutral" };
   return {
-    text: `${t.ours} · ${t.upstream}`,
+    text: String(t.ours),
     tone: critical ? "bad" : t.ours > 0 ? "warn" : "neutral",
+    rest: ` · ${t.upstream}`,
+    fade: true,
   };
 }
 
@@ -259,15 +301,25 @@ function bumpNote(r: RepoRow): string | undefined {
     top && top.closes > 0
       ? `; #${top.pr.number} closes ${plural(top.closes, "vulnerability", "vulnerabilities")}`
       : "";
-  return `${plural(r.dependabot.length, "Dependabot PR")} open${closes}.`;
+  return `${plural(r.dependabot.length, "Dependabot bump")} open${closes}.`;
 }
 
 function lead(r: RepoRow, now: Date): { title: string; sub: string; tone: Tone } {
   const bumps = bumpNote(r);
+  const human = humanIssues(r);
+  if (human.length > 0) {
+    const oldest = human.reduce((a, i) => (i.createdAt < a.createdAt ? i : a));
+    const since = age(oldest.createdAt, now);
+    return {
+      title: `${plural(human.length, "issue")} ${human.length === 1 ? "needs" : "need"} a person`,
+      sub: `#${oldest.number} ${oldest.title}${since ? `, open ${since}` : ""}.`,
+      tone: "bad",
+    };
+  }
   const stuck = r.changes.filter((c) => c.state === "conflicts" || c.state === "red");
   if (stuck.length > 0) {
     return {
-      title: `${plural(stuck.length, "change PR")} ${stuck.length === 1 ? "has" : "have"} ${stuck[0]?.state === "red" ? "red checks" : "conflicts"}`,
+      title: `${plural(stuck.length, "pull request")} ${stuck.length === 1 ? "has" : "have"} ${stuck[0]?.state === "red" ? "red checks" : "conflicts"}`,
       sub: [`${stuck.map((c) => `#${c.pr.number} ${c.subject}`).join("; ")}.`, bumps]
         .filter(Boolean)
         .join(" "),
@@ -279,7 +331,7 @@ function lead(r: RepoRow, now: Date): { title: string; sub: string; tone: Tone }
     const oldest = waiting.reduce((a, c) => (c.pr.createdAt < a.pr.createdAt ? c : a));
     const since = age(oldest.pr.createdAt, now);
     return {
-      title: `${plural(waiting.length, "change PR")} waiting on review`,
+      title: `${plural(waiting.length, "pull request")} waiting on review`,
       sub: [
         `Oldest is #${oldest.pr.number} ${oldest.subject}${since ? `, open ${since}` : ""}.`,
         bumps,
@@ -297,7 +349,7 @@ function lead(r: RepoRow, now: Date): { title: string; sub: string; tone: Tone }
     const closes =
       top.closes > 0 ? ` and closes ${plural(top.closes, "vulnerability", "vulnerabilities")}` : "";
     return {
-      title: `${plural(r.dependabot.length, "Dependabot PR")} open`,
+      title: `${plural(r.dependabot.length, "Dependabot bump")} open`,
       sub: `#${top.pr.number} ${what}${closes}; ${top.state}.`,
       tone: "neutral",
     };
@@ -331,7 +383,7 @@ function lead(r: RepoRow, now: Date): { title: string; sub: string; tone: Tone }
     sub:
       r.dependabotAlerts === undefined
         ? "Vulnerabilities are not readable here."
-        : "No critical or high vulnerability or code-scanning alert in SPI-owned shipped code, and no PR waiting.",
+        : "No critical or high vulnerability or code-scanning alert in SPI-owned shipped code, and no pull request waiting.",
     tone: "ok",
   };
 }
@@ -368,37 +420,30 @@ function entryOf(r: RepoRow, now: Date): RepoEntry {
   const shown = (vulns?.lines.length ?? 0) + (code?.lines.length ?? 0);
   const hidden = r.alerts.length - shown;
   const testGroups = r.alerts.filter((g) => g.reach === "tests").length;
-  const issues = [...r.issues.bug, ...r.issues.enhancement, ...r.issues.other];
-  const automation = r.issues.automation.length;
+  const human = humanIssues(r);
+  const issues = [
+    ...human,
+    ...[...r.issues.bug, ...r.issues.enhancement, ...r.issues.other].filter((i) => !needsHuman(i)),
+  ];
+  const automation = r.issues.automation.filter((i) => !needsHuman(i)).length;
   const sections = [
     section(
-      "Change PRs",
+      "Issues",
+      issues.map((i) => issueLine(r, i, now)),
+      issues.length,
+      human.length > 0
+        ? `${human.length} human-required · ${issues.length - human.length} other`
+        : String(issues.length),
+    ),
+    section(
+      "Pull Requests",
       r.changes.map((c) => changeLine(c, now)),
       r.changes.length,
     ),
     section(
-      "Dependabot PRs",
+      "Dependabot Bumps",
       [...r.dependabot].sort((a, b) => b.closes - a.closes).map(dependencyLine),
       r.dependabot.length,
-    ),
-    section(
-      "Issues",
-      issues.map((i) => ({
-        tag: r.issues.bug.includes(i)
-          ? "bug"
-          : r.issues.enhancement.includes(i)
-            ? "enhancement"
-            : "issue",
-        tone: "neutral" as Tone,
-        text: `${i.title} · #${i.number}`,
-        sub: [
-          age(i.createdAt, now) ? `opened ${age(i.createdAt, now)} ago` : undefined,
-          plural(i.comments, "comment"),
-        ]
-          .filter(Boolean)
-          .join(" · "),
-      })),
-      issues.length,
     ),
     vulns,
     code,
@@ -418,7 +463,7 @@ function entryOf(r: RepoRow, now: Date): RepoEntry {
     cells: {
       changes: countCell(r.changes.length, r.unreadPrs),
       dependabot: countCell(r.dependabot.length, r.unreadPrs),
-      issues: countCell(issueCount(r), r.unreadIssues),
+      issues: issueCell(r),
       vulnerabilities: pairCell(r.vulnerabilities, criticalOurs(r, "dependabot").length > 0),
       codeScanning: pairCell(r.codeScanning, criticalOurs(r, "code").length > 0),
     },
@@ -483,9 +528,24 @@ function factsOf(rows: readonly RepoRow[]): BriefFact[] {
   const bugs = rows.reduce((n, r) => n + r.issues.bug.length, 0);
   const enh = rows.reduce((n, r) => n + r.issues.enhancement.length, 0);
   const automation = rows.reduce((n, r) => n + r.issues.automation.length, 0);
+  const human = rows.reduce((n, r) => n + humanIssues(r).length, 0);
   return [
     {
-      label: "Change PRs",
+      label: "Issues",
+      figure: String(issues.length + automation),
+      sub:
+        [
+          human > 0 ? `${human} human-required` : undefined,
+          bugs > 0 ? plural(bugs, "bug") : undefined,
+          enh > 0 ? plural(enh, "enhancement") : undefined,
+          automation > 0 ? `${automation} from the sync engine` : undefined,
+        ]
+          .filter(Boolean)
+          .join(" · ") || "none open",
+      tone: human > 0 ? "bad" : "neutral",
+    },
+    {
+      label: "Pull Requests",
       figure: String(changes.length),
       sub:
         [byType(changes), blocked > 0 ? `${blocked} with conflicts or red checks` : undefined]
@@ -494,7 +554,7 @@ function factsOf(rows: readonly RepoRow[]): BriefFact[] {
       tone: blocked > 0 ? "warn" : "neutral",
     },
     {
-      label: "Dependabot PRs",
+      label: "Dependabot Bumps",
       figure: String(deps.length),
       sub:
         [
@@ -503,19 +563,6 @@ function factsOf(rows: readonly RepoRow[]): BriefFact[] {
             .slice(0, 2)
             .map(([s, n]) => `${n} ${STATE_PHRASE[s]}`),
           closing > 0 ? `${closing} close vulnerabilities` : undefined,
-        ]
-          .filter(Boolean)
-          .join(" · ") || "none open",
-      tone: "neutral",
-    },
-    {
-      label: "Issues",
-      figure: String(issues.length + automation),
-      sub:
-        [
-          bugs > 0 ? plural(bugs, "bug") : undefined,
-          enh > 0 ? plural(enh, "enhancement") : undefined,
-          automation > 0 ? `${automation} from the sync engine` : undefined,
         ]
           .filter(Boolean)
           .join(" · ") || "none open",

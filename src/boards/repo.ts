@@ -19,6 +19,7 @@ import {
 } from "../brief/repos.ts";
 import type { Model } from "../model/index.ts";
 import type { AlertGroup, RepoRow } from "../model/repos.ts";
+import { needsHuman } from "../model/work.ts";
 import { plural, stamp } from "../util.ts";
 
 type Section = CanvasBoardView["sections"][number];
@@ -126,8 +127,8 @@ function prsTab(r: RepoRow, now: Date): Tab {
     .sort((a, b) => b.closes - a.closes)
     .map((d) => row(dependencyLine(d), d.pr.url, d.state));
   const sections = [
-    capped("Change PRs", changes, `${r.url}/pulls`),
-    capped("Dependabot PRs", bumps, `${r.url}/pulls/app%2Fdependabot`),
+    capped("Pull Requests", changes, `${r.url}/pulls`),
+    capped("Dependabot Bumps", bumps, `${r.url}/pulls/app%2Fdependabot`),
   ].filter((s): s is Rows => s !== undefined);
   const notes: Row[] = [];
   if (r.pipeline > 0) {
@@ -137,7 +138,7 @@ function prsTab(r: RepoRow, now: Date): Tab {
     });
   }
   if (sections.length === 0 && notes.length === 0) {
-    notes.push({ glyph: "ok", text: "No change or Dependabot PRs open." });
+    notes.push({ glyph: "ok", text: "No pull requests or Dependabot bumps open." });
   }
   const all: TabSection[] = [...sections];
   if (notes.length > 0) all.push({ kind: "rows", items: notes });
@@ -151,16 +152,17 @@ function issuesTab(r: RepoRow, now: Date): Tab {
     ["other", "issue"],
     ["automation", "sync engine"],
   ];
-  const items: Row[] = kinds.flatMap(([kind, tag]) =>
+  const rows: Row[] = kinds.flatMap(([kind, tag]) =>
     r.issues[kind].map((i) => {
       const since = stamp(i.createdAt, now);
+      const human = needsHuman(i);
       return {
-        chip: { label: tag, tone: "neutral" },
+        chip: human ? { label: "human-required", tone: "error" } : { label: tag, tone: "neutral" },
         text: `${i.title} · #${i.number}`,
         detail: [
           since ? `opened ${since}` : undefined,
           plural(i.comments, "comment"),
-          kind === "automation" ? "on Today" : undefined,
+          kind === "automation" ? "from the sync engine, on Today" : undefined,
         ]
           .filter(Boolean)
           .join(" · "),
@@ -168,6 +170,10 @@ function issuesTab(r: RepoRow, now: Date): Tab {
       };
     }),
   );
+  const items = [
+    ...rows.filter((x) => x.chip?.label === "human-required"),
+    ...rows.filter((x) => x.chip?.label !== "human-required"),
+  ];
   const list = capped("Open", items, `${r.url}/issues`);
   return {
     label: "Issues",
@@ -209,7 +215,7 @@ export function repoBoard(model: Model, id: string, now: Date): CanvasBoardView 
       { kind: "rows", items: [{ glyph: "info", text: entry.sub }] },
       {
         kind: "tabs",
-        tabs: [alertsTab(r, "dependabot"), alertsTab(r, "code"), prsTab(r, now), issuesTab(r, now)],
+        tabs: [issuesTab(r, now), prsTab(r, now), alertsTab(r, "dependabot"), alertsTab(r, "code")],
       },
       {
         kind: "rows",

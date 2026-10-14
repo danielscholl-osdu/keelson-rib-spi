@@ -6,6 +6,12 @@ import { type Briefing, buildBriefing } from "../src/brief/index";
 import { buildModel } from "../src/model/index";
 import { FIXTURE_NOW, fixtureFacts } from "./harness";
 
+function paneOf(html: string, view: string): string {
+  const start = html.indexOf(`data-view-pane="${view}"`);
+  const next = html.indexOf("<div data-view-pane=", start + 1);
+  return html.slice(start, next === -1 ? html.indexOf("<script>", start) : next);
+}
+
 function briefing(): Briefing {
   const facts = fixtureFacts();
   return buildBriefing(
@@ -83,14 +89,14 @@ describe("the console frame", () => {
     expect(out).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
   });
 
-  test("a tab strip switches between Today, the default, Flow, Horizon, Environment and Repositories", () => {
+  test("a tab strip switches between Today, the default, Repositories, Environment, Flow and Horizon", () => {
     const tabs = [...html.matchAll(/data-view="([^"]+)" aria-selected="([^"]+)"/g)];
     expect(tabs.map((m) => [m[1], m[2]])).toEqual([
       ["today", "true"],
+      ["repositories", "false"],
+      ["environment", "false"],
       ["flow", "false"],
       ["horizon", "false"],
-      ["environment", "false"],
-      ["repositories", "false"],
     ]);
     expect(html).toContain('<div data-view-pane="flow" hidden>');
     expect(html).toContain('<div data-view-pane="horizon" hidden>');
@@ -102,10 +108,7 @@ describe("the console frame", () => {
   });
 
   describe("the Flow view", () => {
-    const flow = html.slice(
-      html.indexOf('data-view-pane="flow"'),
-      html.indexOf('data-view-pane="horizon"'),
-    );
+    const flow = paneOf(html, "flow");
 
     test("leads with the flow headline and the environment row once", () => {
       expect(flow).toContain(`<h2>${b.flow.headline}</h2>`);
@@ -170,10 +173,7 @@ describe("the console frame", () => {
   });
 
   describe("the Horizon view", () => {
-    const horizon = html.slice(
-      html.indexOf('data-view-pane="horizon"'),
-      html.indexOf('data-view-pane="environment"'),
-    );
+    const horizon = paneOf(html, "horizon");
 
     test("leads with the horizon headline and renders every theme with the first selected", () => {
       expect(horizon).toContain(`<h2>${b.horizon.headline}</h2>`);
@@ -214,10 +214,7 @@ describe("the console frame", () => {
   });
 
   describe("the Environment view", () => {
-    const env = html.slice(
-      html.indexOf('data-view-pane="environment"'),
-      html.indexOf('data-view-pane="repositories"'),
-    );
+    const env = paneOf(html, "environment");
 
     test("leads with the environment headline and its three facts", () => {
       expect(env).toContain(`<h2>${b.environment.headline}</h2>`);

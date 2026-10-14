@@ -358,12 +358,16 @@ ${details ? `<div class="pane events">${details}</div>` : ""}`;
 }
 
 function cellHtml(c: RepoCell): string {
-  return `<span class="rc ${c.text === "0" ? "z" : TONE_CLASS[c.tone]}">${esc(c.text)}</span>`;
+  const lead = `<span class="${c.text === "0" ? "z" : TONE_CLASS[c.tone]}">${esc(c.text)}</span>`;
+  const rest = c.rest
+    ? `<span class="${c.fade ? "rup" : c.rest === " · 0" ? "z" : "rrest"}">${esc(c.rest)}</span>`
+    : "";
+  return `<span class="rc">${lead}${rest}</span>`;
 }
 
 function repoRow(r: RepoEntry, selected: boolean): string {
   const c = r.cells;
-  return `<button type="button" class="rrow${selected ? " on" : ""}" data-repo="${esc(r.id)}" aria-pressed="${selected}"><span class="rn">${esc(r.name)}</span>${cellHtml(c.changes)}${cellHtml(c.dependabot)}${cellHtml(c.issues)}${cellHtml(c.vulnerabilities)}${cellHtml(c.codeScanning)}</button>`;
+  return `<button type="button" class="rrow${selected ? " on" : ""}" data-repo="${esc(r.id)}" aria-pressed="${selected}"><span class="rn">${esc(r.name)}</span>${cellHtml(c.issues)}${cellHtml(c.changes)}${cellHtml(c.dependabot)}${cellHtml(c.vulnerabilities)}${cellHtml(c.codeScanning)}</button>`;
 }
 
 function lineHtml(l: RepoLine): string {
@@ -397,7 +401,7 @@ function repositoriesHtml(b: Briefing): string {
       ? `<p class="rgrp">${label}</p>${rows.map((x) => repoRow(x, x.id === first)).join("")}`
       : "";
   };
-  const head = `<div class="rhead"><span>Repository</span><span>Change PRs</span><span>Dependabot PRs</span><span>Issues</span><span>Vulnerabilities<small>ours · upstream</small></span><span>Code scanning<small>ours · upstream</small></span></div>`;
+  const head = `<div class="rhead"><span>Repository</span><span>Issues<small>human-required · other</small></span><span>Pull Requests</span><span>Dependabot Bumps</span><span>Vulnerabilities<small>ours · upstream</small></span><span>Code scanning<small>ours · upstream</small></span></div>`;
   const table = `<div class="rtable"><div class="rgrid">${head}${group("program", "Program")}${group("fork", "Forks")}</div><p class="note">Vulnerabilities are Dependabot alerts on the libraries a service uses. Code scanning is CodeQL and Scorecard findings in the source itself. Both count critical and high alerts in shipped code only. Pipeline PRs stay on Flow.</p></div>`;
   const details = r.rows.map((x) => repoDetail(x, x.id === first)).join("");
   return `<h2>${esc(r.headline)}</h2>
@@ -499,18 +503,20 @@ button.envband { cursor: pointer; }
 .events { margin-top: 12px; }
 .facts.four { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .rtable { min-width: 0; overflow-x: auto; }
-.rgrid { min-width: 600px; }
-.rhead, .rrow { display: grid; box-sizing: border-box; grid-template-columns: minmax(100px, 1.3fr) repeat(3, minmax(64px, .8fr)) repeat(2, minmax(118px, 1.2fr)); gap: 0 8px; align-items: baseline; }
+.rgrid { min-width: 700px; }
+.rhead, .rrow { display: grid; box-sizing: border-box; grid-template-columns: minmax(100px, 1.3fr) minmax(152px, 1.2fr) repeat(2, minmax(64px, .8fr)) repeat(2, minmax(118px, 1.2fr)); gap: 0 8px; align-items: baseline; }
 .rhead { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 0 11px 4px; border-bottom: 1px solid var(--border); align-items: end; line-height: 1.3; }
-.rhead small { display: block; font-size: 10px; font-weight: 500; letter-spacing: .02em; text-transform: none; }
+.rhead small { display: block; white-space: nowrap; font-size: 10px; font-weight: 500; letter-spacing: .02em; text-transform: none; }
 .rgrp { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 10px 0 2px; padding: 0 10px; }
 .rrow { width: 100%; text-align: left; padding: 5px 10px; border: 1px solid transparent; border-radius: 6px; background: none; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
 .rrow:hover { background: var(--card-2); }
 .rrow.on { background: var(--card); border-color: var(--accent); }
 .rn { font-weight: 600; color: var(--fg-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rc { font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--fg); }
-.rc.z { color: var(--muted); }
-.rc.t-bad { color: var(--crit); font-weight: 600; } .rc.t-warn { color: var(--warn); }
+.rc .z { color: var(--muted); }
+.rc .t-bad { color: var(--crit); font-weight: 600; } .rc .t-warn { color: var(--warn); }
+.rc .rrest { color: var(--fg); }
+.rc .rup { color: var(--muted); opacity: .6; }
 .rsec { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; }
 .rl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 1px 8px; padding: 5px 0; border-top: 1px solid var(--border); font-size: 13px; }
 .rsec + .rl { border-top: none; }
@@ -613,12 +619,12 @@ ${b.summary ? `<p class="summary">${esc(b.summary)}</p>` : ""}
 ${b.facts.length > 0 ? todayHtml(b) : ""}`;
   const views =
     b.facts.length > 0
-      ? `<div class="tabs" role="tablist">${tab("today", "Today", true)}${tab("flow", "Flow", false)}${tab("horizon", "Horizon", false)}${tab("environment", "Environment", false)}${tab("repositories", "Repositories", false)}${meta}</div>
+      ? `<div class="tabs" role="tablist">${tab("today", "Today", true)}${tab("repositories", "Repositories", false)}${tab("environment", "Environment", false)}${tab("flow", "Flow", false)}${tab("horizon", "Horizon", false)}${meta}</div>
 <div data-view-pane="today">${today}</div>
-<div data-view-pane="flow" hidden>${flowHtml(b)}</div>
-<div data-view-pane="horizon" hidden>${horizonHtml(b)}</div>
+<div data-view-pane="repositories" hidden>${repositoriesHtml(b)}</div>
 <div data-view-pane="environment" hidden>${environmentHtml(b, now)}</div>
-<div data-view-pane="repositories" hidden>${repositoriesHtml(b)}</div>`
+<div data-view-pane="flow" hidden>${flowHtml(b)}</div>
+<div data-view-pane="horizon" hidden>${horizonHtml(b)}</div>`
       : `${meta ? `<div class="tabs">${meta}</div>` : ""}${today}`;
   return `<style>${designTokenCssBlock()}${STYLE}</style>
 <div class="wrap">

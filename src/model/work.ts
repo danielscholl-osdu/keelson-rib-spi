@@ -35,6 +35,13 @@ const AUTOMATION_LABELS = [
   "cascade-failed",
 ];
 
+// The template's label for an issue that waits on a person's action or approval.
+export const HUMAN_LABEL = "human-required";
+
+export function needsHuman(issue: Pick<IssueFact, "labels">): boolean {
+  return issue.labels.includes(HUMAN_LABEL);
+}
+
 export interface WorkRow {
   repo: string;
   name: string;
