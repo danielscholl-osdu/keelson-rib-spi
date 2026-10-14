@@ -592,21 +592,24 @@ describe("the upstream panel", () => {
     expect(tiles.items[2]).toMatchObject({ value: "31 d", sub: "stages land in R4" });
   });
 
-  test("one row per fork with something queued or at risk, with its certain verdict", () => {
-    const table = board().sections[1];
+  test("one row per fork with something queued; at-risk forks fold above the breaks list", () => {
+    const b = board();
+    const table = b.sections[1];
     if (table?.kind !== "table") throw new Error("next-sync table second");
     expect(
       table.rows.map((r) => [plain(r.fork), plain(r.queued), plain(r.next), plain(r.mrs)]),
     ).toEqual([
-      ["partition", "none", "clean", "7 · 1 would break"],
       ["entitlements", "2 commits", "will halt on schemathesis-tests", "6"],
       ["legal", "4 commits", "Java 25 queued", "8 · 2 would break"],
-      ["schema", "none", "clean", "5 · 1 would break"],
-      ["file", "none", "clean", "4 · 1 would break"],
     ]);
-    expect(table.rows[1]?.filter).toMatchObject({
+    expect(table.rows[0]?.filter).toMatchObject({
       href: "https://github.com/Azure/osdu-spi-entitlements/blob/main/.github/upstream-filter.yml",
     });
+    const folds = b.sections[2];
+    if (folds?.kind !== "rows") throw new Error("folds third");
+    expect(folds.items.map((i) => i.text)).toEqual([
+      "3 forks at risk · partition, schema and file · open MRs below",
+    ]);
   });
 
   test("clean forks and unread forks fold to one line each; unread never reads clean", () => {
@@ -623,6 +626,7 @@ describe("the upstream panel", () => {
     );
     if (folds?.kind !== "rows") throw new Error("folds");
     expect(folds.items.map((i) => i.text)).toEqual([
+      "1 fork at risk · schema · open MRs below",
       "1 fork clean · partition",
       "1 fork unread · file",
     ]);

@@ -207,12 +207,13 @@ const STATE_TONE: Partial<Record<RadarState, CanvasTone>> = {
 function nextSync(model: Model, breaks: readonly Break[]): Section[] {
   const sections: Section[] = [];
   const read = measured(model);
-  const shown = read.filter(([, r]) => r.queued > 0 || r.state === "at-risk");
+  const shown = read.filter(([, r]) => r.queued > 0);
+  const risky = read.filter(([, r]) => r.queued === 0 && r.state === "at-risk");
   const clean = read.filter(([, r]) => r.queued === 0 && r.state !== "at-risk");
   if (shown.length > 0) {
     sections.push({
       kind: "table",
-      caption: "Next sync · one row per fork with something queued or at risk",
+      caption: "Next sync · one row per fork with something queued",
       columns: [
         { key: "fork", label: "fork" },
         { key: "queued", label: "queued" },
@@ -249,6 +250,13 @@ function nextSync(model: Model, breaks: readonly Break[]): Section[] {
     });
   }
   const folds: Row[] = [];
+  if (risky.length > 0) {
+    folds.push({
+      glyph: "info",
+      text: `${plural(risky.length, "fork")} at risk · ${names(risky.map(([f]) => f))} · open MRs below`,
+      trailing: "nothing queued breaks it",
+    });
+  }
   if (clean.length > 0) {
     folds.push({
       glyph: "ok",
