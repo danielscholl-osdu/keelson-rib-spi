@@ -33,9 +33,9 @@ environment's fault and folds under its incident.
 The console runs in a sandboxed frame. It can select and open the inspector,
 and nothing else: the rib refuses every other action from it, and links and
 verbs live in the inspector. Selecting anything and pressing **Open in
-inspector** opens a side drawer; after that, each selection in the console
-moves the drawer to it. The drawer leads with the item's claim in the console's
-words, its priority, class and age, then one **Next step** card that holds the
+inspector** opens a side drawer; selecting a row only selects it. The drawer
+leads with the item's claim in the console's words, its priority, class and
+age, then one **Next step** card that holds the
 recommendation and the buttons that carry it out. Below it, **Why** lists each
 fact beside its own link, and **Same cause elsewhere** steps to the same cause
 on other forks. Every part comes from the item's class and facts, so a new

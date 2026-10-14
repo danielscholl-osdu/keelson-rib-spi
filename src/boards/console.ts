@@ -482,13 +482,6 @@ const SCRIPT = `(function () {
     ["cell", "data-cell", "data-cell-detail", "aria-pressed"],
     ["event", "data-event", "data-event-detail", "aria-pressed"],
   ];
-  // The frame cannot tell when the drawer closes, so after the first open each selection drives it.
-  var opened = false;
-  function follow(pane, id) {
-    var detail = document.querySelector("[" + pane + '="' + CSS.escape(id) + '"]');
-    var open = detail && detail.querySelector("[data-inspect]");
-    if (open && k.action) k.action(${JSON.stringify(INSPECT_ACTION)}, { id: open.getAttribute("data-inspect") });
-  }
   var state = {};
   KINDS.forEach(function (c) { state[c[0]] = current(c[1]); });
   if (k.onRestore) k.onRestore(function (s) {
@@ -508,11 +501,9 @@ const SCRIPT = `(function () {
       if (show(c[1], c[2], id, c[3])) {
         state[c[0]] = id;
         if (k.saveState) k.saveState({ view: state.view, sel: state.sel, theme: state.theme, cell: state.cell, event: state.event });
-        if (opened && c[0] !== "view") follow(c[2], id);
       }
       return;
     }
-    opened = true;
     if (k.action) k.action(${JSON.stringify(INSPECT_ACTION)}, { id: t.getAttribute("data-inspect") });
   });
 })();`;
