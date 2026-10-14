@@ -29,6 +29,7 @@ import {
   viewRun,
 } from "../model/stack.ts";
 import { age, clip, plural, span, stamp } from "../util.ts";
+import { type Repositories, repositoriesOf } from "./repos.ts";
 import { ago as agoText, deployableWords, streakText } from "./words.ts";
 
 export type Tone = "bad" | "warn" | "ok" | "neutral";
@@ -183,6 +184,7 @@ export interface Briefing {
   horizon: { headline: string };
   flow: Flow;
   environment: Environment;
+  repositories: Repositories;
 }
 
 const FOCUS_MAX = 5;
@@ -1565,6 +1567,7 @@ export function buildBriefing(model: Model, doctor: DoctorView, now: Date): Brie
         from: new Date(now.getTime() - DAY_MS).toISOString(),
         to: now.toISOString(),
       },
+      repositories: { headline, facts: [], rows: [] },
     };
   }
   const focusable = model.queue.items.filter((i) => i.rung <= 1);
@@ -1591,5 +1594,6 @@ export function buildBriefing(model: Model, doctor: DoctorView, now: Date): Brie
     horizon: { headline: horizonOf(themes, next) },
     flow: flowOf(model, facts, stuck, next, now),
     environment: environmentOf(model, facts[0], now),
+    repositories: repositoriesOf(model, now),
   };
 }

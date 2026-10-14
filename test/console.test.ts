@@ -73,19 +73,20 @@ describe("the console frame", () => {
     expect(out).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
   });
 
-  test("a tab strip switches between Today, the default, Flow, Horizon and Environment", () => {
+  test("a tab strip switches between Today, the default, Flow, Horizon, Environment and Repositories", () => {
     const tabs = [...html.matchAll(/data-view="([^"]+)" aria-selected="([^"]+)"/g)];
     expect(tabs.map((m) => [m[1], m[2]])).toEqual([
       ["today", "true"],
       ["flow", "false"],
       ["horizon", "false"],
       ["environment", "false"],
+      ["repositories", "false"],
     ]);
     expect(html).toContain('<div data-view-pane="flow" hidden>');
     expect(html).toContain('<div data-view-pane="horizon" hidden>');
     expect(html).toContain('<div data-view-pane="environment" hidden>');
     expect(html).toContain(
-      "saveState({ view: state.view, sel: state.sel, theme: state.theme, cell: state.cell, event: state.event })",
+      "saveState({ view: state.view, sel: state.sel, theme: state.theme, cell: state.cell, event: state.event, repo: state.repo })",
     );
     expect(html).toContain('["event", "data-event", "data-event-detail", "aria-pressed"]');
   });
@@ -203,7 +204,10 @@ describe("the console frame", () => {
   });
 
   describe("the Environment view", () => {
-    const env = html.slice(html.indexOf('data-view-pane="environment"'), html.indexOf("<script>"));
+    const env = html.slice(
+      html.indexOf('data-view-pane="environment"'),
+      html.indexOf('data-view-pane="repositories"'),
+    );
 
     test("leads with the environment headline and its three facts", () => {
       expect(env).toContain(`<h2>${b.environment.headline}</h2>`);

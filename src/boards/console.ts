@@ -21,6 +21,7 @@ import type {
   Theme,
   Tone,
 } from "../brief/index.ts";
+import type { RepoCell, RepoEntry, RepoLine } from "../brief/repos.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
 import { span, stamp, zoned } from "../util.ts";
 import { DOCTOR_ID } from "./doctor.ts";
@@ -356,6 +357,53 @@ ${timeline}${env.note ? `<p class="note">${esc(env.note)}</p>` : ""}
 ${details ? `<div class="pane events">${details}</div>` : ""}`;
 }
 
+function cellHtml(c: RepoCell): string {
+  return `<span class="rc ${c.text === "0" ? "z" : TONE_CLASS[c.tone]}">${esc(c.text)}</span>`;
+}
+
+function repoRow(r: RepoEntry, selected: boolean): string {
+  const c = r.cells;
+  return `<button type="button" class="rrow${selected ? " on" : ""}" data-repo="${esc(r.id)}" aria-pressed="${selected}"><span class="rn">${esc(r.name)}</span>${cellHtml(c.changes)}${cellHtml(c.dependabot)}${cellHtml(c.issues)}${cellHtml(c.shipped)}${cellHtml(c.code)}</button>`;
+}
+
+function lineHtml(l: RepoLine): string {
+  return `<div class="rl"><span class="tag ${TONE_CLASS[l.tone]}">${esc(l.tag)}</span><span class="rt">${esc(l.text)}</span><span class="rs">${esc(l.sub)}</span></div>`;
+}
+
+function repoDetail(r: RepoEntry, selected: boolean): string {
+  const sections = r.sections
+    .map(
+      (s) =>
+        `<p class="dl rsec"><span>${esc(s.title)}</span><span>${esc(s.count)}</span></p>${s.lines.map(lineHtml).join("")}`,
+    )
+    .join("");
+  return `<section class="detail" data-repo-detail="${esc(r.id)}"${selected ? "" : " hidden"}>
+<p class="eyebrow">Selected · ${esc(r.name)}</p>
+<h3 class="${TONE_CLASS[r.tone]}">${esc(r.title)}</h3>
+<p>${esc(r.sub)}</p>
+${sections}
+${r.note ? `<p class="note">${esc(r.note)}</p>` : ""}
+<button type="button" class="open" data-inspect="${esc(r.id)}">Open in inspector</button>
+</section>`;
+}
+
+function repositoriesHtml(b: Briefing): string {
+  const r = b.repositories;
+  const first = r.first;
+  const group = (g: RepoEntry["group"], label: string) => {
+    const rows = r.rows.filter((x) => x.group === g);
+    return rows.length > 0
+      ? `<p class="rgrp">${label}</p>${rows.map((x) => repoRow(x, x.id === first)).join("")}`
+      : "";
+  };
+  const head = `<div class="rhead"><span>Repository</span><span>Changes</span><span>Dependabot</span><span>Issues</span><span title="Critical or high Dependabot alerts in shipped code, ours and upstream">Shipped</span><span title="Critical or high code-scanning findings, ours and upstream">Code</span></div>`;
+  const table = `<div class="rtable"><div class="rgrid">${head}${group("program", "Program")}${group("fork", "Forks")}</div><p class="note">Alert columns read ours · upstream, critical and high only. Pipeline PRs stay on Flow.</p></div>`;
+  const details = r.rows.map((x) => repoDetail(x, x.id === first)).join("");
+  return `<h2>${esc(r.headline)}</h2>
+${r.facts.length > 0 ? `<div class="facts four">${r.facts.map(factHtml).join("")}</div>` : ""}
+${r.rows.length > 0 ? `<div class="split">${table}<div class="pane">${details}</div></div>` : ""}`;
+}
+
 function tab(view: string, label: string, on: boolean): string {
   return `<button type="button" role="tab" class="tab${on ? " on" : ""}" data-view="${view}" aria-selected="${on}">${label}</button>`;
 }
@@ -448,9 +496,29 @@ button.envband { cursor: pointer; }
 .none { position: absolute; left: 6px; top: 5px; font-size: 12px; color: var(--muted); }
 .note { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
 .events { margin-top: 12px; }
+.facts.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.rtable { min-width: 0; overflow-x: auto; }
+.rgrid { min-width: 560px; }
+.rhead, .rrow { display: grid; grid-template-columns: minmax(12ch, 1.5fr) repeat(5, minmax(9ch, 1fr)); gap: 0 8px; align-items: baseline; }
+.rhead { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 0 10px 4px; border-bottom: 1px solid var(--border); }
+.rgrp { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 10px 0 2px; padding: 0 10px; }
+.rrow { width: 100%; text-align: left; padding: 5px 10px; border: 1px solid transparent; border-radius: 6px; background: none; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+.rrow:hover { background: var(--card-2); }
+.rrow.on { background: var(--card); border-color: var(--accent); }
+.rn { font-weight: 600; color: var(--fg-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rc { font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--fg); }
+.rc.z { color: var(--muted); }
+.rc.t-bad { color: var(--crit); font-weight: 600; } .rc.t-warn { color: var(--warn); }
+.rsec { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; }
+.rl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 1px 8px; padding: 5px 0; border-top: 1px solid var(--border); font-size: 13px; }
+.rsec + .rl { border-top: none; }
+.tag { font-family: var(--mono); font-size: 10.5px; font-weight: 600; padding: 1px 6px; border: 1px solid var(--border); border-radius: 4px; color: var(--muted); align-self: start; margin-top: 1px; }
+.tag.t-bad { color: var(--crit); border-color: var(--crit); } .tag.t-warn { color: var(--warn); border-color: var(--warn); } .tag.t-ok { color: var(--good); border-color: var(--good); }
+.rt { color: var(--fg-strong); overflow-wrap: anywhere; }
+.rs { grid-column: 2; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (max-width: 720px) {
-  .split, .facts { grid-template-columns: minmax(0, 1fr); }
+  .split, .facts, .facts.four { grid-template-columns: minmax(0, 1fr); }
   .fact + .fact { border-left: 3px solid transparent; border-top: 1px solid var(--border); }
 }`;
 
@@ -481,6 +549,7 @@ const SCRIPT = `(function () {
     ["theme", "data-theme-sel", "data-theme-detail", "aria-pressed"],
     ["cell", "data-cell", "data-cell-detail", "aria-pressed"],
     ["event", "data-event", "data-event-detail", "aria-pressed"],
+    ["repo", "data-repo", "data-repo-detail", "aria-pressed"],
   ];
   var state = {};
   KINDS.forEach(function (c) { state[c[0]] = current(c[1]); });
@@ -492,7 +561,7 @@ const SCRIPT = `(function () {
     });
   });
   document.addEventListener("click", function (e) {
-    var t = e.target && e.target.closest ? e.target.closest("[data-view],[data-sel],[data-theme-sel],[data-cell],[data-event],[data-inspect]") : null;
+    var t = e.target && e.target.closest ? e.target.closest("[data-view],[data-sel],[data-theme-sel],[data-cell],[data-event],[data-repo],[data-inspect]") : null;
     if (!t) return;
     for (var i = 0; i < KINDS.length; i++) {
       var c = KINDS[i];
@@ -500,7 +569,7 @@ const SCRIPT = `(function () {
       if (id === null) continue;
       if (show(c[1], c[2], id, c[3])) {
         state[c[0]] = id;
-        if (k.saveState) k.saveState({ view: state.view, sel: state.sel, theme: state.theme, cell: state.cell, event: state.event });
+        if (k.saveState) k.saveState({ view: state.view, sel: state.sel, theme: state.theme, cell: state.cell, event: state.event, repo: state.repo });
       }
       return;
     }
@@ -530,11 +599,12 @@ ${b.summary ? `<p class="summary">${esc(b.summary)}</p>` : ""}
 ${b.facts.length > 0 ? todayHtml(b) : ""}`;
   const views =
     b.facts.length > 0
-      ? `<div class="tabs" role="tablist">${tab("today", "Today", true)}${tab("flow", "Flow", false)}${tab("horizon", "Horizon", false)}${tab("environment", "Environment", false)}</div>
+      ? `<div class="tabs" role="tablist">${tab("today", "Today", true)}${tab("flow", "Flow", false)}${tab("horizon", "Horizon", false)}${tab("environment", "Environment", false)}${tab("repositories", "Repositories", false)}</div>
 <div data-view-pane="today">${today}</div>
 <div data-view-pane="flow" hidden>${flowHtml(b)}</div>
 <div data-view-pane="horizon" hidden>${horizonHtml(b)}</div>
-<div data-view-pane="environment" hidden>${environmentHtml(b, now)}</div>`
+<div data-view-pane="environment" hidden>${environmentHtml(b, now)}</div>
+<div data-view-pane="repositories" hidden>${repositoriesHtml(b)}</div>`
       : today;
   return `<style>${designTokenCssBlock()}${STYLE}</style>
 <div class="wrap">${meta}
