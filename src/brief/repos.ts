@@ -33,12 +33,16 @@ export interface RepoLine {
   tone: Tone;
   text: string;
   sub: string;
+  // Upstream owns the fix, so the line is for information only.
+  upstream?: boolean;
 }
 
 export interface RepoSection {
   title: string;
   count: string;
   lines: RepoLine[];
+  // Alerts drain slowly, so they sit below the PRs at a lower weight.
+  quiet?: boolean;
 }
 
 export interface RepoEntry {
@@ -184,6 +188,7 @@ export function alertLine(g: AlertGroup): RepoLine {
     tone: g.severity ? SEVERITY_TONE[g.severity] : "neutral",
     text: `${groupName(g)} · ${counted(g)}`,
     sub: sub.join(" · "),
+    ...(g.owner === "upstream" ? { upstream: true } : {}),
   };
 }
 
@@ -247,27 +252,25 @@ function severeOurs(r: RepoRow): number {
   return (r.vulnerabilities?.ours ?? 0) + (r.codeScanning?.ours ?? 0);
 }
 
+function bumpNote(r: RepoRow): string | undefined {
+  if (r.dependabot.length === 0) return undefined;
+  const top = [...r.dependabot].sort((a, b) => b.closes - a.closes)[0];
+  const closes =
+    top && top.closes > 0
+      ? `; #${top.pr.number} closes ${plural(top.closes, "vulnerability", "vulnerabilities")}`
+      : "";
+  return `${plural(r.dependabot.length, "Dependabot PR")} open${closes}.`;
+}
+
 function lead(r: RepoRow, now: Date): { title: string; sub: string; tone: Tone } {
-  const top = r.alerts.find((g) => ours(g) && g.reach === "shipped" && severe(g));
-  if (top) {
-    const owner = top.owner === "template" ? "template-owned" : "SPI-owned";
-    return {
-      title: alertTitle(top),
-      sub: [
-        `${cap(counted(top))} in ${owner} shipped code at ${whereText(top)}, ${top.source === "code" ? fixText(top) : top.fix ? `fixed in ${top.fix}` : "no fix published"}.`,
-        top.pr ? `Dependabot PR #${top.pr} is open.` : undefined,
-        top.elsewhere.length > 0 ? `Also ours on ${list(top.elsewhere)}.` : undefined,
-      ]
-        .filter(Boolean)
-        .join(" "),
-      tone: SEVERITY_TONE[top.severity as Severity],
-    };
-  }
+  const bumps = bumpNote(r);
   const stuck = r.changes.filter((c) => c.state === "conflicts" || c.state === "red");
   if (stuck.length > 0) {
     return {
       title: `${plural(stuck.length, "change PR")} ${stuck.length === 1 ? "has" : "have"} ${stuck[0]?.state === "red" ? "red checks" : "conflicts"}`,
-      sub: stuck.map((c) => `#${c.pr.number} ${c.subject}`).join("; "),
+      sub: [`${stuck.map((c) => `#${c.pr.number} ${c.subject}`).join("; ")}.`, bumps]
+        .filter(Boolean)
+        .join(" "),
       tone: "warn",
     };
   }
@@ -277,8 +280,40 @@ function lead(r: RepoRow, now: Date): { title: string; sub: string; tone: Tone }
     const since = age(oldest.pr.createdAt, now);
     return {
       title: `${plural(waiting.length, "change PR")} waiting on review`,
-      sub: `Oldest is #${oldest.pr.number} ${oldest.subject}${since ? `, open ${since}` : ""}.`,
+      sub: [
+        `Oldest is #${oldest.pr.number} ${oldest.subject}${since ? `, open ${since}` : ""}.`,
+        bumps,
+      ]
+        .filter(Boolean)
+        .join(" "),
       tone: "neutral",
+    };
+  }
+  if (r.dependabot.length > 0) {
+    const top = [...r.dependabot].sort((a, b) => b.closes - a.closes)[0] as DependencyPr;
+    const what = top.package
+      ? `bumps ${shortPackage(top.package)} ${top.from} to ${top.to}`
+      : top.pr.title;
+    const closes =
+      top.closes > 0 ? ` and closes ${plural(top.closes, "vulnerability", "vulnerabilities")}` : "";
+    return {
+      title: `${plural(r.dependabot.length, "Dependabot PR")} open`,
+      sub: `#${top.pr.number} ${what}${closes}; ${top.state}.`,
+      tone: "neutral",
+    };
+  }
+  const top = r.alerts.find((g) => ours(g) && g.reach === "shipped" && severe(g));
+  if (top) {
+    const owner = top.owner === "template" ? "template-owned" : "SPI-owned";
+    return {
+      title: alertTitle(top),
+      sub: [
+        `${cap(counted(top))} in ${owner} shipped code at ${whereText(top)}, ${top.source === "code" ? fixText(top) : top.fix ? `fixed in ${top.fix}` : "no fix published"}.`,
+        top.elsewhere.length > 0 ? `Also ours on ${list(top.elsewhere)}.` : undefined,
+      ]
+        .filter(Boolean)
+        .join(" "),
+      tone: SEVERITY_TONE[top.severity as Severity],
     };
   }
   const inherited = r.alerts.find(
@@ -296,7 +331,7 @@ function lead(r: RepoRow, now: Date): { title: string; sub: string; tone: Tone }
     sub:
       r.dependabotAlerts === undefined
         ? "Vulnerabilities are not readable here."
-        : "No critical or high vulnerability or code-scanning alert in SPI-owned shipped code, and no change PR waiting.",
+        : "No critical or high vulnerability or code-scanning alert in SPI-owned shipped code, and no PR waiting.",
     tone: "ok",
   };
 }
@@ -318,12 +353,13 @@ function alertSection(r: RepoRow, source: AlertGroup["source"]): RepoSection | u
     (g) => g.source === source && g.owner === "upstream" && g.reach === "shipped",
   );
   const shown = [...mine, ...inherited];
-  return section(
+  const s = section(
     KIND_LABEL[source],
     shown.map(alertLine),
     shown.length,
     `${mine.length} ours · ${inherited.length} upstream`,
   );
+  return s ? { ...s, quiet: true } : undefined;
 }
 
 function entryOf(r: RepoRow, now: Date): RepoEntry {
@@ -335,10 +371,8 @@ function entryOf(r: RepoRow, now: Date): RepoEntry {
   const issues = [...r.issues.bug, ...r.issues.enhancement, ...r.issues.other];
   const automation = r.issues.automation.length;
   const sections = [
-    vulns,
-    code,
     section(
-      "Changes",
+      "Change PRs",
       r.changes.map((c) => changeLine(c, now)),
       r.changes.length,
     ),
@@ -366,6 +400,8 @@ function entryOf(r: RepoRow, now: Date): RepoEntry {
       })),
       issues.length,
     ),
+    vulns,
+    code,
   ].filter((s): s is RepoSection => s !== undefined);
   const notes = [
     hidden > 0

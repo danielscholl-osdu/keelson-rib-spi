@@ -5,7 +5,7 @@ import { inspectBoard } from "../src/boards/inspect";
 import { repoBoard } from "../src/boards/repo";
 import { buildBriefing } from "../src/brief/index";
 import { repositoriesOf } from "../src/brief/repos";
-import type { DependencyAlertFact, Facts } from "../src/facts";
+import type { DependencyAlertFact, Facts, PrFact } from "../src/facts";
 import { INSPECT_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
 import { nextText } from "../src/model/next";
@@ -32,6 +32,38 @@ function model(edit?: (f: Facts) => void) {
 
 function withCritical(f: Facts) {
   f.security.data?.["Azure/osdu-spi-partition"]?.dependabot?.push(CRITICAL);
+}
+
+function openPr(number: number, title: string, extra: Partial<PrFact> = {}): PrFact {
+  return {
+    repo: "Azure/osdu-spi-partition",
+    number,
+    title,
+    url: `https://github.com/Azure/osdu-spi-partition/pull/${number}`,
+    createdAt: "2026-10-10T00:00:00Z",
+    updatedAt: "2026-10-10T00:00:00Z",
+    draft: false,
+    head: `feature/${number}`,
+    base: "main",
+    headSha: "0".repeat(40),
+    reviewDecision: "REVIEW_REQUIRED",
+    mergeState: "BLOCKED",
+    labels: [],
+    checks: [],
+    ...extra,
+  };
+}
+
+function withPrs(f: Facts) {
+  withCritical(f);
+  f.github.data?.repos["Azure/osdu-spi-partition"]?.prs.push(
+    openPr(70, "chore(spi): add service descriptor for partition"),
+    openPr(
+      71,
+      "Bump org.asynchttpclient:async-http-client from 2.16.0 to 2.16.1 in /provider/partition-azure",
+      { author: "dependabot", head: "dependabot/maven/ahc" },
+    ),
+  );
 }
 
 describe("the Repositories briefing", () => {
@@ -94,6 +126,58 @@ describe("the Repositories tab", () => {
     expect(shown).toEqual(["repo:partition"]);
     const opens = [...pane.matchAll(/data-inspect="([^"]+)"/g)].map((m) => m[1]);
     expect(opens).toEqual(b.repositories.rows.map((r) => r.id));
+  });
+});
+
+describe("a repository's detail", () => {
+  test("open PRs lead and the alerts follow, below the work", () => {
+    const partition = repositoriesOf(model(withPrs), FIXTURE_NOW).rows.find(
+      (x) => x.name === "partition",
+    );
+    expect(partition?.title).toBe("1 change PR waiting on review");
+    expect(partition?.sub).toContain("1 Dependabot PR open; #71 closes 1 vulnerability.");
+    expect(partition?.sections.map((s) => s.title)).toEqual([
+      "Change PRs",
+      "Dependabot PRs",
+      "Vulnerabilities",
+      "Code scanning",
+    ]);
+    expect(partition?.sections.filter((s) => s.quiet).map((s) => s.title)).toEqual([
+      "Vulnerabilities",
+      "Code scanning",
+    ]);
+  });
+
+  test("a Dependabot PR leads when no change PR is open", () => {
+    const partition = repositoriesOf(
+      model((f) => {
+        withPrs(f);
+        const prs = f.github.data?.repos["Azure/osdu-spi-partition"]?.prs;
+        if (prs)
+          prs.splice(
+            prs.findIndex((p) => p.number === 70),
+            1,
+          );
+      }),
+      FIXTURE_NOW,
+    ).rows.find((x) => x.name === "partition");
+    expect(partition?.title).toBe("1 Dependabot PR open");
+    expect(partition?.sub).toBe(
+      "#71 bumps async-http-client 2.16.0 to 2.16.1 and closes 1 vulnerability; needs review.",
+    );
+  });
+
+  test("alerts sit in a quieter block where upstream lines fade and ours do not", () => {
+    const b = buildBriefing(model(withPrs), { state: "clear", problems: [] }, FIXTURE_NOW);
+    const html = consoleHtml(b, FIXTURE_NOW);
+    const detail = html.slice(
+      html.indexOf('data-repo-detail="repo:partition"'),
+      html.indexOf("</section>", html.indexOf('data-repo-detail="repo:partition"')),
+    );
+    const quiet = detail.slice(detail.indexOf('<div class="rquiet">'));
+    expect(detail.indexOf("Change PRs")).toBeLessThan(detail.indexOf('<div class="rquiet">'));
+    expect(quiet).toMatch(/<div class="rl"><span class="tag t-bad">Critical<\/span>/);
+    expect(quiet).toMatch(/<div class="rl up"><span class="tag [^"]*">High<\/span>/);
   });
 });
 

@@ -21,7 +21,7 @@ import type {
   Theme,
   Tone,
 } from "../brief/index.ts";
-import type { RepoCell, RepoEntry, RepoLine } from "../brief/repos.ts";
+import type { RepoCell, RepoEntry, RepoLine, RepoSection } from "../brief/repos.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
 import { span, stamp, zoned } from "../util.ts";
 import { DOCTOR_ID } from "./doctor.ts";
@@ -367,16 +367,17 @@ function repoRow(r: RepoEntry, selected: boolean): string {
 }
 
 function lineHtml(l: RepoLine): string {
-  return `<div class="rl"><span class="tag ${TONE_CLASS[l.tone]}">${esc(l.tag)}</span><span class="rt">${esc(l.text)}</span><span class="rs">${esc(l.sub)}</span></div>`;
+  return `<div class="rl${l.upstream ? " up" : ""}"><span class="tag ${TONE_CLASS[l.tone]}">${esc(l.tag)}</span><span class="rt">${esc(l.text)}</span><span class="rs">${esc(l.sub)}</span></div>`;
 }
 
 function repoDetail(r: RepoEntry, selected: boolean): string {
-  const sections = r.sections
-    .map(
-      (s) =>
-        `<p class="dl rsec"><span>${esc(s.title)}</span><span>${esc(s.count)}</span></p>${s.lines.map(lineHtml).join("")}`,
-    )
-    .join("");
+  const block = (s: RepoSection) =>
+    `<p class="dl rsec"><span>${esc(s.title)}</span><span>${esc(s.count)}</span></p>${s.lines.map(lineHtml).join("")}`;
+  const work = r.sections.filter((s) => !s.quiet);
+  const alerts = r.sections.filter((s) => s.quiet);
+  const sections = `${work.map(block).join("")}${
+    alerts.length > 0 ? `<div class="rquiet">${alerts.map(block).join("")}</div>` : ""
+  }`;
   return `<section class="detail" data-repo-detail="${esc(r.id)}"${selected ? "" : " hidden"}>
 <p class="eyebrow">Selected · ${esc(r.name)}</p>
 <h3 class="${TONE_CLASS[r.tone]}">${esc(r.title)}</h3>
@@ -517,6 +518,12 @@ button.envband { cursor: pointer; }
 .tag.t-bad { color: var(--crit); border-color: var(--crit); } .tag.t-warn { color: var(--warn); border-color: var(--warn); } .tag.t-ok { color: var(--good); border-color: var(--good); }
 .rt { color: var(--fg-strong); overflow-wrap: anywhere; }
 .rs { grid-column: 2; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.rquiet { margin-top: 14px; padding-top: 2px; border-top: 1px dashed var(--border); }
+.rquiet .rl { font-size: 12.5px; padding: 4px 0; }
+.rquiet .rs { font-size: 11.5px; }
+.rl.up { opacity: .55; }
+.rl.up .tag { color: var(--muted); border-color: var(--border); }
+.rl.up .rt { color: var(--fg); }
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (max-width: 720px) {
   .split, .facts, .facts.four { grid-template-columns: minmax(0, 1fr); }
