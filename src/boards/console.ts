@@ -7,7 +7,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import { designTokenCssBlock } from "@keelson/shared";
-import type { BriefFact, Briefing, FocusItem, ReadyLine, Tone } from "../brief/index.ts";
+import type { BriefFact, Briefing, FocusItem, ReadyLine, Theme, Tone } from "../brief/index.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
 import { zoned } from "../util.ts";
 
@@ -77,6 +77,41 @@ function todayHtml(b: Briefing): string {
 ${b.focus.length > 0 ? `<div class="split">${list}<div class="pane">${details}</div></div>` : list}`;
 }
 
+function themeRow(t: Theme, selected: boolean): string {
+  return `<button type="button" class="row trow${selected ? " on" : ""}" data-theme-sel="${esc(t.id)}" aria-pressed="${selected}">
+<span class="body"><span class="tt">${esc(t.title)}</span> <span class="chip ${TONE_CLASS[t.tone]}">${esc(t.kind.toUpperCase())}</span>
+<span class="ss">${esc(t.sub)}</span></span>${t.when ? `<span class="when">${esc(t.when)}</span>` : ""}</button>`;
+}
+
+function themeDetail(t: Theme, selected: boolean): string {
+  const rows = [
+    ...t.certain.map((f) => `<tr><td>${esc(f.fork)}</td><td>${esc(f.state)}</td></tr>`),
+    ...t.possible.map(
+      (f) => `<tr class="maybe"><td>${esc(f.fork)}</td><td>possible · ${esc(f.state)}</td></tr>`,
+    ),
+  ].join("");
+  return `<section class="detail" data-theme-detail="${esc(t.id)}"${selected ? "" : " hidden"}>
+<p class="eyebrow">${esc(t.kind)}${t.when ? ` · ${esc(t.when)}` : ""}</p>
+<h3>${esc(t.title)}</h3>
+${rows ? `<table class="forks"><thead><tr><th>Fork</th><th>Exposure</th></tr></thead><tbody>${rows}</tbody></table>` : ""}
+${t.exposed.length > 0 ? `<p class="dl">Exposed</p><p>${t.exposed.map(esc).join(", ")}</p>` : ""}
+<p class="dl">Next</p><p>${esc(t.next)}</p>
+${t.inspect ? `<button type="button" class="open" data-inspect="${esc(t.inspect)}">Open in inspector</button>` : ""}
+</section>`;
+}
+
+function horizonHtml(b: Briefing): string {
+  const first = b.themes[0]?.id;
+  const rows = b.themes.map((t) => themeRow(t, t.id === first)).join("");
+  const details = b.themes.map((t) => themeDetail(t, t.id === first)).join("");
+  return `<h2>${esc(b.horizon.headline)}</h2>
+${b.themes.length > 0 ? `<div class="split"><div class="focus">${rows}</div><div class="pane">${details}</div></div>` : ""}`;
+}
+
+function tab(view: string, label: string, on: boolean): string {
+  return `<button type="button" role="tab" class="tab${on ? " on" : ""}" data-view="${view}" aria-selected="${on}">${label}</button>`;
+}
+
 const STYLE = `
 .wrap { padding: 16px 18px 20px; }
 .meta { display: flex; flex-wrap: wrap; gap: 4px 16px; font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .04em; margin-bottom: 10px; }
@@ -106,6 +141,16 @@ h2 { margin: 0 0 4px; font-size: 21px; line-height: 1.25; font-weight: 600; colo
 .ready b { color: var(--fg-strong); font-weight: 600; }
 .link { background: none; border: none; padding: 0; font: inherit; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .pane { min-width: 0; }
+.tabs { display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
+.tab { font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; margin-bottom: -1px; background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted); cursor: pointer; }
+.tab.on { color: var(--fg-strong); border-bottom-color: var(--accent); }
+.trow { grid-template-columns: minmax(0, 1fr) auto; }
+.when { font-family: var(--mono); font-size: 11px; color: var(--muted); padding-top: 2px; white-space: nowrap; }
+.t-ok.chip { color: var(--good); }
+.forks { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+.forks th { text-align: left; font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 0 8px 4px 0; border-bottom: 1px solid var(--border); }
+.forks td { padding: 4px 8px 4px 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.forks .maybe td { color: var(--muted); }
 .detail { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px 14px; }
 .detail h3 { margin: 2px 0 0; font-size: 15px; color: var(--fg-strong); }
 .detail .dl { margin-top: 10px; }
@@ -120,28 +165,50 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 const SCRIPT = `(function () {
   var k = window.keelson || {};
-  function show(id) {
+  function show(row, pane, id, aria) {
     var found = false;
-    document.querySelectorAll("[data-detail]").forEach(function (d) {
-      var on = d.getAttribute("data-detail") === id;
+    document.querySelectorAll("[" + pane + "]").forEach(function (d) {
+      var on = d.getAttribute(pane) === id;
       d.hidden = !on;
       if (on) found = true;
     });
     if (!found) return false;
-    document.querySelectorAll("[data-sel]").forEach(function (r) {
-      var on = r.getAttribute("data-sel") === id;
+    document.querySelectorAll("[" + row + "]").forEach(function (r) {
+      var on = r.getAttribute(row) === id;
       r.classList.toggle("on", on);
-      r.setAttribute("aria-pressed", on ? "true" : "false");
+      r.setAttribute(aria, on ? "true" : "false");
     });
     return true;
   }
-  if (k.onRestore) k.onRestore(function (s) { if (s && typeof s.sel === "string") show(s.sel); });
+  function current(row) {
+    var on = document.querySelector("[" + row + "].on");
+    return on ? on.getAttribute(row) : null;
+  }
+  var KINDS = [
+    ["view", "data-view", "data-view-pane", "aria-selected"],
+    ["sel", "data-sel", "data-detail", "aria-pressed"],
+    ["theme", "data-theme-sel", "data-theme-detail", "aria-pressed"],
+  ];
+  var state = {};
+  KINDS.forEach(function (c) { state[c[0]] = current(c[1]); });
+  if (k.onRestore) k.onRestore(function (s) {
+    if (!s) return;
+    KINDS.forEach(function (c) {
+      var id = s[c[0]];
+      if (typeof id === "string" && show(c[1], c[2], id, c[3])) state[c[0]] = id;
+    });
+  });
   document.addEventListener("click", function (e) {
-    var t = e.target && e.target.closest ? e.target.closest("[data-sel],[data-inspect]") : null;
+    var t = e.target && e.target.closest ? e.target.closest("[data-view],[data-sel],[data-theme-sel],[data-inspect]") : null;
     if (!t) return;
-    var sel = t.getAttribute("data-sel");
-    if (sel !== null) {
-      if (show(sel) && k.saveState) k.saveState({ sel: sel });
+    for (var i = 0; i < KINDS.length; i++) {
+      var c = KINDS[i];
+      var id = t.getAttribute(c[1]);
+      if (id === null) continue;
+      if (show(c[1], c[2], id, c[3])) {
+        state[c[0]] = id;
+        if (k.saveState) k.saveState({ view: state.view, sel: state.sel, theme: state.theme });
+      }
       return;
     }
     if (k.action) k.action(${JSON.stringify(INSPECT_ACTION)}, { id: t.getAttribute("data-inspect") });
@@ -165,12 +232,18 @@ export function consoleHtml(b: Briefing, now: Date): string {
       ? `<span class="right">next Sync Upstream ${esc(zoned(b.nextSyncAt, now) ?? "")}</span>`
       : ""
   }</div>`;
-  const body = b.facts.length > 0 ? todayHtml(b) : "";
+  const today = `<h2>${esc(b.headline)}</h2>
+${b.summary ? `<p class="summary">${esc(b.summary)}</p>` : ""}
+${b.facts.length > 0 ? todayHtml(b) : ""}`;
+  const views =
+    b.facts.length > 0
+      ? `<div class="tabs" role="tablist">${tab("today", "Today", true)}${tab("horizon", "Horizon", false)}</div>
+<div data-view-pane="today">${today}</div>
+<div data-view-pane="horizon" hidden>${horizonHtml(b)}</div>`
+      : today;
   return `<style>${designTokenCssBlock()}${STYLE}</style>
 <div class="wrap">${meta}
-<h2>${esc(b.headline)}</h2>
-${b.summary ? `<p class="summary">${esc(b.summary)}</p>` : ""}
-${body}
+${views}
 </div>
 <script>${SCRIPT}</script>`;
 }

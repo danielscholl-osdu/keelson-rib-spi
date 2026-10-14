@@ -117,6 +117,32 @@ describe("the recorded sweep", () => {
     expect(halt.exposed).not.toContain("legal");
   });
 
+  test("the horizon names how many future halts one filter entry would stop", () => {
+    expect(b.horizon.headline).toBe("One filter entry would stop 4 future halts.");
+  });
+
+  test("each theme says its next step in one sentence", () => {
+    expect(Object.fromEntries(b.themes.map((t) => [t.kind, t.next]))).toEqual({
+      toolchain:
+        "Move one fork's Java pin to 25 and repeat it for the others before the next sync carries it.",
+      halt: "Add a rule for schemathesis-tests to every fork's .github/upstream-filter.yml, starting with entitlements.",
+      port: "Port each MR into its fork-owned tree and cite the MR URL in the PR body.",
+      deadline:
+        "Upstream removes the Azure provider code at the deadline; forks keep their own copy.",
+    });
+  });
+
+  test("a theme opens the queue item that carries its verbs, and only a real one", () => {
+    expect(b.themes.map((t) => t.inspect)).toEqual([
+      "gate1:legal",
+      "halt:entitlements",
+      "port:entitlements",
+      undefined,
+    ]);
+    const ids = new Set(fixtureModel().queue.items.map((i) => i.id));
+    for (const t of b.themes) if (t.inspect) expect(ids.has(t.inspect)).toBe(true);
+  });
+
   test("ready work is one line per kind and never ranked into focus", () => {
     expect(b.ready.map((r) => r.text)).toEqual([
       "5 template-sync PRs to v1.2.0 +14",
@@ -218,6 +244,52 @@ describe("other days", () => {
     const b = buildBriefing(m, { state: "waiting", problems: [] }, FIXTURE_NOW);
     expect(b.headline).toBe("The first sweep has not finished.");
     expect(b.facts).toEqual([]);
+  });
+});
+
+describe("the horizon", () => {
+  const RADAR_PARTITION = item({
+    id: "radar:partition",
+    kind: "radar",
+    scope: "partition",
+    cls: "TOOLCHAIN",
+    text: "next sync carries Java 25 · 2 commits queued",
+    cause: [{ label: "value", value: "Java 25" }],
+  });
+
+  test("a quiet sweep says nothing new reaches the forks", () => {
+    const m = withQueue([]);
+    m.radar.services = {};
+    const b = buildBriefing(m, CLEAR, FIXTURE_NOW);
+    expect(b.horizon.headline).toBe("Nothing new reaches the forks at the next sync.");
+    expect(b.themes.every((t) => t.kind === "deadline")).toBe(true);
+  });
+
+  test("with no incident to open, a theme falls back to the radar item that carries it", () => {
+    const radarHalt = item({
+      id: "radar:legal",
+      kind: "radar",
+      scope: "legal",
+      cls: "HALT",
+      halt: { fork: "legal", code: "UNKNOWN_TOP_LEVEL", entries: ["schemathesis-tests"] },
+    });
+    const b = buildBriefing(withQueue([radarHalt]), CLEAR, FIXTURE_NOW);
+    expect(b.themes.find((t) => t.kind === "halt")?.inspect).toBe("radar:legal");
+    expect(b.themes.find((t) => t.kind === "toolchain")?.inspect).toBeUndefined();
+    expect(b.themes.find((t) => t.kind === "port")?.inspect).toBeUndefined();
+  });
+
+  test("a queued Java move leads the horizon with every queued fork and the sync time", () => {
+    const m = withQueue([RADAR_PARTITION]);
+    const svc = m.radar.services.partition!;
+    const java = m.radar.services.legal!.certain.find((v) => v.bucket === "Toolchain")!;
+    svc.certain = [...svc.certain, java];
+    svc.possible = svc.possible.filter((v) => v.bucket !== "Toolchain");
+    const b = buildBriefing(m, CLEAR, FIXTURE_NOW);
+    expect(b.horizon.headline).toBe(
+      "Java 25 reaches partition and legal at 00:00. One filter entry would stop 4 future halts.",
+    );
+    expect(b.themes[0]?.inspect).toBe("radar:partition");
   });
 });
 

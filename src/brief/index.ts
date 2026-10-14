@@ -72,6 +72,9 @@ export interface Theme {
   exposed: string[];
   when?: string;
   tone: Tone;
+  next: string;
+  // A queue item id carrying this theme's verbs, so the inspector opens with real buttons.
+  inspect?: string;
 }
 
 export interface DoctorView {
@@ -91,6 +94,7 @@ export interface Briefing {
   more: number;
   ready: ReadyLine[];
   themes: Theme[];
+  horizon: { headline: string };
 }
 
 const FOCUS_MAX = 5;
@@ -590,6 +594,7 @@ function haltThemes(model: Model, now: Date, next: string | undefined): Theme[] 
         possible: [],
         exposed: [],
         tone: "warn",
+        next: "",
       };
       byKey.set(key, t);
     }
@@ -639,6 +644,7 @@ function haltThemes(model: Model, now: Date, next: string | undefined): Theme[] 
     ]
       .filter(Boolean)
       .join(" · ");
+    t.next = `Add a rule for ${t.title} to every fork's .github/upstream-filter.yml${halted.length > 0 ? `, starting with ${list(halted)}` : ""}.`;
     t.when = t.haltedAt
       ? age(t.haltedAt, now)
       : queued.length > 0 && next
@@ -664,6 +670,7 @@ function javaThemes(model: Model, now: Date, next: string | undefined): Theme[] 
         possible: [],
         exposed: [],
         tone: "warn",
+        next: `Move one fork's Java pin to ${value.replace(/^Java /, "")} and repeat it for the others before the next sync carries it.`,
       };
       byValue.set(value, t);
     }
@@ -736,6 +743,7 @@ function portTheme(model: Model, now: Date): Theme | undefined {
     exposed: [],
     when: age(oldest, now),
     tone: "neutral",
+    next: "Port each MR into its fork-owned tree and cite the MR URL in the PR body.",
   };
 }
 
@@ -761,6 +769,7 @@ function rolloutTheme(model: Model, now: Date): Theme | undefined {
     exposed: [],
     when: age(set?.since, now),
     tone: "neutral",
+    next: "Review the template-sync PRs; Roll out merges the reviewed ones together.",
   };
 }
 
@@ -785,7 +794,34 @@ function deadlineTheme(model: Model, now: Date): Theme | undefined {
     exposed: [],
     when: left >= 0 ? `${plural(left, "day")} left` : "due",
     tone: left <= 14 ? "warn" : "neutral",
+    next: "Upstream removes the Azure provider code at the deadline; forks keep their own copy.",
   };
+}
+
+function inspectOf(model: Model, t: Theme): string | undefined {
+  const items = model.queue.items;
+  const forks = t.certain.map((f) => f.fork);
+  const first = (ids: readonly string[]) => ids.find((id) => items.some((i) => i.id === id));
+  switch (t.kind) {
+    case "halt": {
+      const halted = t.certain.filter((f) => f.state.startsWith("halted")).map((f) => f.fork);
+      return (
+        first(halted.map((f) => `halt:${f}`)) ??
+        items.find((i) => i.kind === "radar" && i.halt?.entries.includes(t.title))?.id
+      );
+    }
+    case "toolchain": {
+      const toolchain = new Set(items.filter((i) => i.cls === "TOOLCHAIN").map((i) => i.id));
+      const ids = [...forks.map((f) => `gate1:${f}`), ...forks.map((f) => `radar:${f}`)];
+      return ids.find((id) => toolchain.has(id));
+    }
+    case "port":
+      return items.find((i) => i.kind === "port")?.id;
+    case "rollout":
+      return items.find((i) => i.kind === "template-set")?.id;
+    default:
+      return undefined;
+  }
 }
 
 function themesOf(model: Model, now: Date, next: string | undefined): Theme[] {
@@ -800,7 +836,30 @@ function themesOf(model: Model, now: Date, next: string | undefined): Theme[] {
     ...halts.filter((t) => !landed(t)),
     rolloutTheme(model, now),
     deadlineTheme(model, now),
-  ].filter((t): t is Theme => !!t);
+  ]
+    .filter((t): t is Theme => !!t)
+    .map((t) => {
+      const inspect = inspectOf(model, t);
+      return inspect ? { ...t, inspect } : t;
+    });
+}
+
+function horizonOf(themes: readonly Theme[], next: string | undefined): string {
+  const parts: string[] = [];
+  for (const t of themes) {
+    if (t.kind !== "toolchain") continue;
+    const queued = t.certain.filter((f) => f.state.startsWith("queued")).map((f) => f.fork);
+    if (queued.length === 0) continue;
+    parts.push(`${t.title} reaches ${list(queued)} ${next ? `at ${next}` : "at the next sync"}.`);
+    break;
+  }
+  const halt = themes.find((t) => t.kind === "halt" && t.exposed.length + t.possible.length >= 2);
+  if (halt) {
+    parts.push(
+      `One filter entry would stop ${halt.exposed.length + halt.possible.length} future halts.`,
+    );
+  }
+  return parts.length > 0 ? parts.join(" ") : "Nothing new reaches the forks at the next sync.";
 }
 
 // Pure: the same model, doctor and clock always write the same briefing.
@@ -809,24 +868,27 @@ export function buildBriefing(model: Model, doctor: DoctorView, now: Date): Brie
   const next = clock(nextIso);
   const base = { sweptAt: model.sweptAt, nextSyncAt: nextIso, doctor };
   if (!model.measured) {
+    const headline =
+      doctor.state === "dark"
+        ? sentence(problemText(doctor) || "GitHub cannot be read")
+        : "The first sweep has not finished.";
     return {
       ...base,
-      headline:
-        doctor.state === "dark"
-          ? sentence(problemText(doctor) || "GitHub cannot be read")
-          : "The first sweep has not finished.",
+      headline,
       summary: "",
       facts: [],
       focus: [],
       more: 0,
       ready: [],
       themes: [],
+      horizon: { headline },
     };
   }
   const focusable = model.queue.items.filter((i) => i.rung <= 1);
   const ready = readyOf(model);
   const readyCount = ready.reduce((n, r) => n + r.count, 0);
   const focus = focusOf(model, focusable, next, now);
+  const themes = themesOf(model, now, next);
   const headline =
     doctor.state === "dark"
       ? `${sentence(problemText(doctor) || "GitHub cannot be read")} Figures are from the last good read.`
@@ -839,6 +901,7 @@ export function buildBriefing(model: Model, doctor: DoctorView, now: Date): Brie
     focus: focus.slice(0, FOCUS_MAX),
     more: Math.max(0, focus.length - FOCUS_MAX),
     ready,
-    themes: themesOf(model, now, next),
+    themes,
+    horizon: { headline: horizonOf(themes, next) },
   };
 }
