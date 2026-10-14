@@ -11,6 +11,7 @@ import type { Facts } from "../facts.ts";
 import { buildGates, type Gates } from "./gates.ts";
 import { buildLine, type LineModel } from "./lines.ts";
 import { buildQueue, type Queue } from "./queue.ts";
+import { buildRadar, predictAll, type RadarModel } from "./radar.ts";
 import { buildStack, type StackModel } from "./stack.ts";
 import { buildTemplate, type TemplateModel } from "./template.ts";
 import { buildWork, type WorkModel } from "./work.ts";
@@ -26,6 +27,8 @@ export interface Model {
   template: TemplateModel;
   gates: Gates;
   queue: Queue;
+  // What the next Sync Upstream does with the queued commits, per fork.
+  radar: RadarModel;
   // Every open PR and issue per repository, including work that sits on no line.
   work: WorkModel;
 }
@@ -41,6 +44,7 @@ export function buildModel(
   const details = facts.details.data ?? {};
   const stack = buildStack(repos[STACK_REPO], facts.lifecycle.data, now);
   const templateRepo = repos[TEMPLATE_REPO];
+  const predictions = predictAll(facts.radar.data);
   const lines = FORKS.map((fork) =>
     buildLine({
       fork,
@@ -53,9 +57,11 @@ export function buildModel(
       dispatchedAt: opts.dispatched?.[fork.repo],
       details,
       stack,
+      radar: predictions[fork.id],
       now,
     }),
   );
+  const radar = buildRadar(predictions, lines);
   const template = buildTemplate(templateRepo, facts.template.data, lines, {
     syncCrons: [...new Set(FORKS.flatMap((f) => repos[f.repo]?.syncCrons ?? []))],
     now,
@@ -68,6 +74,7 @@ export function buildModel(
     repos,
     details,
     approvals: facts.approvals.data,
+    radar,
     now,
   });
   return {
@@ -83,6 +90,7 @@ export function buildModel(
     template,
     gates: buildGates(lines, now),
     queue,
+    radar,
     work: buildWork(repos),
   };
 }

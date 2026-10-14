@@ -8,7 +8,10 @@
 
 import { FORKS, githubUrl, gitlabUrl } from "../config.ts";
 import { encodeProject, type Gh, type Glab } from "../forge.ts";
+import { filterSection } from "../model/filter.ts";
 import type { HaltEntries } from "../model/queue.ts";
+
+export { filterSection };
 
 export const FILTER_PATH = ".github/upstream-filter.yml";
 
@@ -36,23 +39,6 @@ export function checkable(halt: HaltEntries | undefined): halt is HaltEntries {
 
 // The filter is a flat `section:` then indented `name: verdict` map, so a line
 // reader is enough and the rib carries no YAML dependency.
-export function filterSection(text: string, section: string): Map<string, string> {
-  const out = new Map<string, string>();
-  let inside = false;
-  for (const raw of text.split("\n")) {
-    const line = raw.replace(/\s+#.*$/, "");
-    if (!line.trim() || line.trimStart().startsWith("#")) continue;
-    if (!/^\s/.test(line)) {
-      inside = line.trim() === `${section}:`;
-      continue;
-    }
-    if (!inside) continue;
-    const m = /^\s+([^:\s][^:]*):\s*(\S+)\s*$/.exec(line);
-    if (m?.[1] && m[2]) out.set(m[1].trim(), m[2]);
-  }
-  return out;
-}
-
 export async function readFilterFile(gh: Gh, repo: string): Promise<{ sha: string; text: string }> {
   const file = await gh.rest<{ sha: string; content: string }>(
     `repos/${repo}/contents/${FILTER_PATH}`,

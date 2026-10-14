@@ -52,6 +52,7 @@ const KIND_VERB: Partial<Record<ItemKind, string>> = {
 };
 
 export function verbOf(item: QueueItem): string {
+  if (item.kind === "radar") return item.cls === "TOOLCHAIN" ? "Absorb toolchain" : "Pre-classify";
   const byKind = KIND_VERB[item.kind];
   if (byKind && (!item.cls || item.cls === "ENV")) return byKind;
   return CLASS_VERB[item.cls ?? "INCIDENT"];
@@ -115,6 +116,18 @@ function failureNext(item: QueueItem): string {
   }
 }
 
+function radarNext(item: QueueItem): string {
+  if (item.cls !== "TOOLCHAIN") {
+    const entries = item.halt?.entries ?? [];
+    return `Pre-classify: add ${entries.length > 0 ? list(entries) : "the entry"} to ${fact(item, "map") ?? "its map"} in .github/upstream-filter.yml before the next Sync Upstream`;
+  }
+  const value = fact(item, "value") ?? "";
+  const java = /^Java (\d+)$/.exec(value)?.[1];
+  return java
+    ? `Move the fork's Java pin to ${java} before the next Sync Upstream carries it`
+    : `Absorb ${value || "the toolchain move"} on the fork before the next Sync Upstream carries it`;
+}
+
 // What a person does to clear the item, in the words of its verb.
 export function nextText(item: QueueItem, listed: readonly ListedEntry[] = []): string {
   switch (item.kind) {
@@ -146,6 +159,8 @@ export function nextText(item: QueueItem, listed: readonly ListedEntry[] = []): 
       return "Review each release PR on GitHub and merge it to cut the release";
     case "bump":
       return "Merge the env bump PR on GitHub to start env-upgrade";
+    case "radar":
+      return radarNext(item);
   }
   if (item.cls && item.cls !== "ENV") return failureNext(item);
   switch (item.kind) {

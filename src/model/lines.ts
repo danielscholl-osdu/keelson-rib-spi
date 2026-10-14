@@ -31,6 +31,7 @@ import {
 } from "./attribution.ts";
 import { provingRun, prVerdict } from "./checks.ts";
 import { type LineHistory, lineHistory, windowDays } from "./history.ts";
+import { certainText, type Prediction } from "./radar.ts";
 import type { StackModel } from "./stack.ts";
 
 export type StationId = "upstream" | "sync" | "cascade" | "main" | "release" | "lane";
@@ -222,6 +223,7 @@ export function buildLine(input: {
   dispatchedAt?: string;
   details: Record<string, JobDetail>;
   stack: StackModel;
+  radar?: Prediction;
   now: Date;
 }): LineModel {
   const {
@@ -235,6 +237,7 @@ export function buildLine(input: {
     dispatchedAt,
     details,
     stack,
+    radar,
     now,
   } = input;
   const prs: LinePr[] = (repo?.prs ?? []).map((pr) => ({ pr, ...prFailures(pr, details) }));
@@ -289,12 +292,14 @@ export function buildLine(input: {
   if (lag === undefined)
     stations.push({ id: "upstream", state: "unknown", text: "lag unmeasured" });
   else if (lag === 0) stations.push({ id: "upstream", state: "idle", text: "0 behind" });
-  else
+  else {
+    const verdict = radar ? certainText(radar.certain) : undefined;
     stations.push({
       id: "upstream",
       state: "waiting",
-      text: `${lag} behind${halt ? " · held by the halt" : syncPr ? " · in the sync PR" : ""}`,
+      text: `${lag} behind${halt ? " · held by the halt" : syncPr ? " · in the sync PR" : ""}${verdict ? ` · ${verdict}` : ""}`,
     });
+  }
   // sync
   if (halt) stations.push({ id: "sync", state: "stopped", text: `halted: ${halt.code}` });
   else if (syncPr && prRed(syncPr))

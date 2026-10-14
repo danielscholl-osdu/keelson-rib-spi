@@ -18,6 +18,7 @@ import {
 } from "./attribution.ts";
 import { prReady, prVerdict } from "./checks.ts";
 import type { LineModel, LinePr } from "./lines.ts";
+import type { RadarModel } from "./radar.ts";
 import { summarizeReason } from "./reason.ts";
 import {
   attemptText,
@@ -67,7 +68,8 @@ export type ItemKind =
   | "releases"
   | "template-pr"
   | "bump"
-  | "access";
+  | "access"
+  | "radar";
 
 // The entries a halt names, for checking whether other forks will halt on them too.
 export interface HaltEntries {
@@ -111,6 +113,8 @@ export interface QueueItem {
   halt?: HaltEntries;
   approve?: ApprovePr[];
   lanes?: LaneRun[];
+  // Pages a person opens to act on the item, for an inspector to draw as verbs.
+  links?: { label: string; url: string }[];
   // An incident is a cause that broke or blocks; gates and ready work are not.
   incident: boolean;
   blocks: number;
@@ -951,6 +955,95 @@ function bumpItem(stack: StackModel): QueueItem | undefined {
   };
 }
 
+function names(list: readonly string[]): string {
+  return list.length <= 1
+    ? (list[0] ?? "")
+    : `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
+}
+
+// A queued halt or toolchain move the daily sync has not yet run against.
+function radarItems(lines: readonly LineModel[], radar: RadarModel | undefined): QueueItem[] {
+  const items: QueueItem[] = [];
+  for (const line of lines) {
+    const svc = line.fork.id;
+    const r = radar?.services[svc];
+    if (!r || (r.state !== "will-halt" && r.state !== "toolchain-queued")) continue;
+    const halts = r.certain.filter((v) => v.bucket === "Halt" && v.entry);
+    const tools = r.certain.filter((v) => v.bucket === "Toolchain" && v.value);
+    const lead = r.state === "will-halt" ? halts[0] : tools[0];
+    if (!lead) continue;
+    const queued = plural(r.queued, "commit");
+    const entries = halts.map((v) => v.entry as string);
+    const codes = [...new Set(halts.map((v) => v.code))];
+    const text =
+      r.state === "will-halt"
+        ? `next sync will halt on ${names(entries)} (${codes.join(", ")}) · ${queued} queued`
+        : `next sync carries ${lead.value} · ${queued} queued`;
+    const filterUrl = githubUrl(line.fork.repo, "/blob/main/.github/upstream-filter.yml");
+    const effects: Effect[] =
+      r.state === "will-halt"
+        ? [
+            ...halts.map((v) => ({
+              text: `${v.entry} · no rule in ${v.map} · ${v.code}`,
+              ...(v.commit ? { url: v.commit.url } : {}),
+            })),
+            ...halts
+              .filter((v) => v.elsewhere?.length)
+              .map((v) => ({ text: `${v.entry} also unlisted in ${names(v.elsewhere ?? [])}` })),
+          ]
+        : tools.map((v) => ({
+            text: `${v.value} in the root pom.xml`,
+            ...(v.commit ? { url: v.commit.url } : {}),
+          }));
+    const commit = lead.commit;
+    const oldest = (line.upstream?.commits ?? [])
+      .map((c) => c.at)
+      .sort((a, b) => Date.parse(a) - Date.parse(b))[0];
+    const cause: Fact[] = [
+      ...(commit
+        ? [{ label: "commit", value: `${short(commit.sha, 8)} · ${commit.title}`, url: commit.url }]
+        : []),
+      ...(lead.map ? [{ label: "map", value: lead.map }] : []),
+      ...(lead.value ? [{ label: "value", value: lead.value }] : []),
+      {
+        label: "filter",
+        value: `.github/upstream-filter.yml on main${r.state === "will-halt" ? ` · no rule for ${names(entries)}` : ""}`,
+        url: filterUrl,
+      },
+      { label: "queued", value: `${queued} wait for the next Sync Upstream at 00:00Z` },
+    ];
+    items.push({
+      id: `radar:${svc}`,
+      kind: "radar",
+      rung: 1,
+      scope: svc,
+      text,
+      ...(oldest ? { since: oldest } : {}),
+      url: filterUrl,
+      effects,
+      cause,
+      cls: r.state === "will-halt" ? "HALT" : "TOOLCHAIN",
+      ...(r.state === "will-halt"
+        ? { halt: { fork: svc, code: codes[0] as string, entries } }
+        : {}),
+      links: [
+        ...(commit
+          ? [
+              {
+                label: "Open commit",
+                url: commit.url,
+              },
+            ]
+          : []),
+        { label: "Open filter", url: filterUrl },
+      ],
+      incident: false,
+      blocks: r.queued,
+    });
+  }
+  return items;
+}
+
 export function buildQueue(input: {
   stack: StackModel;
   lines: readonly LineModel[];
@@ -958,12 +1051,14 @@ export function buildQueue(input: {
   repos: Record<string, RepoFact>;
   details: Parameters<typeof prFailures>[1];
   approvals: Record<string, WaitingRun[]> | undefined;
+  radar?: RadarModel;
   now: Date;
 }): Queue {
-  const { stack, lines, template, repos, details, approvals, now } = input;
+  const { stack, lines, template, repos, details, approvals, radar, now } = input;
   const items: QueueItem[] = [];
   items.push(...stackItems(stack, lines, now).items);
   for (const line of lines) items.push(...lineItems(line, now));
+  items.push(...radarItems(lines, radar));
   items.push(...approvalItems(approvals));
   const set = templateSetItem(template, lines, stack, now);
   if (set) items.push(set);
