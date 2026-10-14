@@ -62,7 +62,7 @@ function detail(f: FocusItem, selected: boolean): string {
 <p class="dl">Cause</p><p>${esc(f.cause)}</p>
 <p class="dl">Effect</p><p>${esc(f.effect)}</p>
 <p class="dl">Next</p><p>${esc(f.next)}</p>
-${evidence ? `<p class="dl">Evidence</p><p class="ev">${evidence}</p>` : ""}
+${evidence ? `<p class="dl">Evidence</p><p class="evidence">${evidence}</p>` : ""}
 <button type="button" class="open" data-inspect="${esc(f.id)}">Open in inspector · ${esc(f.verb)}</button>
 </section>`;
 }
@@ -405,7 +405,7 @@ h2 { margin: 0 0 4px; font-size: 21px; line-height: 1.25; font-weight: 600; colo
 .detail h3 { margin: 2px 0 0; font-size: 15px; color: var(--fg-strong); }
 .detail .dl { margin-top: 10px; }
 .detail p { margin: 2px 0 0; font-size: 13.5px; }
-.detail .ev { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.detail .evidence { font-family: var(--mono); font-size: 12px; color: var(--muted); }
 .open { margin-top: 12px; font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--accent); color: var(--accent); background: none; cursor: pointer; }
 .envband { display: block; box-sizing: border-box; width: 100%; text-align: left; font: inherit; font-family: var(--mono); font-size: 12.5px; color: var(--fg-strong); padding: 7px 12px; margin: 10px 0 0; background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 6px; }
 button.envband { cursor: pointer; }
