@@ -41,24 +41,27 @@ describe("the Repositories briefing", () => {
       "Change PRs",
       "Dependabot PRs",
       "Issues",
-      "Ours, shipped",
+      "Vulnerabilities · ours",
+      "Code scanning · ours",
     ]);
     expect(r.rows.map((x) => x.id)).toContain("repo:partition");
     const partition = r.rows.find((x) => x.name === "partition");
-    expect(partition?.cells.shipped.text).toBe("0 · 3");
-    expect(partition?.sections.map((s) => s.title)).toContain("Security · upstream");
+    expect(partition?.cells.vulnerabilities.text).toBe("0 · 3");
+    expect(partition?.sections.map((s) => s.title)).toEqual(["Vulnerabilities", "Code scanning"]);
+    expect(partition?.sections[0]?.count).toBe("0 ours · 1 upstream");
   });
 
   test("a critical alert in our shipped code leads the tab and opens first", () => {
     const r = repositoriesOf(model(withCritical), FIXTURE_NOW);
     expect(r.headline).toBe(
-      "async-http-client is critical in SPI code on partition, and no fix is published.",
+      "Critical vulnerability in async-http-client, in SPI code on partition; no fix is published.",
     );
     expect(r.first).toBe("repo:partition");
     const partition = r.rows.find((x) => x.name === "partition");
-    expect(partition?.title).toBe("Critical async-http-client in SPI code");
-    expect(partition?.cells.shipped).toEqual({ text: "1 · 3", tone: "bad" });
+    expect(partition?.title).toBe("Critical vulnerability in async-http-client");
+    expect(partition?.cells.vulnerabilities).toEqual({ text: "1 · 3", tone: "bad" });
     expect(r.facts[3]).toMatchObject({ figure: "4", tone: "bad" });
+    expect(r.facts[4]?.label).toBe("Code scanning · ours");
   });
 
   test("an unread alert area reads as unknown, never as zero", () => {
@@ -68,8 +71,9 @@ describe("the Repositories briefing", () => {
       }),
       FIXTURE_NOW,
     );
-    expect(r.facts[3]).toMatchObject({ figure: "?", sub: "alerts not read yet" });
-    expect(r.rows[0]?.cells.shipped.text).toBe("?");
+    expect(r.facts[3]).toMatchObject({ figure: "?", sub: "not read yet" });
+    expect(r.facts[4]).toMatchObject({ figure: "?", sub: "not read yet" });
+    expect(r.rows[0]?.cells.vulnerabilities.text).toBe("?");
   });
 });
 
@@ -94,15 +98,16 @@ describe("the Repositories tab", () => {
 });
 
 describe("the repository inspector", () => {
-  test("draws security, changes, Dependabot and issues as tabs", () => {
+  test("draws vulnerabilities and code scanning apart from PRs and issues", () => {
     const board = repoBoard(model(withCritical), "repo:partition", FIXTURE_NOW);
     expect(() => expectView(INSPECT_KEY, "board")(board)).not.toThrow();
-    expect(board.title).toBe("Critical async-http-client in SPI code");
+    expect(board.title).toBe("Critical vulnerability in async-http-client");
     const tabs = board.sections.find((s) => s.kind === "tabs");
     expect(tabs?.kind === "tabs" && tabs.tabs.map((t) => t.label)).toEqual([
-      "Security",
-      "Changes",
-      "Dependabot",
+      "Vulnerabilities",
+      "Code scanning",
+      "Change PRs",
+      "Dependabot PRs",
       "Issues",
     ]);
   });
@@ -133,9 +138,9 @@ describe("the Today rule", () => {
     expect(() => expectView(INSPECT_KEY, "board")(board)).not.toThrow();
     const b = buildBriefing(m, { state: "clear", problems: [] }, FIXTURE_NOW);
     const focus = [...b.focus, ...b.rest].find((f) => f.id === item?.id);
-    expect(focus?.title).toBe("Critical async-http-client in SPI code");
+    expect(focus?.title).toBe("Critical vulnerability in async-http-client");
     expect(focus?.cause).toBe(
-      "1 open alert against async-http-client in SPI-owned shipped code; no fixed release is published.",
+      "1 open vulnerability in async-http-client in SPI-owned shipped code; no fixed release is published.",
     );
     const upstream = model((f) => {
       f.security.data?.["Azure/osdu-spi-partition"]?.dependabot?.push({

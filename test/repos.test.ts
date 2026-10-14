@@ -146,7 +146,7 @@ describe("the repositories model", () => {
       severity: "high",
       fix: "2.21.7",
     });
-    expect(partition?.shipped).toEqual({ ours: 0, upstream: 3 });
+    expect(partition?.vulnerabilities).toEqual({ ours: 0, upstream: 3 });
     expect(partition?.alerts[0]?.owner).toBe("spi");
   });
 
@@ -161,9 +161,21 @@ describe("the repositories model", () => {
     expect(csrf("partition")?.elsewhere).not.toContain("partition");
   });
 
+  test("code scanning counts only shipped code, like vulnerabilities", () => {
+    const legal = rows().find((x) => x.name === "legal");
+    const trust = legal?.alerts.find((g) => g.name.includes("TrustManager"));
+    expect(trust).toMatchObject({
+      source: "code",
+      owner: "upstream",
+      reach: "tests",
+      severity: "high",
+    });
+    expect(legal?.codeScanning).toEqual({ ours: 2, upstream: 0 });
+  });
+
   test("schema's highs sit in tooling and tests, not in shipped code", () => {
     const schema = rows().find((x) => x.name === "schema");
-    expect(schema?.shipped).toEqual({ ours: 0, upstream: 0 });
+    expect(schema?.vulnerabilities).toEqual({ ours: 0, upstream: 0 });
     expect(schema?.alerts.some((g) => g.reach === "tooling" && g.severity === "high")).toBe(true);
   });
 
@@ -209,8 +221,8 @@ describe("the repositories model", () => {
       if (a) delete a.code;
     });
     const legal = r.find((x) => x.name === "legal");
-    expect(legal?.code).toBeUndefined();
+    expect(legal?.codeScanning).toBeUndefined();
     expect(legal?.codeAlerts).toBeUndefined();
-    expect(legal?.shipped).toBeDefined();
+    expect(legal?.vulnerabilities).toBeDefined();
   });
 });

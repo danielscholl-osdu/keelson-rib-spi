@@ -58,7 +58,7 @@ export const KIND_TITLE: Record<ItemKind, string> = {
   access: "fork image cannot be pulled",
   radar: "next sync predicted",
   port: "upstream change owed a port",
-  security: "critical alert in SPI code",
+  security: "critical security alert in SPI code",
 };
 
 // A listed rule is the one to copy; absent forks fold into one line.

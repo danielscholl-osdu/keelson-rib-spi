@@ -24,7 +24,7 @@ briefing (`src/brief/`), which `spi_brief` returns to chat as well.
 | Flow | Where is change stuck? | One row per fork that needs a person, one column per station (upstream, sync, cascade, main, release, lane, template). A column every fork agrees on becomes one band, the environment is one row above the table, and quiet forks fold into one row. |
 | Horizon | What will affect us next? | One row per upstream cause across forks (a halt entry, a Java move, ports owed, the template rollout, the Azure removal deadline), queued commits kept apart from open MRs. |
 | Environment | Is the environment dependable? | The running version, the 21-day deployable share and the last proof, over a 24-hour timeline of upgrades, refreshes, smoke runs and maintenance holds. |
-| Repositories | What is open on each repository, and which of it is ours? | One row per repository (the template, the stack, then each fork) with its change PRs, Dependabot PRs, issues, and critical or high alerts split into ours and upstream. Selecting a row shows what leads it beside the table. |
+| Repositories | What is open on each repository, and which of it is ours? | One row per repository (the template, the stack, then each fork) with its change PRs, Dependabot PRs and issues, and two security columns read ours · upstream: **Vulnerabilities** (Dependabot alerts on the libraries a service uses) and **Code scanning** (CodeQL and Scorecard findings in the source itself). Both count critical and high alerts in shipped code only. Selecting a row shows what leads it beside the table. |
 
 The Repositories view sorts every open item by properties the rib reads, never
 by package or service name. A PR's kind comes from its conventional-commit
@@ -37,7 +37,8 @@ helper scripts). Dependabot alerts group by package and manifest, with the one
 version that fixes the group and any Dependabot PR open on it; code-scanning
 alerts group by rule and tree. A Dependabot PR that edits an inherited file is
 marked, because merging it diverges the fork from upstream. A critical alert in
-SPI-owned shipped code also joins Today as one P1 item per package.
+SPI-owned shipped code, a vulnerability or a code-scanning alert, also joins
+Today as one P1 item per package or rule.
 
 The nav badge counts P0 and P1 items. P0 broke unattended, P1 is a gate or a
 decision, P2 is ready work. A red check is classified by its failed step before
@@ -82,8 +83,9 @@ probes, the GitHub budget, each source's last read, and what the verbs need
 gate grants). A source that fails keeps its last good read until it reads again.
 
 A repository's inspector opens from **Open in inspector** on its row. Its
-tabs list every alert group (ours, upstream, tests), change PR, Dependabot PR
-and issue, each linked to GitHub. A list GitHub hides from the token, such as
+tabs are Vulnerabilities, Code scanning, Change PRs, Dependabot PRs and
+Issues; each alert tab splits ours, upstream and tests, and every row links to
+GitHub. A list GitHub hides from the token, such as
 code scanning that is off, says so instead of reading as zero. Secret scanning
 is not read.
 

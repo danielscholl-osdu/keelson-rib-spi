@@ -12,6 +12,7 @@ import {
   alertLine,
   changeLine,
   dependencyLine,
+  KIND_LABEL,
   REPO_PREFIX,
   type RepoLine,
   repositoriesOf,
@@ -47,7 +48,7 @@ function row(line: RepoLine, href?: string, trailing?: string): Row {
 
 // What the row says without opening: the fix, or the scanner for a code finding.
 function fixMark(g: AlertGroup): string {
-  if (g.source === "code") return g.tool ?? "code scanning";
+  if (g.source === "code") return g.tool || "code scanning";
   const fix = g.fix ? `fix ${g.fix}` : "no fix";
   return g.pr ? `${fix} · PR #${g.pr}` : fix;
 }
@@ -72,44 +73,51 @@ function capped(title: string, items: Row[], more: string): Rows | undefined {
   return { kind: "rows", title: `${title} · ${items.length}`, items: shown };
 }
 
-function securityTab(r: RepoRow): Tab {
-  const alerts = (keep: (g: AlertGroup) => boolean) =>
-    r.alerts.filter(keep).map((g) => row(alertLine(g), groupUrl(r, g), fixMark(g)));
-  const overview = `${r.url}/security`;
+function alertsTab(r: RepoRow, source: AlertGroup["source"]): Tab {
+  const groups = r.alerts.filter((g) => g.source === source);
+  const rows = (keep: (g: AlertGroup) => boolean) =>
+    groups.filter(keep).map((g) => row(alertLine(g), groupUrl(r, g), fixMark(g)));
+  const list = `${r.url}/security/${source === "dependabot" ? "dependabot" : "code-scanning"}`;
   const sections = [
     capped(
       "Ours",
-      alerts((g) => g.owner !== "upstream" && g.reach !== "tests"),
-      overview,
+      rows((g) => g.owner !== "upstream" && g.reach !== "tests"),
+      list,
     ),
     capped(
       "Upstream",
-      alerts((g) => g.owner === "upstream" && g.reach !== "tests"),
-      overview,
+      rows((g) => g.owner === "upstream" && g.reach !== "tests"),
+      list,
     ),
     capped(
       "Tests",
-      alerts((g) => g.reach === "tests"),
-      overview,
+      rows((g) => g.reach === "tests"),
+      list,
     ),
   ].filter((s): s is Rows => s !== undefined);
-  const hidden = [
-    r.dependabotAlerts === undefined ? "Dependabot alerts" : undefined,
-    r.codeAlerts === undefined ? "Code-scanning alerts" : undefined,
-  ].filter((x): x is string => !!x);
-  if (hidden.length > 0) {
+  const read = source === "dependabot" ? r.dependabotAlerts : r.codeAlerts;
+  if (read === undefined) {
     sections.push({
       kind: "rows",
-      items: hidden.map((h) => ({
-        glyph: "neutral",
-        text: `${h} are not readable with this token, or not read yet.`,
-      })),
+      items: [
+        {
+          glyph: "neutral",
+          text: `${source === "dependabot" ? "Dependabot alerts" : "Code-scanning alerts"} are not readable with this token, or not read yet.`,
+        },
+      ],
+    });
+  } else if (sections.length === 0) {
+    sections.push({
+      kind: "rows",
+      items: [
+        {
+          glyph: "ok",
+          text: `No open ${source === "dependabot" ? "vulnerabilities" : "code-scanning alerts"}.`,
+        },
+      ],
     });
   }
-  if (sections.length === 0) {
-    sections.push({ kind: "rows", items: [{ glyph: "ok", text: "No open security alerts." }] });
-  }
-  return { label: "Security", badge: String(r.alerts.length), sections };
+  return { label: KIND_LABEL[source], badge: String(groups.length), sections };
 }
 
 function changesTab(r: RepoRow, now: Date): Tab {
@@ -131,7 +139,7 @@ function changesTab(r: RepoRow, now: Date): Tab {
   if (sections.length === 0) {
     sections.push({ kind: "rows", items: [{ glyph: "ok", text: "No change PRs open." }] });
   }
-  return { label: "Changes", badge: String(r.changes.length), sections };
+  return { label: "Change PRs", badge: String(r.changes.length), sections };
 }
 
 function dependabotTab(r: RepoRow): Tab {
@@ -140,7 +148,7 @@ function dependabotTab(r: RepoRow): Tab {
     .map((d) => row(dependencyLine(d), d.pr.url, d.state));
   const list = capped("Open", items, `${r.url}/pulls/app%2Fdependabot`);
   return {
-    label: "Dependabot",
+    label: "Dependabot PRs",
     badge: String(r.dependabot.length),
     sections: [list ?? { kind: "rows", items: [{ glyph: "ok", text: "No Dependabot PRs open." }] }],
   };
@@ -211,7 +219,13 @@ export function repoBoard(model: Model, id: string, now: Date): CanvasBoardView 
       { kind: "rows", items: [{ glyph: "info", text: entry.sub }] },
       {
         kind: "tabs",
-        tabs: [securityTab(r), changesTab(r, now), dependabotTab(r), issuesTab(r, now)],
+        tabs: [
+          alertsTab(r, "dependabot"),
+          alertsTab(r, "code"),
+          changesTab(r, now),
+          dependabotTab(r),
+          issuesTab(r, now),
+        ],
       },
       {
         kind: "rows",

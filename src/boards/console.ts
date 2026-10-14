@@ -363,7 +363,7 @@ function cellHtml(c: RepoCell): string {
 
 function repoRow(r: RepoEntry, selected: boolean): string {
   const c = r.cells;
-  return `<button type="button" class="rrow${selected ? " on" : ""}" data-repo="${esc(r.id)}" aria-pressed="${selected}"><span class="rn">${esc(r.name)}</span>${cellHtml(c.changes)}${cellHtml(c.dependabot)}${cellHtml(c.issues)}${cellHtml(c.shipped)}${cellHtml(c.code)}</button>`;
+  return `<button type="button" class="rrow${selected ? " on" : ""}" data-repo="${esc(r.id)}" aria-pressed="${selected}"><span class="rn">${esc(r.name)}</span>${cellHtml(c.changes)}${cellHtml(c.dependabot)}${cellHtml(c.issues)}${cellHtml(c.vulnerabilities)}${cellHtml(c.codeScanning)}</button>`;
 }
 
 function lineHtml(l: RepoLine): string {
@@ -396,8 +396,8 @@ function repositoriesHtml(b: Briefing): string {
       ? `<p class="rgrp">${label}</p>${rows.map((x) => repoRow(x, x.id === first)).join("")}`
       : "";
   };
-  const head = `<div class="rhead"><span>Repository</span><span>Changes</span><span>Dependabot</span><span>Issues</span><span title="Critical or high Dependabot alerts in shipped code, ours and upstream">Shipped</span><span title="Critical or high code-scanning findings, ours and upstream">Code</span></div>`;
-  const table = `<div class="rtable"><div class="rgrid">${head}${group("program", "Program")}${group("fork", "Forks")}</div><p class="note">Alert columns read ours · upstream, critical and high only. Pipeline PRs stay on Flow.</p></div>`;
+  const head = `<div class="rhead"><span>Repository</span><span>Change PRs</span><span>Dependabot PRs</span><span>Issues</span><span>Vulnerabilities<small>ours · upstream</small></span><span>Code scanning<small>ours · upstream</small></span></div>`;
+  const table = `<div class="rtable"><div class="rgrid">${head}${group("program", "Program")}${group("fork", "Forks")}</div><p class="note">Vulnerabilities are Dependabot alerts on the libraries a service uses. Code scanning is CodeQL and Scorecard findings in the source itself. Both count critical and high alerts in shipped code only. Pipeline PRs stay on Flow.</p></div>`;
   const details = r.rows.map((x) => repoDetail(x, x.id === first)).join("");
   return `<h2>${esc(r.headline)}</h2>
 ${r.facts.length > 0 ? `<div class="facts four">${r.facts.map(factHtml).join("")}</div>` : ""}
@@ -496,11 +496,12 @@ button.envband { cursor: pointer; }
 .none { position: absolute; left: 6px; top: 5px; font-size: 12px; color: var(--muted); }
 .note { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
 .events { margin-top: 12px; }
-.facts.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.facts.four { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .rtable { min-width: 0; overflow-x: auto; }
-.rgrid { min-width: 560px; }
-.rhead, .rrow { display: grid; grid-template-columns: minmax(12ch, 1.5fr) repeat(5, minmax(9ch, 1fr)); gap: 0 8px; align-items: baseline; }
-.rhead { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 0 10px 4px; border-bottom: 1px solid var(--border); }
+.rgrid { min-width: 600px; }
+.rhead, .rrow { display: grid; box-sizing: border-box; grid-template-columns: minmax(100px, 1.3fr) repeat(3, minmax(64px, .8fr)) repeat(2, minmax(118px, 1.2fr)); gap: 0 8px; align-items: baseline; }
+.rhead { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 0 11px 4px; border-bottom: 1px solid var(--border); align-items: end; line-height: 1.3; }
+.rhead small { display: block; font-size: 10px; font-weight: 500; letter-spacing: .02em; text-transform: none; }
 .rgrp { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 10px 0 2px; padding: 0 10px; }
 .rrow { width: 100%; text-align: left; padding: 5px 10px; border: 1px solid transparent; border-radius: 6px; background: none; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
 .rrow:hover { background: var(--card-2); }

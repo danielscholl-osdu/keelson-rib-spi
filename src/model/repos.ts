@@ -116,9 +116,9 @@ export interface RepoRow {
   // Undefined while a list is unread or hidden from this token.
   dependabotAlerts?: number;
   codeAlerts?: number;
-  // Critical and high alerts: Dependabot ones in shipped code, and every code-scanning one.
-  shipped?: Tally;
-  code?: Tally;
+  // Critical and high alerts in shipped code, by kind.
+  vulnerabilities?: Tally;
+  codeScanning?: Tally;
   unreadPrs: number;
   unreadIssues: number;
 }
@@ -430,9 +430,13 @@ function buildRow(input: RowInput): RepoRow {
     ...(deps ? { dependabotAlerts: deps.length } : {}),
     ...(alerts?.code ? { codeAlerts: alerts.code.length } : {}),
     ...(deps
-      ? { shipped: tally(groups, (g) => g.source === "dependabot" && g.reach === "shipped") }
+      ? {
+          vulnerabilities: tally(groups, (g) => g.source === "dependabot" && g.reach === "shipped"),
+        }
       : {}),
-    ...(alerts?.code ? { code: tally(groups, (g) => g.source === "code") } : {}),
+    ...(alerts?.code
+      ? { codeScanning: tally(groups, (g) => g.source === "code" && g.reach === "shipped") }
+      : {}),
     unreadPrs: Math.max(0, (fact?.openPrs ?? 0) - (fact?.prs.length ?? 0)),
     unreadIssues: Math.max(0, (fact?.openIssues ?? 0) - (fact?.issues.length ?? 0)),
   };

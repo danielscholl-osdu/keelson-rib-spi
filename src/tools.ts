@@ -467,7 +467,7 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
     ),
     tool(
       "spi_security",
-      "Open Dependabot and code-scanning alerts per repository, grouped by package (Dependabot) or rule (code scanning), each group with its owner (spi: the fork's own tree or the program's repositories; template: files synced from osdu-spi; upstream: code inherited from GitLab, fixed by a later Sync Upstream), its reach (shipped, tests, tooling), worst severity, count, the version that fixes every alert in it (absent when one has no published fix), an open Dependabot PR, and other repositories where the same package or rule is ours. Per repository, shipped and code tally critical and high alerts as ours and upstream; a list GitHub hides from this token is absent, never zero. Filter by repository short name, owner or minimum severity.",
+      "Open security alerts per repository, of two kinds: vulnerabilities (Dependabot alerts on the libraries a service uses, grouped by package) and code scanning (CodeQL and Scorecard findings in the source itself, grouped by rule), each group with its owner (spi: the fork's own tree or the program's repositories; template: files synced from osdu-spi; upstream: code inherited from GitLab, fixed by a later Sync Upstream), its reach (shipped, tests, tooling), worst severity, count, the version that fixes every alert in it (absent when one has no published fix), an open Dependabot PR, and other repositories where the same package or rule is ours. Per repository, vulnerabilities and codeScanning tally critical and high alerts in shipped code as ours and upstream; a list GitHub hides from this token is absent, never zero. Filter by repository short name, owner or minimum severity.",
       z.object({
         repo: z.string().optional(),
         owner: z.enum(["spi", "template", "upstream"]).optional(),
@@ -483,8 +483,8 @@ export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
             repo: r.name,
             ...(r.dependabotAlerts !== undefined ? { dependabot: r.dependabotAlerts } : {}),
             ...(r.codeAlerts !== undefined ? { code: r.codeAlerts } : {}),
-            ...(r.shipped ? { shipped: r.shipped } : {}),
-            ...(r.code ? { codeSevere: r.code } : {}),
+            ...(r.vulnerabilities ? { vulnerabilities: r.vulnerabilities } : {}),
+            ...(r.codeScanning ? { codeScanning: r.codeScanning } : {}),
             groups: r.alerts
               .filter((g) => !owner || g.owner === owner)
               .filter((g) => !severity || (g.severity && order.indexOf(g.severity) <= floor))

@@ -1102,7 +1102,7 @@ function portItems(
   return items;
 }
 
-// A critical alert in SPI-owned shipped code: one item per package or rule, across repositories.
+// A critical vulnerability or code-scanning alert in SPI-owned shipped code: one item per package or rule.
 function securityItems(repositories: ReposModel | undefined): QueueItem[] {
   const found = new Map<string, { g: AlertGroup; at: { repo: RepoRow; g: AlertGroup }[] }>();
   for (const repo of repositories?.rows ?? []) {
@@ -1122,12 +1122,14 @@ function securityItems(repositories: ReposModel | undefined): QueueItem[] {
     const prs = at.flatMap((a) => (a.g.pr ? [{ repo: a.repo, pr: a.g.pr }] : []));
     const fixWord =
       g.source === "code" ? "found by code scanning" : fix ? `fixed in ${fix}` : "no fix published";
+    const [noun, nouns] =
+      g.source === "dependabot" ? ["vulnerability", "vulnerabilities"] : ["alert", "alerts"];
     return {
       id: `security:${key}`,
       kind: "security" as const,
       rung: 1 as const,
       scope: at.map((a) => a.repo.name).join(", "),
-      text: `Critical ${name} in SPI code · ${plural(count, "alert")}, ${fixWord}`,
+      text: `${g.source === "dependabot" ? `Critical vulnerability in ${name}` : `Critical code-scanning alert: ${name}`} · ${plural(count, noun, nouns)}, ${fixWord}`,
       url: g.url,
       effects: at.map((a) => ({
         text: `Ships in ${a.repo.name} from ${a.g.where || "the repository"}`,
@@ -1136,7 +1138,7 @@ function securityItems(repositories: ReposModel | undefined): QueueItem[] {
       cause: [
         {
           label: "why",
-          value: `${plural(count, "open alert")} against ${name} in SPI-owned shipped code; ${
+          value: `${plural(count, `open ${noun}`, `open ${nouns}`)} ${g.source === "dependabot" ? "in" : "for"} ${name} in SPI-owned shipped code; ${
             g.source === "code"
               ? "code scanning rates it critical"
               : fix
