@@ -12,6 +12,7 @@ import { buildGates, type Gates } from "./gates.ts";
 import { buildLine, type LineModel } from "./lines.ts";
 import { buildQueue, type Queue } from "./queue.ts";
 import { buildRadar, predictAll, type RadarModel } from "./radar.ts";
+import { buildRepos, type ReposModel } from "./repos.ts";
 import { buildStack, type StackModel } from "./stack.ts";
 import { buildTemplate, type TemplateModel } from "./template.ts";
 import { buildWork, type WorkModel } from "./work.ts";
@@ -31,6 +32,8 @@ export interface Model {
   radar: RadarModel;
   // Every open PR and issue per repository, including work that sits on no line.
   work: WorkModel;
+  // The same, with security alerts, sorted by who can fix each item.
+  repositories: ReposModel;
 }
 
 // Pure: the same facts and clock always give the same model, so every region
@@ -100,5 +103,11 @@ export function buildModel(
     queue,
     radar,
     work: buildWork(repos),
+    repositories: buildRepos({
+      repos,
+      alerts: facts.security,
+      filters: facts.radar.data?.filters,
+      synced: facts.template.data?.synced,
+    }),
   };
 }
