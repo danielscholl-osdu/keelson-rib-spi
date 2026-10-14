@@ -442,8 +442,11 @@ describe("what the boards say", () => {
     expect(stats.items[0]?.sub).toMatch(
       /^v0\.28\.2 is latest · landed 10-0[56] \d\d:\d\d · 50 min after release, usually 33$/,
     );
-    expect(stats.items[1]).toMatchObject({ tone: "ok" });
-    expect(stats.items[1]?.sub).toMatch(/^fresh cluster to green in 26 min, usually 32 · next /);
+    expect(stats.items[1]).toMatchObject({ value: "GREEN", tone: "ok" });
+    expect(stats.items[1]?.clock).toBeUndefined();
+    expect(stats.items[1]?.sub).toMatch(
+      /^12 h 52 min ago · fresh cluster to green in 26 min, usually 32 · next /,
+    );
     const kinds = b.sections.map((s) => s.kind);
     expect(kinds.slice(0, 4)).toEqual(["stats", "grid", "timeline", "rows"]);
     const titled = (prefix: string) => {
@@ -478,15 +481,7 @@ describe("what the boards say", () => {
   });
 
   test("a healthy environment shows the version, smoke and the last refresh, and no incident", () => {
-    const f = fixtureFacts();
-    const lc = f.lifecycle.data!;
-    const cut = Date.parse("2026-10-11T22:00:00Z");
-    f.lifecycle.data = {
-      ...lc,
-      refresh: lc.refresh.filter((r) => Date.parse(r.createdAt) < cut),
-      upgrade: lc.upgrade.filter((r) => Date.parse(r.createdAt) < cut),
-    };
-    const b = stackBoard(buildModel(f, FIXTURE_NOW), FIXTURE_NOW);
+    const b = stackBoard(buildModel(settled(), FIXTURE_NOW), FIXTURE_NOW);
     expect(b.header?.status).toEqual({ label: "DEPLOYABLE", tone: "ok" });
     const stats = b.sections[0];
     if (stats?.kind !== "stats") throw new Error("stats first");
@@ -495,7 +490,9 @@ describe("what the boards say", () => {
       "Greenfield · smoke",
       "Brownfield · refresh",
     ]);
-    expect(stats.items[2]?.sub).toMatch(/^re-proved in place in \d+ min(, usually \d+)? · next /);
+    expect(stats.items[2]).toMatchObject({ value: "GREEN", tone: "ok" });
+    expect(stats.items[2]?.clock).toBeUndefined();
+    expect(stats.items[2]?.sub).toMatch(/^24 h 14 min ago · re-proved in place in 2 min · next /);
     expect(b.sections.some((s) => s.kind === "timeline")).toBe(false);
     expect(() => expectView(STACK_KEY, "board")(b)).not.toThrow();
   });
@@ -525,8 +522,75 @@ describe("what the boards say", () => {
     if (stats?.kind !== "stats") throw new Error("stats first");
     const refresh = stats.items[2];
     expect(refresh?.label).toBe("Brownfield · refresh");
-    expect(refresh?.tone).toBe("warn");
-    expect(refresh?.sub).toMatch(/^failed · then env-upgrade v0\.28\.2 green \d\d:\d\d · next /);
+    expect(refresh).toMatchObject({ value: "FAILED", tone: "warn" });
+    expect(refresh?.sub).toMatch(
+      /^17 h 40 min ago · then env-upgrade v0\.28\.2 green \d\d:\d\d · next /,
+    );
+  });
+
+  // Facts as of 10-11 22:00: the 10-11 refresh is the last one, and no upgrade has stopped since.
+  function settled(): ReturnType<typeof fixtureFacts> {
+    const f = fixtureFacts();
+    const lc = f.lifecycle.data!;
+    const cut = Date.parse("2026-10-11T22:00:00Z");
+    f.lifecycle.data = {
+      ...lc,
+      refresh: lc.refresh.filter((r) => Date.parse(r.createdAt) < cut),
+      upgrade: lc.upgrade.filter((r) => Date.parse(r.createdAt) < cut),
+    };
+    return f;
+  }
+
+  function proofTiles(model: ReturnType<typeof buildModel>) {
+    const stats = stackBoard(model, FIXTURE_NOW).sections[0];
+    if (stats?.kind !== "stats") throw new Error("stats first");
+    return { smoke: stats.items[1], refresh: stats.items[2] };
+  }
+
+  test("a stopped run leads with its result and puts its age first", () => {
+    const f = settled();
+    const lc = f.lifecycle.data!;
+    const [smoke, ...olderSmoke] = lc.smoke;
+    const [refresh, ...olderRefresh] = lc.refresh;
+    if (!smoke || !refresh) throw new Error("fixture has smoke and refresh runs");
+    f.lifecycle.data = {
+      ...lc,
+      smoke: [{ ...smoke, conclusion: "failure" }, ...olderSmoke],
+      refresh: [{ ...refresh, conclusion: "failure" }, ...olderRefresh],
+    };
+    const m = buildModel(f, FIXTURE_NOW);
+    // An unproven failed refresh is held as an incident; clear it to reach the refresh tile.
+    const calm = { ...m, stack: { ...m.stack, deployable: { state: "yes" as const, reason: "" } } };
+    const { smoke: s, refresh: r } = proofTiles(calm);
+    expect(s).toMatchObject({ value: "FAILED", tone: "error" });
+    expect(s?.sub).toMatch(/^12 h 52 min ago · after 26 min · next /);
+    expect(r).toMatchObject({ label: "Brownfield · refresh", value: "FAILED", tone: "error" });
+    expect(r?.sub).toMatch(/^24 h 14 min ago · after 2 min · next /);
+
+    f.lifecycle.data = {
+      ...f.lifecycle.data,
+      smoke: [{ ...smoke, conclusion: "cancelled" }, ...olderSmoke],
+    };
+    expect(proofTiles(buildModel(f, FIXTURE_NOW)).smoke).toMatchObject({
+      value: "CANCELLED",
+      tone: "warn",
+    });
+  });
+
+  test("with no run in the window the proof tiles say so and show no value", () => {
+    const f = settled();
+    f.lifecycle.data = { ...f.lifecycle.data!, smoke: [], refresh: [] };
+    const { smoke, refresh } = proofTiles(buildModel(f, FIXTURE_NOW));
+    expect(smoke).toEqual({
+      label: "Greenfield · smoke",
+      value: null,
+      sub: "no smoke run in 21 days",
+    });
+    expect(refresh).toEqual({
+      label: "Brownfield · refresh",
+      value: null,
+      sub: "no refresh in 21 days",
+    });
   });
 });
 

@@ -124,6 +124,11 @@ function runningStat(model: Model, now: Date): Stat {
   };
 }
 
+function ago(at: string, now: Date): string | undefined {
+  const text = span(now.getTime() - Date.parse(at));
+  return text && `${text} ago`;
+}
+
 function nextText(model: Model, kind: LifecycleKind, now: Date): string | undefined {
   const crons = model.stack.schedules?.[kind];
   const at = crons ? nextFire(crons, now) : undefined;
@@ -140,12 +145,14 @@ function greenfieldStat(model: Model, now: Date): Stat {
   const what =
     runTone(last) === "ok"
       ? spent && `fresh cluster to green in ${spent}`
-      : `${runResult(last)}${spent ? ` after ${spent}` : ""}`;
+      : spent && `after ${spent}`;
   return {
     label,
-    clock: { at: last.updatedAt, mode: "since" },
+    value: runResult(last).toUpperCase(),
     tone: runTone(last),
-    sub: [what, nextText(model, "smoke", now)].filter(Boolean).join(" · "),
+    sub: [ago(last.updatedAt, now), what, nextText(model, "smoke", now)]
+      .filter(Boolean)
+      .join(" · "),
   };
 }
 
@@ -198,15 +205,17 @@ function brownfieldStat(model: Model, now: Date): Stat {
     Date.parse(green.createdAt) > Date.parse(refresh.createdAt);
   const { lastMs, usualMs } = stack.durations.refresh;
   const what = proven
-    ? `${runResult(refresh)} · then ${runName(green)} green ${stamp(green.updatedAt, now) ?? ""}`.trim()
+    ? `then ${runName(green)} green ${stamp(green.updatedAt, now) ?? ""}`.trim()
     : runTone(refresh) === "ok"
       ? `re-proved in place in ${againstUsual(lastMs, usualMs) ?? "?"}`
-      : `${runResult(refresh)}${span(lastMs) ? ` after ${span(lastMs)}` : ""}`;
+      : span(lastMs) && `after ${span(lastMs)}`;
   return {
     label,
-    clock: { at: refresh.updatedAt, mode: "since" },
+    value: runResult(refresh).toUpperCase(),
     tone: proven ? "warn" : runTone(refresh),
-    sub: [what, nextText(model, "refresh", now)].filter(Boolean).join(" · "),
+    sub: [ago(refresh.updatedAt, now), what, nextText(model, "refresh", now)]
+      .filter(Boolean)
+      .join(" · "),
   };
 }
 
