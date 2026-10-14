@@ -81,12 +81,8 @@ function syncNamed(action: Action, model: Model): Action {
   };
 }
 
-export function rolloutSection(model: Model, now: Date, blocked: string | undefined): Section {
-  return {
-    kind: "actions",
-    wrap: true,
-    items: rolloutActions(model.template, { swept: model.sweptAt ?? "" }, now, blocked).map((a) =>
-      a.label.startsWith("Sync all forks") ? syncNamed(a, model) : a,
-    ),
-  };
+export function rolloutActionItems(model: Model, now: Date, blocked: string | undefined): Action[] {
+  return rolloutActions(model.template, { swept: model.sweptAt ?? "" }, now, blocked).map((a) =>
+    a.label.startsWith("Sync all forks") ? syncNamed(a, model) : a,
+  );
 }

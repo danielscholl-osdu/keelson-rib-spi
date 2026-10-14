@@ -28,7 +28,7 @@ import {
   stoppedAttempts,
   viewRun,
 } from "../model/stack.ts";
-import { age, plural, span, stamp } from "../util.ts";
+import { age, clip, plural, span, stamp } from "../util.ts";
 import { ago as agoText, deployableWords, streakText } from "./words.ts";
 
 export type Tone = "bad" | "warn" | "ok" | "neutral";
@@ -186,6 +186,7 @@ export interface Briefing {
 }
 
 const FOCUS_MAX = 5;
+const TITLE_MAX = 80;
 const HEADLINE_CAUSES = 2;
 const DEADLINE_WINDOW_DAYS = 60;
 const DAY_MS = 86_400_000;
@@ -580,12 +581,20 @@ function describe(
         .join(" · "),
     };
   }
-  const cut = /: |; /.exec(item.text);
-  const head = cut ? item.text.slice(0, cut.index) : item.text;
-  const tail = cut ? item.text.slice(cut.index + 2) : undefined;
+  if (item.kind === "port") {
+    return {
+      title: `${plural(item.effects.length, "upstream MR")} not ported`,
+      sub: [fact(item, "tree"), ago].filter(Boolean).join(" · "),
+    };
+  }
+  const [lead = item.text, ...rest] = item.text.split(" · ");
+  // A PR title carries its own colons, so only a sentence of the rib's is cut at one.
+  const cut = item.kind === "template-pr" ? null : /: |; /.exec(lead);
+  const head = cut ? lead.slice(0, cut.index) : lead;
+  const tail = cut ? lead.slice(cut.index + 2) : undefined;
   return {
-    title: cap(head),
-    sub: [tail, item.note?.replace(" behind", " held"), ago].filter(Boolean).join(" · "),
+    title: cap(clip(head, TITLE_MAX)),
+    sub: [tail, ...rest, item.note?.replace(" behind", " held"), ago].filter(Boolean).join(" · "),
   };
 }
 
@@ -637,6 +646,99 @@ function focusOf(
     });
   }
   return out;
+}
+
+export interface Gap {
+  have: string;
+  need: string;
+}
+
+// A queue item or MR in the same cause on another fork, for the inspector to step to.
+export interface Related {
+  text: string;
+  state: string;
+  inspect?: string;
+  url?: string;
+}
+
+// One item as the inspector says it: the console's words plus what only fits a drawer.
+export interface Reading {
+  title: string;
+  sub: string;
+  cause: string;
+  effect: string;
+  next: string;
+  gap?: Gap;
+  related: Related[];
+}
+
+// What the fork has against what upstream now needs, when the item names both.
+function gapOf(item: QueueItem): Gap | undefined {
+  if (item.cls !== "TOOLCHAIN") return undefined;
+  const need = javaOf(item);
+  const have = /JDK (\d+)/.exec(fact(item, "reason") ?? "")?.[1];
+  return need && have ? { have: `Java ${have}`, need: `Java ${need}` } : undefined;
+}
+
+function themeHas(t: Theme, item: QueueItem): boolean {
+  const forks = [...t.certain, ...t.possible].map((f) => f.fork);
+  if (!forks.includes(item.scope)) return false;
+  switch (t.kind) {
+    case "halt":
+      return (item.halt?.entries ?? []).includes(t.title);
+    case "toolchain": {
+      const java = javaOf(item);
+      return item.cls === "TOOLCHAIN" && !!java && t.title === `Java ${java}`;
+    }
+    case "port":
+      return item.cls === "PORT";
+    default:
+      return false;
+  }
+}
+
+const THEME_ITEMS: Partial<Record<ThemeKind, string[]>> = {
+  halt: ["halt", "radar"],
+  toolchain: ["gate1", "radar"],
+  port: ["port"],
+};
+
+function relatedOf(model: Model, item: QueueItem, themes: readonly Theme[]): Related[] {
+  const ids = new Set(model.queue.items.map((i) => i.id));
+  const out: Related[] = [];
+  for (const t of themes) {
+    if (!themeHas(t, item)) continue;
+    for (const f of [...t.certain, ...t.possible]) {
+      if (f.fork === item.scope || out.some((r) => r.text === f.fork)) continue;
+      const own = THEME_ITEMS[t.kind]
+        ?.map((k) => `${k}:${f.fork}`)
+        .find((id) => ids.has(id) && id !== item.id);
+      out.push({
+        text: f.fork,
+        state: f.state,
+        ...(f.inspect ? { inspect: f.inspect } : own ? { inspect: own } : {}),
+        ...(f.url ? { url: f.url } : {}),
+      });
+    }
+  }
+  return out;
+}
+
+export function readItem(model: Model, item: QueueItem, now: Date): Reading {
+  const next = clock(syncAt(now));
+  const stuck = model.queue.items.filter((i) => i.incident).sort((a, b) => rank(a) - rank(b));
+  const { title, sub } = describe(model, item, stuck, next, now);
+  const themes = themesOf(model, now, next);
+  const gap = gapOf(item);
+  return {
+    title,
+    sub,
+    cause: causeOf(item),
+    effect: effectOf(item, stuck, next),
+    next: sentence(nextText(item)),
+    ...(gap ? { gap } : {}),
+    related: relatedOf(model, item, themes),
+  };
 }
 
 function readyOf(model: Model): ReadyLine[] {

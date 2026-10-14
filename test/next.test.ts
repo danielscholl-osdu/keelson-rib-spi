@@ -3,7 +3,7 @@ import { inspectBoard } from "../src/boards/inspect";
 import { buildModel } from "../src/model/index";
 import { CLASS_VERB, itemClass, nextText, verbOf } from "../src/model/next";
 import type { QueueItem } from "../src/model/queue";
-import { FIXTURE_NOW, fixtureFacts } from "./harness";
+import { boardCard, FIXTURE_NOW, fixtureFacts } from "./harness";
 
 function item(over: Partial<QueueItem>): QueueItem {
   return {
@@ -165,10 +165,7 @@ describe("the banner on the recorded sweep", () => {
       },
       FIXTURE_NOW,
     );
-    const next = b.sections.find((s) => "title" in s && s.title === "Next");
-    if (next?.kind !== "rows") throw new Error("a Next line");
-    expect(next.items[0]?.chip?.label).toBe("Classify entry");
-    expect(next.items[0]?.text).toEndWith("· storage lists it as strip");
+    expect(boardCard(b, "Next step")?.title).toEndWith("· storage lists it as strip.");
   });
 
   test("the fleet release row names a release on a line already cut and counts first releases", () => {

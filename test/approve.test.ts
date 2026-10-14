@@ -10,7 +10,7 @@ import type { OutsidePr, WaitingRun } from "../src/facts";
 import { Gh } from "../src/forge";
 import { INSPECT_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
-import { FIXTURE_NOW, fixtureFacts } from "./harness";
+import { boardActions, FIXTURE_NOW, fixtureFacts } from "./harness";
 
 const STACK = "Azure/osdu-spi-stack";
 const HEAD_343 = "541ab075615710332d1212659f536d027e6c72c3";
@@ -157,30 +157,35 @@ describe("the approve button", () => {
     const id = `approvals:${STACK}`;
     const b = inspectBoard(model, { selected: id }, FIXTURE_NOW);
     expect(() => expectView(INSPECT_KEY, "board")(b)).not.toThrow();
-    const prs = b.sections.find((s) => s.kind === "rows" && s.title === "Outside PRs · 2");
-    if (prs?.kind !== "rows") throw new Error("no PR rows");
-    expect(prs.items.map((r) => [r.chip?.label, r.text, r.trailing])).toEqual([
-      [undefined, "#327 feat: add RAFS service", "contributor-b · 41 files · +2271 −81"],
+    const prs = b.sections.find((s) => s.kind === "cards" && s.title === "Outside PRs · 2");
+    if (prs?.kind !== "cards") throw new Error("no PR cards");
+    expect(
+      prs.items.map((c) => [
+        c.pill?.label,
+        c.title,
+        c.fields?.map((f) => f.value).join(" | "),
+        c.actions?.map((a) => a.label),
+      ]),
+    ).toEqual([
       [
-        ".github",
-        "#343 fix(k8s): Harden Reference Catalog Downloads",
-        "contributor-a · 2 files · +90 −12",
+        undefined,
+        "#327 feat: add RAFS service",
+        "contributor-b · first-time-contributor | 41 files · +2271 −81 | 2 runs",
+        ["Approve #327 · 2 runs"],
       ],
-    ]);
-    const actions = b.sections.find((s) => s.kind === "actions");
-    if (actions?.kind !== "actions") throw new Error("no actions");
-    expect(actions.items.map((i) => i.label)).toEqual([
-      "Approve #327 · 2 runs",
-      "Approve #343 · 2 runs",
+      [
+        "changes .github",
+        "#343 fix(k8s): Harden Reference Catalog Downloads",
+        "contributor-a · contributor | 2 files · +90 −12 | 2 runs",
+        ["Approve #343 · 2 runs"],
+      ],
     ]);
     expect(b.sections.some((s) => s.kind === "rows" && s.title?.startsWith("Effects"))).toBe(false);
 
     const noRepo = inspectBoard(model, { selected: id }, FIXTURE_NOW, undefined, {
       scopes: ["gist", "workflow"],
     });
-    const blocked = noRepo.sections.find((s) => s.kind === "actions");
-    if (blocked?.kind !== "actions") throw new Error("no actions");
-    expect(blocked.items[0]).toMatchObject({
+    expect(boardActions(noRepo)[0]).toMatchObject({
       disabled: true,
       reason: "gh's token lacks the repo scope; run gh auth refresh -s repo",
     });

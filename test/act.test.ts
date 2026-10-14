@@ -24,7 +24,7 @@ import { INSPECT_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
 import type { QueueItem } from "../src/model/queue";
 import { INSPECT_ACTION } from "../src/surfaces";
-import { FIXTURE_NOW, fakeContext, fixtureFacts, laneFacts } from "./harness";
+import { boardActions, FIXTURE_NOW, fakeContext, fixtureFacts, laneFacts } from "./harness";
 
 const NOW = () => new Date("2026-10-13T16:00:00Z");
 
@@ -561,9 +561,9 @@ describe("the re-run wait", () => {
       await rib.onAction?.({ type: INSPECT_ACTION, payload: { id: "stack:lanes" } }, ctx);
       const frame = await snapshots.recompose(INSPECT_KEY);
       const board = frame.data as ReturnType<typeof inspectBoard>;
-      const actions = board.sections.find((s) => s.kind === "actions");
-      if (actions?.kind !== "actions") throw new Error("the lanes inspector has actions");
-      return actions.items;
+      const actions = boardActions(board);
+      if (actions.length === 0) throw new Error("the lanes inspector has actions");
+      return actions;
     }
 
     test("on a harness without ops the wait is disabled with its reason and refused", async () => {

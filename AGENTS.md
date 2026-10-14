@@ -38,7 +38,8 @@ A change needs `bun run check`, `bun run typecheck` and `bun test` green.
   currency and the ranked queue out. Every region and tool reads this one model.
 - `src/brief/` is pure: the model, the doctor and a clock in, the briefing out.
   It decides the words (headline, focus with cause, effect and next, themes
-  across forks); the console and `spi_brief` only show them. It never imports
+  across forks, and `readItem` for one item); the console, the inspector and
+  `spi_brief` only show them. It never imports
   from `src/boards/`; shared wording lives in `src/brief/words.ts`.
 - `src/boards/` draws: the console html from the briefing (`console.ts`), the
   side inspector boards, and the badge. No I/O in a composer.

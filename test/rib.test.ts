@@ -165,7 +165,7 @@ describe("inspect", () => {
     const frame = snapshots.latest(INSPECT_KEY)?.data as {
       header?: { status?: { label: string } };
     };
-    expect(frame.header?.status?.label).toBe("TOOLCHAIN");
+    expect(frame.header?.status?.label).toBe("P1 · TOOLCHAIN");
   });
 
   test("a halt opens at once, then fills in each fork; an unreachable forge reads as unknown", async () => {

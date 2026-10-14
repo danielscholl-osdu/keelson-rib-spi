@@ -1,11 +1,35 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { RibContext, RibExec, SnapshotManager } from "@keelson/shared";
+import type { CanvasBoardView, RibContext, RibExec, SnapshotManager } from "@keelson/shared";
 import type { Facts, TemplateChange } from "../src/facts";
 import fixture from "./fixtures/facts.json";
 
 type Composer = () => Promise<unknown>;
+type Section = CanvasBoardView["sections"][number];
+type Card = Extract<Section, { kind: "cards" }>["items"][number];
+type ActionItem = NonNullable<Card["actions"]>[number];
+
+// Every button a board draws, whether in an actions section or on a card.
+export function boardActions(b: CanvasBoardView): ActionItem[] {
+  return b.sections.flatMap((s) =>
+    s.kind === "actions"
+      ? s.items
+      : s.kind === "cards"
+        ? s.items.flatMap((c) => c.actions ?? [])
+        : [],
+  );
+}
+
+export function boardCard(b: CanvasBoardView, title: string): Card | undefined {
+  for (const s of b.sections) {
+    if (s.kind !== "cards") continue;
+    if (s.title === title) return s.items[0];
+    const card = s.items.find((c) => c.title === title);
+    if (card) return card;
+  }
+  return undefined;
+}
 type Validator = (data: unknown) => unknown;
 
 // Grants are read from the host's config.json; tests read an empty home, never the operator's.

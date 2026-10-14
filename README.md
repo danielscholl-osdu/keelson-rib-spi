@@ -33,8 +33,15 @@ environment's fault and folds under its incident.
 The console runs in a sandboxed frame. It can select and open the inspector,
 and nothing else: the rib refuses every other action from it, and links and
 verbs live in the inspector. Selecting anything and pressing **Open in
-inspector** opens a side drawer with the item's class, its cause line by line
-with links, the effects folded under it, its verbs and the last action taken.
+inspector** opens a side drawer; after that, each selection in the console
+moves the drawer to it. The drawer leads with the item's claim in the console's
+words, its priority, class and age, then one **Next step** card that holds the
+recommendation and the buttons that carry it out. Below it, **Why** lists each
+fact beside its own link, and **Same cause elsewhere** steps to the same cause
+on other forks. Every part comes from the item's class and facts, so a new
+kind of failure draws the same way. When an item names both what the fork has
+and what upstream needs, the two show side by side. The last action shows once
+there is one.
 For a sync halt on an unclassified upstream entry, it also reads every other
 fork's `.github/upstream-filter.yml` and its upstream tree, and marks each fork
 `absent`, `listed`, `unlisted` (its next sync will halt too) or `?` when a read

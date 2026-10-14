@@ -13,11 +13,11 @@ import {
 } from "../src/act/rollout";
 import { bindingSchema, commandText, registerVerb } from "../src/act/verbs";
 import { inspectBoard } from "../src/boards/inspect";
-import { rolloutSection } from "../src/boards/template";
+import { rolloutActionItems } from "../src/boards/template";
 import type { Facts } from "../src/facts";
 import { INSPECT_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
-import { FIXTURE_NOW, NEW_HEAD, releasedFacts } from "./harness";
+import { boardActions, FIXTURE_NOW, NEW_HEAD, releasedFacts } from "./harness";
 
 const SWEPT = { swept: "2026-10-12T21:58:14.428Z" };
 
@@ -138,11 +138,9 @@ describe("the template-set inspector's buttons", () => {
   function actions(m: ReturnType<typeof model>, scopes?: string[]) {
     const b = inspectBoard(m, { selected: "template-set" }, FIXTURE_NOW, undefined, { scopes });
     expect(() => expectView(INSPECT_KEY, "board")(b)).not.toThrow();
-    const found = b.sections.find(
-      (s) => s.kind === "actions" && s.items[0]?.label.startsWith("Sync all forks"),
-    );
-    if (found?.kind !== "actions") throw new Error("rollout actions");
-    return found.items;
+    const found = boardActions(b);
+    if (!found[0]?.label.startsWith("Sync all forks")) throw new Error("rollout actions");
+    return found;
   }
 
   test("Sync all forks names up to three forks, then counts", () => {
@@ -151,13 +149,11 @@ describe("the template-set inspector's buttons", () => {
       const rows = m.template.rows.map((r) =>
         behind.includes(r.service) ? r : { ...r, behind: 0, pr: undefined },
       );
-      const section = rolloutSection(
+      return rolloutActionItems(
         { ...m, template: { ...m.template, rows } },
         FIXTURE_NOW,
         undefined,
-      );
-      if (section.kind !== "actions") throw new Error("actions");
-      return section.items[0];
+      )[0];
     };
     expect(label(["file"])).toMatchObject({
       label: "Sync all forks · file",

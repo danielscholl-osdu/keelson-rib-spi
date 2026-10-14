@@ -8,7 +8,7 @@ import { Gh, Glab } from "../src/forge";
 import { INSPECT_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
 import type { QueueItem } from "../src/model/queue";
-import { FIXTURE_NOW, fixtureFacts, laneFacts } from "./harness";
+import { boardActions, boardCard, FIXTURE_NOW, fixtureFacts, laneFacts } from "./harness";
 
 const model = buildModel(fixtureFacts(), FIXTURE_NOW);
 const gate = expectView(INSPECT_KEY, "board");
@@ -31,8 +31,9 @@ describe("the inspector", () => {
     for (const i of model.queue.items) {
       const b = inspectBoard(model, { selected: i.id, item: i }, FIXTURE_NOW);
       expect(() => gate(b)).not.toThrow();
-      expect(section(b, "Cause")).toBeDefined();
-      expect(section(b, "Last action")).toBeDefined();
+      expect(b.title?.length).toBeGreaterThan(0);
+      expect(boardCard(b, "Next step")?.title.length).toBeGreaterThan(0);
+      expect(section(b, "Last action")).toBeUndefined();
     }
   });
 
@@ -40,7 +41,7 @@ describe("the inspector", () => {
     const stack = model.queue.items.find((i) => i.kind === "stack");
     if (!stack) throw new Error("fixture has a stack incident");
     const b = inspectBoard(model, { selected: stack.id, item: stack }, FIXTURE_NOW);
-    expect(b.header?.status).toEqual({ label: "ENV", tone: "error" });
+    expect(b.header?.status).toEqual({ label: "P0 · ENV", tone: "error" });
     const effects = section(b, "Effects");
     if (effects?.kind !== "rows") throw new Error("effects are rows");
     expect(effects.items.some((r) => r.text.includes("partition template-sync PR #174"))).toBe(
@@ -51,12 +52,11 @@ describe("the inspector", () => {
   test("a toolchain sync PR shows the failing check and the commits it holds", () => {
     const legal = item("gate1:legal");
     const b = inspectBoard(model, { selected: legal.id, item: legal }, FIXTURE_NOW);
-    expect(b.header?.status?.label).toBe("TOOLCHAIN");
-    const cause = section(b, "Cause");
-    if (cause?.kind !== "rows") throw new Error("cause is rows");
-    const labels = cause.items.map((r) => r.text);
-    expect(labels).toContain("check");
-    expect(labels).toContain("held");
+    expect(b.header?.status?.label).toBe("P1 · TOOLCHAIN");
+    expect(b.header?.chip).toContain("commits held");
+    const labels = boardCard(b, "Why")?.fields?.map((f) => f.label);
+    expect(labels).toContain("Failed check");
+    expect(labels).not.toContain("Held");
   });
 
   test("a halt says it is reading the other forks, then shows each one's state", () => {
@@ -237,9 +237,9 @@ describe("the environment verbs", () => {
     if (!it) throw new Error(`no ${id}`);
     const b = inspectBoard(m, { selected: id, item: it }, FIXTURE_NOW, undefined, opts);
     expect(() => gate(b)).not.toThrow();
-    const actions = b.sections.find((s) => s.kind === "actions");
-    if (actions?.kind !== "actions") throw new Error(`${id} draws no actions`);
-    return actions.items;
+    const actions = boardActions(b);
+    if (actions.length === 0) throw new Error(`${id} draws no actions`);
+    return actions;
   }
 
   test("while deployable, one Re-run lanes confirmation names each PR and run and every command", () => {

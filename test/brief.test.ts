@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { doctorStatus } from "../src/boards/doctor";
-import { type BriefFact, buildBriefing, type DoctorView } from "../src/brief/index";
+import { type BriefFact, buildBriefing, type DoctorView, readItem } from "../src/brief/index";
 import { ago, deployableWords, streakText } from "../src/brief/words";
 import type { Facts, LifecycleRun } from "../src/facts";
 import { buildModel, type Model } from "../src/model/index";
@@ -659,5 +659,40 @@ describe("shared wording", () => {
     expect(streakText({ ...smoke, streak: { n: 1, green: true } })).toBeUndefined();
     expect(streakText({ ...smoke, streak: { n: 2, green: false } })).toBe("red 2 in a row");
     expect(ago("2026-10-12T20:58:30Z", FIXTURE_NOW)).toBe("1 h ago");
+  });
+});
+
+describe("one item as the inspector reads it", () => {
+  const model = fixtureModel();
+  const read = (id: string) => {
+    const found = model.queue.items.find((i) => i.id === id);
+    if (!found) throw new Error(`fixture has no ${id}`);
+    return readItem(model, found, FIXTURE_NOW);
+  };
+
+  test("a gap shows only when the item names what the fork has and what upstream needs", () => {
+    expect(read("gate1:legal").gap).toEqual({ have: "Java 17", need: "Java 25" });
+    expect(read("halt:entitlements").gap).toBeUndefined();
+    expect(
+      readItem(model, item({ cls: "TOOLCHAIN", text: "requires Java 25" }), FIXTURE_NOW).gap,
+    ).toBeUndefined();
+  });
+
+  test("related rows are the same cause on other forks, each opening its own item", () => {
+    expect(read("gate1:legal").related.map((r) => [r.text, r.inspect])).toEqual([
+      ["partition", "mr:partition:830"],
+      ["schema", "mr:schema:867"],
+    ]);
+    expect(read("port:legal").related.map((r) => [r.text, r.inspect])).toEqual([
+      ["entitlements", "port:entitlements"],
+    ]);
+    expect(read("approvals:Azure/osdu-spi-stack").related).toEqual([]);
+  });
+
+  test("the title is the console's, and a port names its count rather than its trees", () => {
+    const b = buildBriefing(model, CLEAR, FIXTURE_NOW);
+    const legal = b.focus.find((f) => f.id === "gate1:legal");
+    expect(read("gate1:legal").title).toBe(legal?.title ?? "");
+    expect(read("port:entitlements").title).toBe("2 upstream MRs not ported");
   });
 });

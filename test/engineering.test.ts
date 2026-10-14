@@ -4,7 +4,14 @@ import { inspectBoard } from "../src/boards/inspect";
 import type { Facts, PrFact } from "../src/facts";
 import { INSPECT_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
-import { FIXTURE_NOW, fixtureFacts, NEW_HEAD, releasedFacts as released } from "./harness";
+import {
+  boardActions,
+  boardCard,
+  FIXTURE_NOW,
+  fixtureFacts,
+  NEW_HEAD,
+  releasedFacts as released,
+} from "./harness";
 
 function dependabotPr(repo: string, number: number): PrFact {
   return {
@@ -56,18 +63,18 @@ describe("the template-set inspector", () => {
   });
 
   test("the rollout verbs sit above the ladder", () => {
-    const kinds = inspectSet(model()).sections.map((s) =>
-      s.kind === "actions" ? s.items.map((i) => i.label.split(" · ")[0]).join(", ") : s.title,
-    );
-    const verbs = kinds.indexOf("Sync all forks, Roll out");
-    expect(verbs).toBeGreaterThan(0);
-    expect(kinds[verbs + 1]).toBe("Release ladder · newest first");
+    const titles = inspectSet(model()).sections.map((s) => ("title" in s ? s.title : undefined));
+    const next = titles.indexOf("Next step");
+    expect(next).toBeGreaterThanOrEqual(0);
+    expect(titles.indexOf("Release ladder · newest first")).toBeGreaterThan(next);
+    const verbs = boardCard(inspectSet(model()), "Next step")?.actions ?? [];
+    expect(verbs.map((i) => i.label.split(" · ")[0])).toEqual(["Sync all forks", "Roll out"]);
   });
 
   test("with no ladder step the inspector draws the verbs alone", () => {
     const m = model();
     const b = inspectSet({ ...m, template: { ...m.template, steps: [] } });
-    expect(b.sections.some((s) => s.kind === "actions")).toBe(true);
+    expect(boardActions(b).length).toBeGreaterThan(0);
     expect(b.sections.some((s) => "title" in s && s.title?.startsWith("Release ladder"))).toBe(
       false,
     );
@@ -149,7 +156,7 @@ describe("the template rollout", () => {
     expect(m.queue.items.some((i) => i.id === "template-pr:262")).toBe(false);
     expect(m.queue.items.find((i) => i.id === "releases")?.text).toContain("osdu-spi v1.3.1");
     const insp = inspectBoard(m, { selected: "template-pr:260" }, FIXTURE_NOW);
-    expect(insp.header?.status?.label).toBe("READY");
+    expect(insp.header?.status?.label).toBe("P2 · READY");
   });
 
   test("a red PR on osdu-spi is a P1", () => {

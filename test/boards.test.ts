@@ -7,8 +7,13 @@ import { radarBreaks } from "../src/boards/radar";
 import { emptyFacts } from "../src/facts";
 import { INSPECT_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
-import { itemClass, verbOf } from "../src/model/next";
-import { FIXTURE_NOW, fixtureFacts } from "./harness";
+import { itemClass, nextText, verbOf } from "../src/model/next";
+import { boardCard, FIXTURE_NOW, fixtureFacts } from "./harness";
+
+function sentenceOf(text: string): string {
+  const t = text.charAt(0).toUpperCase() + text.slice(1);
+  return /[.!?]$/.test(t) ? t : `${t}.`;
+}
 
 const facts = fixtureFacts();
 const model = buildModel(facts, FIXTURE_NOW);
@@ -39,7 +44,7 @@ describe("the queue", () => {
     );
   });
 
-  test("every item's verb is the one the inspector's Next line names", () => {
+  test("every item has a verb, and the inspector's Next step card says its next step", () => {
     expect(model.queue.items.map((i) => [`P${i.rung} · ${itemClass(i)}`, verbOf(i)])).toEqual([
       ["P0 · ENV", "Re-dispatch"],
       ["P0 · HALT", "Classify entry"],
@@ -51,12 +56,11 @@ describe("the queue", () => {
       ["P2 · READY", "Review on GitHub"],
     ]);
     for (const item of model.queue.items) {
-      const next = inspectBoard(model, { selected: item.id, item }, FIXTURE_NOW).sections.find(
-        (s) => "title" in s && s.title === "Next",
+      const next = boardCard(
+        inspectBoard(model, { selected: item.id, item }, FIXTURE_NOW),
+        "Next step",
       );
-      if (next?.kind !== "rows") throw new Error(`${item.id} has a Next line`);
-      expect(next.items[0]?.chip?.label).toBe(verbOf(item));
-      expect(next.items[0]?.text.length).toBeGreaterThan(0);
+      expect(next?.title).toBe(sentenceOf(nextText(item)));
     }
   });
 });

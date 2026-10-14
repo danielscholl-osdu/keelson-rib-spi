@@ -11,14 +11,22 @@ import { approveAction } from "../act/approve.ts";
 import type { ActionEntry } from "../act/log.ts";
 import { dispatchActions, laneActions } from "../act/rerun.ts";
 import { writeBlocked } from "../act/verbs.ts";
+import { type Reading, readItem } from "../brief/index.ts";
 import type { EntryState, ForkEntry } from "../collect/filters.ts";
 import type { Model } from "../model/index.ts";
-import { itemClass, nextText, verbOf } from "../model/next.ts";
-import { diffText, type ItemKind, type QueueItem, type Rung } from "../model/queue.ts";
+import { itemClass, nextText } from "../model/next.ts";
+import {
+  associationText,
+  diffText,
+  type ItemKind,
+  type QueueItem,
+  type Rung,
+} from "../model/queue.ts";
+import { INSPECT_ACTION } from "../surfaces.ts";
 import { age, plural, stamp, zoned } from "../util.ts";
 import { names } from "./fold.ts";
 import { MR_PREFIX, mrBoard } from "./radar.ts";
-import { ladderSection, rolloutSection, STEP_PREFIX, spreadText } from "./template.ts";
+import { ladderSection, rolloutActionItems, STEP_PREFIX, spreadText } from "./template.ts";
 
 type Section = CanvasBoardView["sections"][number];
 type Row = Extract<Section, { kind: "rows" }>["items"][number];
@@ -75,16 +83,96 @@ export function inspectTitle(item: QueueItem): string {
 }
 
 function statusOf(item: QueueItem): { label: string; tone: CanvasTone } {
-  return { label: itemClass(item), tone: RUNG_TONE[item.rung] };
+  return { label: `P${item.rung} · ${itemClass(item)}`, tone: RUNG_TONE[item.rung] };
 }
 
-function nextSection(item: QueueItem, state: InspectState): Section {
+type Card = Extract<Section, { kind: "cards" }>["items"][number];
+type ActionItem = NonNullable<Card["actions"]>[number];
+
+const FACT_LABEL: Record<string, string> = {
+  PR: "Pull request",
+  check: "Failed check",
+  head: "Head",
+  held: "Held",
+  halt: "Halt code",
+  why: "Why",
+};
+
+function factLabel(label: string): string {
+  return FACT_LABEL[label] ?? label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+// The recommendation and the buttons that carry it out, so guidance and controls read as one.
+function nextCard(
+  item: QueueItem,
+  reading: Reading,
+  state: InspectState,
+  verbs: ActionItem[],
+): Section {
   const listed =
     state.others?.id === item.id ? state.others.entries.filter((e) => e.state === "listed") : [];
+  const next = listed.length > 0 ? sentence(nextText(item, listed)) : reading.next;
+  const links = (item.links ?? []).map((l) => ({ label: "", value: l.label, href: l.url }));
+  return {
+    kind: "cards",
+    title: "Next step",
+    items: [
+      {
+        title: next,
+        edge: "brand",
+        ...(links.length > 0 ? { fields: links } : {}),
+        ...(verbs.length > 0 ? { actions: verbs } : {}),
+      },
+    ],
+  };
+}
+
+function sentence(text: string): string {
+  const t = text.charAt(0).toUpperCase() + text.slice(1).trim();
+  return /[.!?]$/.test(t) ? t : `${t}.`;
+}
+
+// Each fact beside its own link, so the evidence sits with the claim it proves.
+function whySection(item: QueueItem, said: string): Section | undefined {
+  const facts = item.cause.filter(
+    (f) => f.label !== "held" && !said.includes(f.value.toLowerCase()),
+  );
+  const fields = facts.map((f) => ({
+    label: factLabel(f.label),
+    value: f.value,
+    ...(f.url ? { href: f.url } : {}),
+  }));
+  const source = sourceOf(item);
+  if (source) fields.push(source);
+  if (fields.length === 0) return undefined;
+  return { kind: "cards", items: [{ title: "Why", prose: true, fields }] };
+}
+
+const SOURCE_TEXT: Partial<Record<ItemKind, string>> = {
+  approvals: "runs waiting for approval",
+};
+
+// The item's own page, unless a fact or a link already carries it.
+function sourceOf(item: QueueItem): { label: string; value: string; href: string } | undefined {
+  if (!item.url) return undefined;
+  if ([...item.cause, ...(item.links ?? [])].some((f) => f.url === item.url)) return undefined;
+  return { label: "Source", value: SOURCE_TEXT[item.kind] ?? "open on GitHub", href: item.url };
+}
+
+function relatedSection(reading: Reading): Section | undefined {
+  if (reading.related.length === 0) return undefined;
   return {
     kind: "rows",
-    title: "Next",
-    items: [{ chip: { label: verbOf(item), tone: "accent" }, text: nextText(item, listed) }],
+    title: "Same cause elsewhere",
+    items: reading.related.map((r) => ({
+      text: r.text,
+      trailing: r.state,
+      ...(r.inspect
+        ? { action: { type: INSPECT_ACTION, payload: { id: r.inspect } } }
+        : r.url
+          ? { href: r.url }
+          : {}),
+    })),
   };
 }
 
@@ -131,69 +219,60 @@ export interface InspectOptions {
   waiting?: { id: string; at: string };
 }
 
-function approvalSections(item: QueueItem, model: Model, opts: InspectOptions): Section[] {
+function approvalSection(item: QueueItem, model: Model, opts: InspectOptions): Section | undefined {
   const approve = item.approve ?? [];
-  if (approve.length === 0) return [];
-  const rows: Row[] = approve.map((a) => {
-    const chip =
-      a.workflowFiles.length > 0
-        ? { label: ".github", tone: "caution" as const }
-        : a.pr.draft
-          ? { label: "draft", tone: "neutral" as const }
-          : undefined;
-    return {
-      ...(chip ? { chip } : {}),
-      text: `#${a.pr.number} ${a.pr.title}`,
-      trailing: `${a.pr.author} · ${diffText(a.pr)}`,
-      href: a.pr.url,
-    };
-  });
+  if (approve.length === 0) return undefined;
   const disabled = writeBlocked(model.sweptAt, opts.scopes);
   const swept = model.sweptAt ?? "";
-  return [
-    { kind: "rows", title: `Outside PRs · ${approve.length}`, items: rows },
-    {
-      kind: "actions",
-      items: approve.map((a) => approveAction(a, { item: item.id, swept }, disabled)),
-    },
-  ];
+  return {
+    kind: "cards",
+    title: `Outside PRs · ${approve.length}`,
+    items: approve.map((a) => {
+      const pill =
+        a.workflowFiles.length > 0
+          ? { label: "changes .github", tone: "caution" as const }
+          : a.pr.draft
+            ? { label: "draft", tone: "neutral" as const }
+            : undefined;
+      return {
+        title: `#${a.pr.number} ${a.pr.title}`,
+        href: a.pr.url,
+        ...(pill ? { pill } : {}),
+        fields: [
+          { label: "by", value: `${a.pr.author} · ${associationText(a.pr.association)}` },
+          { label: "diff", value: diffText(a.pr) },
+          { label: "waiting", value: plural(a.runs.length, "run") },
+        ],
+        actions: [approveAction(a, { item: item.id, swept }, disabled)],
+      };
+    }),
+  };
 }
 
-function stackActions(
-  item: QueueItem,
-  model: Model,
-  opts: InspectOptions,
-  now: Date,
-): Section | undefined {
+function verbsOf(item: QueueItem, model: Model, opts: InspectOptions, now: Date): ActionItem[] {
   const blocked = writeBlocked(model.sweptAt, opts.scopes);
   const swept = model.sweptAt ?? "";
-  const items =
-    item.kind === "lanes"
-      ? laneActions(item, model.stack, {
-          swept,
-          now,
-          ops: opts.ops ?? false,
-          ...(blocked ? { blocked } : {}),
-          ...(opts.waiting ? { waiting: opts.waiting } : {}),
-        })
-      : dispatchActions(item, model.stack, { swept, ...(blocked ? { blocked } : {}) });
-  return items.length > 0 ? { kind: "actions", items } : undefined;
+  if (item.kind === "template-set") return rolloutActionItems(model, now, blocked);
+  return item.kind === "lanes"
+    ? laneActions(item, model.stack, {
+        swept,
+        now,
+        ops: opts.ops ?? false,
+        ...(blocked ? { blocked } : {}),
+        ...(opts.waiting ? { waiting: opts.waiting } : {}),
+      })
+    : dispatchActions(item, model.stack, { swept, ...(blocked ? { blocked } : {}) });
 }
 
 function evidence(item: QueueItem): Section | undefined {
-  const items: Row[] = [];
-  if (item.url) items.push({ icon: "↗", text: "Open on GitHub", href: item.url });
-  return items.length > 0 ? { kind: "rows", title: "Evidence", items } : undefined;
+  const source = sourceOf(item);
+  return source
+    ? { kind: "rows", items: [{ icon: "↗", text: source.value, href: source.href }] }
+    : undefined;
 }
 
-export function lastAction(entry: ActionEntry | undefined, now: Date): Section {
-  if (!entry) {
-    return {
-      kind: "rows",
-      title: "Last action",
-      items: [{ glyph: "neutral", text: "none from this board" }],
-    };
-  }
+export function lastAction(entry: ActionEntry | undefined, now: Date): Section | undefined {
+  if (!entry) return undefined;
   const done = entry.results.filter((r) => r.outcome === "done").length;
   const tone: CanvasTone = done === entry.results.length ? "ok" : done > 0 ? "warn" : "error";
   return {
@@ -290,11 +369,16 @@ function stepBoard(model: Model, id: string, now: Date): CanvasBoardView {
   };
 }
 
+// A prediction has not happened yet, so its age is how long it has been queued.
+function sinceWord(item: QueueItem): string {
+  return item.kind === "radar" ? "queued" : item.incident ? "open" : "waiting";
+}
+
 export function inspectBoard(
   model: Model,
   state: InspectState,
   now: Date,
-  last?: ActionEntry,
+  entry?: ActionEntry,
   opts: InspectOptions = {},
 ): CanvasBoardView {
   if (state.selected?.startsWith(STEP_PREFIX)) return stepBoard(model, state.selected, now);
@@ -333,51 +417,57 @@ export function inspectBoard(
       sections: [{ kind: "rows", items: rows }, ...(ev ? [ev] : [])],
     };
   }
+  const reading = readItem(model, item, now);
   const since = age(item.since, now);
-  const chip = [`P${item.rung}`, since, item.note].filter(Boolean).join(" · ");
-  const sections: Section[] = [
-    { kind: "rows", items: [{ glyph: RUNG_TONE[item.rung], text: item.text }] },
-    nextSection(item, state),
-  ];
-  if (item.cause.length > 0) {
+  const chip = [
+    item.scope,
+    since ? `${sinceWord(item)} ${since}` : undefined,
+    item.note?.replace(" behind", " held"),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const listed = !!item.approve?.length || item.effects.length > 1;
+  // The tiles say the cause when the item names both sides of a gap; a list says the effects.
+  // With no effects of its own, the effect line only restates the held commits the chip shows.
+  const effect = listed || (item.effects.length === 0 && item.note) ? undefined : reading.effect;
+  const lede = [reading.gap ? undefined : reading.cause, effect]
+    .filter((t, i, all): t is string => !!t && all.indexOf(t) === i)
+    .join(" ");
+  const sections: Section[] = lede ? [{ kind: "rows", items: [{ text: lede }] }] : [];
+  if (reading.gap) {
     sections.push({
-      kind: "rows",
-      title: "Cause",
-      boxed: true,
-      items: item.cause.map((f) => ({
-        text: f.label,
-        trailing: f.value,
-        ...(f.url ? { href: f.url } : {}),
-      })),
+      kind: "stats",
+      items: [
+        { label: "Fork builds with", value: reading.gap.have },
+        { label: "Upstream requires", value: reading.gap.need, tone: "warn" },
+      ],
     });
   }
-  const approvals = approvalSections(item, model, opts);
-  if (approvals.length > 0) sections.push(...approvals);
-  else if (item.effects.length > 0) {
+  const approvals = approvalSection(item, model, opts);
+  sections.push(nextCard(item, reading, state, verbsOf(item, model, opts, now)));
+  if (approvals) sections.push(approvals);
+  const why = whySection(item, `${reading.cause} ${reading.effect}`.toLowerCase());
+  if (why) sections.push(why);
+  if (listed && !approvals) {
     sections.push({
       kind: "rows",
-      title: item.effects.length === 1 ? "Effect" : `Effects · ${item.effects.length}`,
-      items: item.effects.map((e) => ({
-        glyph: "neutral" as const,
-        text: e.text,
-        ...(e.url ? { href: e.url } : {}),
-      })),
+      title: `Effects · ${item.effects.length}`,
+      items: item.effects.map((e) => ({ text: e.text, ...(e.url ? { href: e.url } : {}) })),
     });
   }
-  const verbs = stackActions(item, model, opts, now);
-  if (verbs) sections.push(verbs);
   if (item.kind === "template-set") {
-    sections.push(rolloutSection(model, now, writeBlocked(model.sweptAt, opts.scopes)));
     const steps = ladderSection(model);
     if (steps) sections.push(steps);
   }
   const same = sameEntry(item, state);
   if (same) sections.push(same);
-  sections.push(lastAction(last, now));
-  const ev = evidence(item);
-  if (ev) sections.push(ev);
+  const related = relatedSection(reading);
+  if (related) sections.push(related);
+  const last = lastAction(entry, now);
+  if (last) sections.push(last);
   return {
     view: "board",
+    title: reading.title,
     header: { status: statusOf(item), chip },
     sections,
   };
