@@ -28,7 +28,7 @@ import {
 } from "../model/stack.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
 import { againstUsual, clip, span, stamp, took, zoned } from "../util.ts";
-import { keyGrid, spanText } from "./key.ts";
+import { spanText } from "./key.ts";
 import { stackOpen } from "./open.ts";
 
 type Section = CanvasBoardView["sections"][number];
@@ -543,7 +543,7 @@ function heldLane(model: Model, now: Date): Row | undefined {
   const stuck = a.heldNow && !model.stack.inflight && a.since !== undefined;
   const last = held.length - 1;
   return {
-    text: `deployable · ${pct(a.share)}`,
+    text: `deployable · ${pct(a.share)} · red when held over an hour`,
     bar: {
       quiet: true,
       cells: held.map((d, i) =>
@@ -637,30 +637,26 @@ function housekeeping(model: Model, now: Date): Section {
   };
 }
 
-// One meaning per mark: red is a failure or a hold, amber only a cancel.
-const HISTORY_KEY = [
-  { label: "passed", tone: "ok" as const },
-  { label: "failed or held", tone: "error" as const },
-  { label: "cancelled", tone: "warn" as const },
-  { label: "running", tone: "info" as const },
-  { label: "missed its slot", tone: "error" as const, hollow: true },
-  { label: "due later today", tone: "info" as const, hollow: true },
-  { label: "nothing due", tone: "neutral" as const, hollow: true },
-  { label: "releases behind", tone: "neutral" as const },
-];
-
+// Each group says what its marks mean where they are drawn; a detached key
+// read as belonging to neither the incident above nor the lanes below.
 function history(model: Model, now: Date): Section[] {
   const environment = [heldLane(model, now), deployLane(model), behindLane(model)].filter(
     (r): r is Row => r !== undefined,
   );
   return [
-    keyGrid(`History · ${spanText(model.stack.history.runs.smoke, "cell")}`, HISTORY_KEY),
     ...(environment.length > 0
-      ? [{ kind: "rows" as const, title: "Environment", items: environment }]
+      ? [
+          {
+            kind: "rows" as const,
+            title: `Environment · ${spanText(model.stack.history.runs.smoke, "cell")}`,
+            items: environment,
+          },
+        ]
       : []),
     {
       kind: "rows",
-      title: "Lifecycle",
+      title:
+        "Lifecycle · each day's newest run · an outline is a day without one: red missed, blue due later today, grey nothing due",
       items: [
         lane(model, "upgrade", now, "on bump"),
         lane(model, "refresh", now),

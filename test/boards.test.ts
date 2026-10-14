@@ -471,7 +471,7 @@ describe("what the boards say", () => {
     };
     const env = titled("Environment");
     expect(env.items.map((i) => i.text)).toEqual([
-      "deployable · 63%",
+      "deployable · 63% · red when held over an hour",
       "fork deploys · 5 forks",
       "releases behind",
     ]);
@@ -691,7 +691,7 @@ describe("what the boards say", () => {
       },
     };
     const env = stackBoard(stuck, FIXTURE_NOW).sections.find(
-      (s) => s.kind === "rows" && s.title === "Environment",
+      (s) => s.kind === "rows" && s.title?.startsWith("Environment"),
     );
     if (env?.kind !== "rows") throw new Error("environment rows");
     const bar = env.items[0]?.bar;

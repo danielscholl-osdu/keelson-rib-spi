@@ -32,25 +32,18 @@ function marks(x: unknown, out: string[] = []): string[] {
 }
 
 describe("keys and spans", () => {
-  test("the Environment history opens with one key that names its span once", () => {
+  test("the Environment history has no detached key; each group says what its marks mean", () => {
     const b = stackBoard(model, FIXTURE_NOW);
     expect(() => expectView(STACK_KEY, "board")(b)).not.toThrow();
-    const key = grid(b, "History · ");
-    expect(key.title).toBe("History · 09-22 to today, one cell per day");
-    expect(key.cells.map((c) => [c.label, c.badge?.tone, c.badge?.text])).toEqual([
-      ["passed", "ok", "■"],
-      ["failed or held", "error", "■"],
-      ["cancelled", "warn", "■"],
-      ["running", "info", "■"],
-      ["missed its slot", "error", "□"],
-      ["due later today", "info", "□"],
-      ["nothing due", "neutral", "□"],
-      ["releases behind", "neutral", "■"],
-    ]);
     const titles = b.sections.map((s) => ("title" in s ? s.title : undefined));
-    expect(titles.indexOf(key.title)).toBeLessThan(titles.indexOf("Environment"));
-    expect(titles.indexOf("Environment")).toBeLessThan(titles.indexOf("Lifecycle"));
-    expect(titles.filter((t) => t?.includes("one cell per day"))).toHaveLength(1);
+    expect(titles.some((t) => t?.startsWith("History"))).toBe(false);
+    expect(titles).toContain("Environment · 09-22 to today, one cell per day");
+    expect(titles.find((t) => t?.startsWith("Lifecycle"))).toContain(
+      "red missed, blue due later today, grey nothing due",
+    );
+    expect(titles.indexOf("Environment · 09-22 to today, one cell per day")).toBeLessThan(
+      titles.findIndex((t) => t?.startsWith("Lifecycle")),
+    );
   });
 
   test("the Services fleet block opens with its key and its span", () => {

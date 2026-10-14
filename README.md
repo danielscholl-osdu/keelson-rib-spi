@@ -77,8 +77,8 @@ attempt in order, cancelled ones included. A step that runs past every green run
 of its kind turns amber. Greenfield stays where it is, so a green fresh deploy
 beside a red in-place run points at the upgrade path rather than the release.
 
-Under the tiles, 21 days of history are one cell per local day under one key.
-The Environment group is deployable (red on a day held over an hour, or today
+Under the tiles, 21 days of history are one cell per local day, and each group
+says what its marks mean where they are drawn. The Environment group is deployable (red on a day held over an hour, or today
 while a stopped run holds it), fork deploys (passed and failed per day) and
 releases behind. The Lifecycle group is upgrade, refresh and smoke: a day's cell
 is its newest run, green, red, amber for cancelled, blue while running. A
