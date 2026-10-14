@@ -130,7 +130,7 @@ function runningStat(model: Model, now: Date): Stat {
   };
 }
 
-function ago(at: string, now: Date): string | undefined {
+export function ago(at: string, now: Date): string | undefined {
   const text = span(now.getTime() - Date.parse(at));
   return text && `${text} ago`;
 }
@@ -166,7 +166,7 @@ function pct(share: number): string {
   return `${n}%`;
 }
 
-function deployableStat(model: Model, now: Date): Stat {
+export function deployableStat(model: Model, now: Date): Stat {
   const a = model.stack.availability;
   const label = `Deployable · ${HISTORY_DAYS} days`;
   if (!a) return { label, value: null, sub: "no lifecycle run read" };
@@ -241,7 +241,7 @@ function forksStat(model: Model, now: Date): Stat {
   };
 }
 
-function streakText(stat: LifecycleStat): string | undefined {
+export function streakText(stat: LifecycleStat): string | undefined {
   const s = stat.streak;
   if (!s || s.n < 2) return undefined;
   return s.green ? `${s.n} in a row` : `red ${s.n} in a row`;

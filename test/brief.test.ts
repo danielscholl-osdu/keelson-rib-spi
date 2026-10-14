@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { doctorStatus } from "../src/boards/doctor";
-import { buildBriefing, type DoctorView } from "../src/brief/index";
+import { type BriefFact, buildBriefing, type DoctorView } from "../src/brief/index";
+import type { Facts, LifecycleRun } from "../src/facts";
 import { buildModel, type Model } from "../src/model/index";
 import type { StationState } from "../src/model/lines";
 import type { QueueItem } from "../src/model/queue";
@@ -485,5 +486,135 @@ describe("the flow", () => {
     expect(f.headline).toBe("Change stops at the environment.");
     expect(f.rows).toEqual([]);
     expect(f.bands.find((b) => b.column === "Lane")).toMatchObject({ tone: "bad" });
+  });
+});
+
+describe("the environment", () => {
+  const FIGURE = /^(v\d+\.\d+\.\d+|\d+%|\d+ (min|h|d)( \d+ (min|h))?|\?)$/;
+  const IN_FLIGHT = 38312331838;
+  const WINDOW_FROM = FIXTURE_NOW.getTime() - 86_400_000;
+
+  function envOf(facts: Facts) {
+    const m = buildModel(facts, FIXTURE_NOW);
+    return { m, env: buildBriefing(m, CLEAR, FIXTURE_NOW).environment };
+  }
+
+  // The recorded in-flight upgrade, finished green at 21:58 with maintenance cleared.
+  function finished(): Facts {
+    const facts = fixtureFacts();
+    const run = facts.lifecycle.data?.upgrade?.find((r) => r.id === IN_FLIGHT);
+    if (!run) throw new Error("fixture lost its in-flight upgrade");
+    Object.assign(run, { status: "completed", conclusion: "success" });
+    for (const job of run.jobs ?? []) {
+      Object.assign(job, { status: "completed", conclusion: "success" });
+      job.completedAt ??= "2026-10-12T21:58:05Z";
+      for (const step of job.steps) {
+        Object.assign(step, { status: "completed", conclusion: "success" });
+        step.startedAt ??= "2026-10-12T21:57:50Z";
+        step.completedAt ??= "2026-10-12T21:58:00Z";
+      }
+    }
+    return facts;
+  }
+
+  function figuresHold(facts: readonly BriefFact[]): void {
+    expect(facts.map((f) => f.label)).toEqual(["Running", "Deployable · 21 days", "Last proof"]);
+    for (const f of facts) expect(f.figure).toMatch(FIGURE);
+  }
+
+  test("the recorded sweep leads with the upgrade in flight and draws it open", () => {
+    const { m, env } = envOf(fixtureFacts());
+    expect(env.headline).toBe("An upgrade to v0.28.2 is running, at verify.");
+    expect(env.lanes.map((l) => l.id)).toEqual(["upgrade", "refresh", "smoke", "holds"]);
+    const upgrade = env.lanes[0]?.events ?? [];
+    expect(upgrade.map((e) => [e.label, e.state])).toEqual([
+      ["v0.28.1", "failed"],
+      ["v0.28.1", "cancelled"],
+      ["v0.28.2", "running"],
+    ]);
+    expect(upgrade[2]?.end).toBeUndefined();
+    expect(upgrade[2]?.detail).toBe("running · at verify");
+    expect(env.from).toBe(new Date(WINDOW_FROM).toISOString());
+    expect(env.to).toBe(FIXTURE_NOW.toISOString());
+    const holds = env.lanes[3]?.events ?? [];
+    expect(holds).toHaveLength(1);
+    expect(holds[0]).toMatchObject({ state: "held", inspect: "stack:38181620856" });
+    expect(holds[0]?.end).toBeUndefined();
+    figuresHold(env.facts);
+    expect(env.facts[0]?.sub).toBe("upgrade running · at verify · declares v0.28.2");
+    expect(env.facts[2]).toMatchObject({
+      figure: "26 min",
+      sub: "smoke · fresh cluster · 12 h 52 min ago · 7 in a row",
+    });
+    const queue = new Set(m.queue.items.map((i) => i.id));
+    const inspected = env.lanes.flatMap((l) => l.events.flatMap((e) => e.inspect ?? []));
+    expect(inspected.length).toBeGreaterThan(0);
+    for (const id of inspected) expect(queue.has(id)).toBe(true);
+  });
+
+  test("every event touches the window; a fresh-cluster smoke never shares a lane", () => {
+    const { env } = envOf(fixtureFacts());
+    for (const l of env.lanes) {
+      for (const e of l.events) {
+        expect(Date.parse(e.end ?? env.to)).toBeGreaterThanOrEqual(WINDOW_FROM);
+        expect(Date.parse(e.start)).toBeLessThanOrEqual(FIXTURE_NOW.getTime());
+      }
+    }
+    expect(env.lanes.find((l) => l.id === "smoke")?.events.map((e) => e.label)).toEqual(["smoke"]);
+    expect(env.lanes.find((l) => l.id === "upgrade")?.events.some((e) => e.label === "smoke")).toBe(
+      false,
+    );
+  });
+
+  test("a hold no run is working on names the attempt that left it", () => {
+    const facts = fixtureFacts();
+    const lc = facts.lifecycle.data;
+    if (lc?.upgrade) lc.upgrade = lc.upgrade.filter((r) => r.id !== IN_FLIGHT);
+    const { env } = envOf(facts);
+    expect(env.headline).toMatch(
+      /^The environment is held: env-upgrade v0\.28\.1 cancelled at verify › .+\.$/,
+    );
+    expect(env.facts[0]?.sub).toMatch(/^held · env-upgrade v0\.28\.1 cancelled at verify/);
+    expect(env.facts[0]?.tone).toBe("bad");
+    expect(env.facts[1]?.sub).toContain("held since");
+    figuresHold(env.facts);
+  });
+
+  test("deployable after failures counts each failed attempt the timeline draws", () => {
+    const { env } = envOf(finished());
+    const failed = env.lanes
+      .filter((l) => l.id === "upgrade" || l.id === "refresh")
+      .flatMap((l) => l.events)
+      .filter((e) => e.state === "failed");
+    expect(failed).toHaveLength(2);
+    expect(env.headline).toBe(
+      "Deployable on v0.28.2 since 21:58, after 2 failed attempts in the last day.",
+    );
+    expect(env.facts[0]).toMatchObject({ figure: "v0.28.2", tone: "ok" });
+    figuresHold(env.facts);
+  });
+
+  test("a day of green runs says so", () => {
+    const facts = finished();
+    const lc = facts.lifecycle.data;
+    const keep = (r: LifecycleRun) =>
+      r.conclusion === "success" || Date.parse(r.createdAt) < WINDOW_FROM;
+    if (lc?.upgrade) lc.upgrade = lc.upgrade.filter(keep);
+    if (lc?.refresh) lc.refresh = lc.refresh.filter(keep);
+    const { env } = envOf(facts);
+    expect(env.headline).toBe("Deployable on v0.28.2; every run in the last day was green.");
+    const states = env.lanes.flatMap((l) => l.events.map((e) => e.state));
+    expect(states.length).toBeGreaterThan(0);
+    expect(states.every((s) => s === "ok" || s === "held")).toBe(true);
+    figuresHold(env.facts);
+  });
+
+  test("with no lifecycle run read, the declaration stands in and the rest are unread", () => {
+    const facts = fixtureFacts();
+    facts.lifecycle.data = { refresh: [], upgrade: [], smoke: [], sweeper: [] };
+    const { env } = envOf(facts);
+    figuresHold(env.facts);
+    expect(env.facts.map((f) => f.figure)).toEqual(["v0.28.2", "?", "?"]);
+    expect(env.lanes.every((l) => l.events.length === 0)).toBe(true);
   });
 });

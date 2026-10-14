@@ -10,6 +10,9 @@ import { designTokenCssBlock } from "@keelson/shared";
 import type {
   BriefFact,
   Briefing,
+  EnvEvent,
+  EnvLane,
+  EnvState,
   Flow,
   FlowCell,
   FlowRow,
@@ -19,7 +22,7 @@ import type {
   Tone,
 } from "../brief/index.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
-import { zoned } from "../util.ts";
+import { span, stamp, zoned } from "../util.ts";
 
 // A console past this size means the briefing stopped folding.
 export const CONSOLE_MAX_BYTES = 256_000;
@@ -186,6 +189,171 @@ ${matrix}${fold}
 ${details ? `<div class="pane cells">${details}</div>` : ""}`;
 }
 
+// The timeline's narrowest width; past it the box scrolls, so label room is planned against it.
+const TRACK_MIN_PX = 960;
+const CHAR_PX = 6.6;
+const BAR_MIN_PX = 5;
+const TIER_PX = 20;
+const MAX_TIERS = 6;
+
+const EVENT_GLYPH: Record<EnvState, string> = {
+  ok: "✓",
+  failed: "✕",
+  cancelled: "⊘",
+  running: "●",
+  held: "",
+};
+
+const EVENT_WORD: Record<EnvState, string> = {
+  ok: "green",
+  failed: "failed",
+  cancelled: "cancelled",
+  running: "running",
+  held: "held",
+};
+
+const EVENT_TONE: Record<EnvState, string> = {
+  ok: "t-ok",
+  failed: "t-bad",
+  cancelled: "",
+  running: "t-warn",
+  held: "t-warn",
+};
+
+function eventKey(lane: EnvLane, e: EnvEvent): string {
+  return `${lane.id}:${e.id}`;
+}
+
+function pctOf(t: number, from: number, to: number): number {
+  return Math.min(100, Math.max(0, ((t - from) / Math.max(1, to - from)) * 100));
+}
+
+function fixed(n: number): string {
+  return String(Math.round(n * 100) / 100);
+}
+
+function eventText(e: EnvEvent): string {
+  const glyph = EVENT_GLYPH[e.state];
+  return glyph ? `${glyph} ${e.label}` : e.label;
+}
+
+function eventWhen(e: EnvEvent, now: Date): string {
+  const start = stamp(e.start, now) ?? "?";
+  const end = e.end ? (stamp(e.end, now) ?? "?") : "now";
+  const took = span((e.end ? Date.parse(e.end) : now.getTime()) - Date.parse(e.start));
+  return `${start} to ${end}${took ? ` · ${took}` : ""}`;
+}
+
+interface Placed {
+  e: EnvEvent;
+  left: number;
+  width: number;
+  tier: number;
+  // The label sits left of the bar when it would run past the window's end.
+  flip: boolean;
+}
+
+// Each bar takes the first tier where it and its label clear the one before.
+function place(events: readonly EnvEvent[], from: number, to: number): Placed[] {
+  const ends: number[] = [];
+  const gap = (4 / TRACK_MIN_PX) * 100;
+  return [...events]
+    .sort((a, b) => Date.parse(a.start) - Date.parse(b.start))
+    .map((e) => {
+      const left = pctOf(Date.parse(e.start), from, to);
+      const right = pctOf(e.end ? Date.parse(e.end) : to, from, to);
+      const width = Math.max(0, right - left);
+      const bar = Math.max(width, (BAR_MIN_PX / TRACK_MIN_PX) * 100);
+      const label = ((eventText(e).length * CHAR_PX) / TRACK_MIN_PX) * 100;
+      const flip = left + bar + gap + label > 100;
+      const start = flip ? left - gap - label : left;
+      const end = flip ? left + bar : left + bar + gap + label;
+      let tier = ends.findIndex((x) => x + gap <= start);
+      if (tier < 0) tier = ends.length < MAX_TIERS ? ends.length : ends.indexOf(Math.min(...ends));
+      ends[tier] = Math.max(ends[tier] ?? 0, end);
+      return { e, left, width, tier, flip };
+    });
+}
+
+function hourTicks(from: number, to: number): { at: number; text: string }[] {
+  const t = new Date(from);
+  t.setMinutes(0, 0, 0);
+  if (t.getTime() <= from) t.setHours(t.getHours() + 1);
+  const out: { at: number; text: string }[] = [];
+  for (; t.getTime() < to; t.setHours(t.getHours() + 1)) {
+    const hh = String(t.getHours()).padStart(2, "0");
+    out.push({ at: t.getTime(), text: `${hh}:00` });
+  }
+  return out;
+}
+
+function laneRow(
+  lane: EnvLane,
+  from: number,
+  to: number,
+  selected: string | undefined,
+  now: Date,
+): string {
+  const placed = place(lane.events, from, to);
+  const tiers = Math.max(1, ...placed.map((p) => p.tier + 1));
+  const bars = placed
+    .map((p) => {
+      const key = eventKey(lane, p.e);
+      const on = key === selected;
+      const name = `${lane.label} ${p.e.label}, ${EVENT_WORD[p.e.state]}, ${eventWhen(p.e, now)}`;
+      return `<button type="button" class="ev s-${p.e.state}${on ? " on" : ""}" data-event="${esc(key)}" aria-pressed="${on}" title="${esc(name)}" aria-label="${esc(name)}" style="left:${fixed(p.left)}%;width:${fixed(p.width)}%;top:${p.tier * TIER_PX + 4}px"><span class="evl${p.flip ? " flip" : ""}">${esc(eventText(p.e))}</span></button>`;
+    })
+    .join("");
+  const empty = placed.length === 0 ? `<span class="none">none in the last day</span>` : "";
+  return `<div class="tl-row"><div class="tl-lab">${esc(lane.label)}</div><div class="tl-track" style="height:${tiers * TIER_PX + 6}px">${bars}${empty}</div></div>`;
+}
+
+function eventDetail(lane: EnvLane, e: EnvEvent, selected: boolean, now: Date): string {
+  return `<section class="detail" data-event-detail="${esc(eventKey(lane, e))}"${selected ? "" : " hidden"}>
+<p class="eyebrow">${esc(lane.label)} · ${EVENT_WORD[e.state]}</p>
+<h3 class="${EVENT_TONE[e.state]}">${esc(e.label)}</h3>
+<p class="dl">When</p><p>${esc(eventWhen(e, now))}</p>
+<p class="dl">What happened</p><p>${esc(e.detail)}</p>
+${e.inspect ? `<button type="button" class="open" data-inspect="${esc(e.inspect)}">Open in inspector</button>` : ""}
+</section>`;
+}
+
+// The newest failed event, else the newest of all.
+function firstEvent(lanes: readonly EnvLane[]): string | undefined {
+  const all = lanes
+    .flatMap((lane) => lane.events.map((e) => ({ key: eventKey(lane, e), e })))
+    .sort((a, b) => Date.parse(b.e.start) - Date.parse(a.e.start));
+  return (all.find((x) => x.e.state === "failed") ?? all[0])?.key;
+}
+
+function environmentHtml(b: Briefing, now: Date): string {
+  const env = b.environment;
+  const from = Date.parse(env.from);
+  const to = Date.parse(env.to);
+  const first = firstEvent(env.lanes);
+  const ticks = hourTicks(from, to);
+  const grid = ticks
+    .map((t) => `<span class="tick" style="left:${fixed(pctOf(t.at, from, to))}%"></span>`)
+    .join("");
+  const axis = ticks
+    .map((t) => ({ ...t, left: pctOf(t.at, from, to) }))
+    .filter((t) => t.left > 2 && t.left < 98)
+    .map((t) => `<span class="tl-hour" style="left:${fixed(t.left)}%">${esc(t.text)}</span>`)
+    .join("");
+  const rows = env.lanes.map((l) => laneRow(l, from, to, first, now)).join("");
+  const timeline =
+    env.lanes.length > 0
+      ? `<div class="tl-box"><div class="tl"><div class="tl-grid">${grid}</div><div class="tl-row tl-axis"><div class="tl-lab"></div><div class="tl-track">${axis}</div></div>${rows}</div></div>`
+      : "";
+  const details = env.lanes
+    .flatMap((l) => l.events.map((e) => eventDetail(l, e, eventKey(l, e) === first, now)))
+    .join("");
+  return `<h2>${esc(env.headline)}</h2>
+${env.facts.length > 0 ? `<div class="facts">${env.facts.map(factHtml).join("")}</div>` : ""}
+${timeline}${env.note ? `<p class="note">${esc(env.note)}</p>` : ""}
+${details ? `<div class="pane events">${details}</div>` : ""}`;
+}
+
 function tab(view: string, label: string, on: boolean): string {
   return `<button type="button" role="tab" class="tab${on ? " on" : ""}" data-view="${view}" aria-selected="${on}">${label}</button>`;
 }
@@ -256,6 +424,26 @@ button.envband { cursor: pointer; }
 .cells { margin-top: 12px; }
 .detail h3.t-bad { color: var(--crit); } .detail h3.t-warn { color: var(--warn); }
 .items { margin: 2px 0 0; padding-left: 18px; font-size: 13.5px; }
+.tl-box { overflow-x: auto; margin-top: 14px; direction: rtl; }
+.tl { direction: ltr; position: relative; min-width: ${TRACK_MIN_PX + 76}px; }
+.tl-row { display: grid; grid-template-columns: 76px minmax(0, 1fr); border-bottom: 1px solid var(--border); }
+.tl-lab { position: sticky; left: 0; z-index: 2; background: var(--bg); font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 7px 8px 0 0; }
+.tl-track { position: relative; min-height: 26px; }
+.tl-axis .tl-track { height: 18px; min-height: 0; }
+.tl-hour { position: absolute; top: 2px; transform: translateX(-50%); font-family: var(--mono); font-size: 10px; color: var(--muted); white-space: nowrap; }
+.tl-grid { position: absolute; top: 0; bottom: 0; left: 76px; right: 0; pointer-events: none; }
+.tick { position: absolute; top: 18px; bottom: 0; border-left: 1px dashed var(--border); }
+.ev { position: absolute; height: 12px; min-width: ${BAR_MIN_PX}px; padding: 0; border: none; border-radius: 3px; background: var(--muted); cursor: pointer; font: inherit; }
+.ev.s-ok { background: var(--good); } .ev.s-failed { background: var(--crit); } .ev.s-running, .ev.s-held { background: var(--warn); }
+.ev.s-held { opacity: .55; }
+.ev.on { outline: 2px solid var(--accent); outline-offset: 2px; }
+.evl { position: absolute; left: calc(100% + 4px); top: -2px; font-family: var(--mono); font-size: 11px; line-height: 16px; color: var(--fg); white-space: nowrap; }
+.evl.flip { left: auto; right: calc(100% + 4px); }
+.ev.s-failed .evl { color: var(--crit); font-weight: 600; }
+.ev.on .evl { color: var(--fg-strong); }
+.none { position: absolute; left: 6px; top: 5px; font-size: 12px; color: var(--muted); }
+.note { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
+.events { margin-top: 12px; }
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (max-width: 720px) {
   .split, .facts { grid-template-columns: minmax(0, 1fr); }
@@ -288,6 +476,7 @@ const SCRIPT = `(function () {
     ["sel", "data-sel", "data-detail", "aria-pressed"],
     ["theme", "data-theme-sel", "data-theme-detail", "aria-pressed"],
     ["cell", "data-cell", "data-cell-detail", "aria-pressed"],
+    ["event", "data-event", "data-event-detail", "aria-pressed"],
   ];
   var state = {};
   KINDS.forEach(function (c) { state[c[0]] = current(c[1]); });
@@ -299,7 +488,7 @@ const SCRIPT = `(function () {
     });
   });
   document.addEventListener("click", function (e) {
-    var t = e.target && e.target.closest ? e.target.closest("[data-view],[data-sel],[data-theme-sel],[data-cell],[data-inspect]") : null;
+    var t = e.target && e.target.closest ? e.target.closest("[data-view],[data-sel],[data-theme-sel],[data-cell],[data-event],[data-inspect]") : null;
     if (!t) return;
     for (var i = 0; i < KINDS.length; i++) {
       var c = KINDS[i];
@@ -307,7 +496,7 @@ const SCRIPT = `(function () {
       if (id === null) continue;
       if (show(c[1], c[2], id, c[3])) {
         state[c[0]] = id;
-        if (k.saveState) k.saveState({ view: state.view, sel: state.sel, theme: state.theme, cell: state.cell });
+        if (k.saveState) k.saveState({ view: state.view, sel: state.sel, theme: state.theme, cell: state.cell, event: state.event });
       }
       return;
     }
@@ -337,10 +526,11 @@ ${b.summary ? `<p class="summary">${esc(b.summary)}</p>` : ""}
 ${b.facts.length > 0 ? todayHtml(b) : ""}`;
   const views =
     b.facts.length > 0
-      ? `<div class="tabs" role="tablist">${tab("today", "Today", true)}${tab("flow", "Flow", false)}${tab("horizon", "Horizon", false)}</div>
+      ? `<div class="tabs" role="tablist">${tab("today", "Today", true)}${tab("flow", "Flow", false)}${tab("horizon", "Horizon", false)}${tab("environment", "Environment", false)}</div>
 <div data-view-pane="today">${today}</div>
 <div data-view-pane="flow" hidden>${flowHtml(b)}</div>
-<div data-view-pane="horizon" hidden>${horizonHtml(b)}</div>`
+<div data-view-pane="horizon" hidden>${horizonHtml(b)}</div>
+<div data-view-pane="environment" hidden>${environmentHtml(b, now)}</div>`
       : today;
   return `<style>${designTokenCssBlock()}${STYLE}</style>
 <div class="wrap">${meta}

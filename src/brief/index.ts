@@ -6,14 +6,30 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-import { AZURE_REMOVAL_DUE, SYNC_UPSTREAM_CRON } from "../config.ts";
+import { ago as agoText, deployableStat, streakText } from "../boards/stack.ts";
+import {
+  AZURE_REMOVAL_DUE,
+  HISTORY_DAYS,
+  type LifecycleKind,
+  SYNC_UPSTREAM_CRON,
+} from "../config.ts";
+import type { LifecycleRun } from "../facts.ts";
 import type { Model } from "../model/index.ts";
 import type { LineModel } from "../model/lines.ts";
 import { type ItemClass, itemClass, nextText, verbOf } from "../model/next.ts";
 import type { QueueItem, Rung } from "../model/queue.ts";
 import type { Verdict } from "../model/radar.ts";
 import { nextFire, toCrons } from "../model/schedule.ts";
-import { age, plural, stamp } from "../util.ts";
+import {
+  type RunView,
+  replayHolds,
+  runName,
+  runResult,
+  runWhere,
+  stoppedAttempts,
+  viewRun,
+} from "../model/stack.ts";
+import { age, plural, span, stamp } from "../util.ts";
 
 export type Tone = "bad" | "warn" | "ok" | "neutral";
 
@@ -119,6 +135,36 @@ export interface Flow {
   fold?: { forks: string[]; text: string };
 }
 
+export type EnvState = "ok" | "failed" | "cancelled" | "running" | "held";
+
+export interface EnvEvent {
+  // Stable across sweeps: a run id, or a hold's start.
+  id: string;
+  start: string;
+  // Open while the run or the hold still is.
+  end?: string;
+  state: EnvState;
+  label: string;
+  detail: string;
+  inspect?: string;
+}
+
+export interface EnvLane {
+  id: "upgrade" | "refresh" | "smoke" | "holds";
+  label: string;
+  events: EnvEvent[];
+}
+
+export interface Environment {
+  headline: string;
+  facts: BriefFact[];
+  lanes: EnvLane[];
+  // The axis window.
+  from: string;
+  to: string;
+  note?: string;
+}
+
 export interface Briefing {
   sweptAt?: string;
   nextSyncAt?: string;
@@ -133,6 +179,7 @@ export interface Briefing {
   themes: Theme[];
   horizon: { headline: string };
   flow: Flow;
+  environment: Environment;
 }
 
 const FOCUS_MAX = 5;
@@ -1133,6 +1180,243 @@ function mergeQuiet(bands: readonly FlowBand[]): FlowBand[] {
   return out;
 }
 
+const ENV_LANES: [EnvLane["id"] & LifecycleKind, string][] = [
+  ["upgrade", "Upgrade"],
+  ["refresh", "Refresh"],
+  ["smoke", "Smoke"],
+];
+
+function envState(run: LifecycleRun): EnvState {
+  if (run.status !== "completed") return "running";
+  if (run.conclusion === "success") return "ok";
+  return run.conclusion === "cancelled" ? "cancelled" : "failed";
+}
+
+// "env-upgrade v0.28.5 failed at provision › spi up"
+function attemptLine(view: RunView): string {
+  const where = view.failedAt ?? runWhere(view);
+  return `${runName(view.run)} ${runResult(view.run)}${where ? ` at ${where}` : ""}`;
+}
+
+function runEvent(view: RunView, inspect: string | undefined): EnvEvent {
+  const run = view.run;
+  const state = envState(run);
+  const ends = view.stages.flatMap((s) => (s.completedAt ? [s.completedAt] : [])).sort();
+  const end = state === "running" ? undefined : (ends.at(-1) ?? run.updatedAt);
+  const took = span(Date.parse(end ?? run.updatedAt) - Date.parse(run.createdAt));
+  let detail: string;
+  if (state === "ok") detail = `green in ${took ?? "?"}`;
+  else if (state === "running") detail = `running${view.current ? ` · at ${view.current}` : ""}`;
+  else if (state === "cancelled") {
+    const where = runWhere(view);
+    detail = `cancelled${took ? ` after ${took}` : ""}${where ? ` at ${where}` : ""}`;
+  } else {
+    const where = view.failedAt ?? runWhere(view);
+    detail = `${runResult(run)}${where ? ` at ${where}` : took ? ` after ${took}` : ""}${view.reason ? `: ${view.reason}` : ""}`;
+  }
+  return {
+    id: String(run.id),
+    start: run.createdAt,
+    ...(end ? { end } : {}),
+    state,
+    label: run.target ?? run.kind,
+    detail,
+    ...(inspect ? { inspect } : {}),
+  };
+}
+
+function envLanes(model: Model, from: number, now: Date): EnvLane[] {
+  const { stack, queue } = model;
+  const to = now.getTime();
+  const inside = (start: number, end: number) => end >= from && start <= to;
+  // The stack incident covers every attempt since the last green run.
+  const item = queue.items.find((i) => i.kind === "stack");
+  const covered = new Set(item ? stack.attempts.map((a) => a.run.id) : []);
+  const lanes: EnvLane[] = ENV_LANES.map(([id, label]) => ({
+    id,
+    label,
+    events: stack.lifecycle[id].runs
+      .filter((r) =>
+        inside(Date.parse(r.createdAt), r.status === "completed" ? Date.parse(r.updatedAt) : to),
+      )
+      .map((r) => runEvent(viewRun(r), covered.has(r.id) ? item?.id : undefined)),
+  }));
+  const open = item?.id ?? queue.items.find((i) => i.kind === "maintenance")?.id;
+  const runs = [...stack.lifecycle.refresh.runs, ...stack.lifecycle.upgrade.runs];
+  const holds = runs.length > 0 ? replayHolds(runs).holds : [];
+  lanes.push({
+    id: "holds",
+    label: "Held",
+    events: holds
+      .filter((h) => inside(h.from, h.to ?? to))
+      .map((h) => {
+        const held = span((h.to ?? to) - h.from) ?? "?";
+        return {
+          id: String(h.from),
+          start: new Date(h.from).toISOString(),
+          ...(h.to !== undefined ? { end: new Date(h.to).toISOString() } : {}),
+          state: "held" as const,
+          label: held,
+          detail:
+            h.to === undefined ? `in maintenance for ${held} so far` : `in maintenance for ${held}`,
+          ...(h.to === undefined && open ? { inspect: open } : {}),
+        };
+      }),
+  });
+  return lanes;
+}
+
+// Why the environment is held when no run is working on it.
+function heldReason(model: Model, now: Date): string | undefined {
+  const { stack } = model;
+  if (stack.inflight || stack.maintenance.state !== "set") return undefined;
+  const last = stoppedAttempts(stack).at(-1);
+  if (last) return attemptLine(last);
+  const run = stack.maintenance.run;
+  const at = stamp(stack.maintenance.since, now);
+  return run
+    ? `maintenance set${at ? ` at ${at}` : ""} by ${runName(run)}, no run in flight`
+    : "maintenance is set";
+}
+
+function envHeadline(
+  model: Model,
+  lanes: readonly EnvLane[],
+  held: string | undefined,
+  now: Date,
+): string {
+  const { stack } = model;
+  const live = stack.inflight;
+  if (live) {
+    const { kind, target } = live.run;
+    const what =
+      kind === "upgrade"
+        ? `An upgrade${target ? ` to ${target}` : ""}`
+        : `A ${kind}${target ? ` of ${target}` : ""}`;
+    return `${what} is running${live.current ? `, at ${live.current}` : ""}.`;
+  }
+  if (held) return sentence(`The environment is held: ${held}`);
+  if (stack.deployable.state !== "yes") {
+    const last = stoppedAttempts(stack).at(-1);
+    return last
+      ? sentence(`The environment is not deployable: ${attemptLine(last)}`)
+      : "Deployability is unknown; no lifecycle run in the window says.";
+  }
+  const version = stack.running?.version ?? "?";
+  const runs = lanes.filter((l) => l.id !== "holds");
+  const failed = runs
+    .filter((l) => l.id !== "smoke")
+    .flatMap((l) => l.events)
+    .filter((e) => e.state === "failed").length;
+  const a = stack.availability;
+  const up = a && !a.heldNow && a.since !== undefined ? new Date(a.since).toISOString() : undefined;
+  const at = stamp(up ?? stack.running?.at, now);
+  const head = `Deployable on ${version}${at ? ` since ${at}` : ""}`;
+  if (failed > 0) return `${head}, after ${plural(failed, "failed attempt")} in the last day.`;
+  const smoke = runs.find((l) => l.id === "smoke")?.events.filter((e) => e.state === "failed");
+  const lastSmoke = smoke?.at(-1);
+  if (lastSmoke) {
+    return `${head}; smoke on a fresh cluster failed at ${stamp(lastSmoke.start, now)}.`;
+  }
+  const events = runs.flatMap((l) => l.events);
+  const cancelled = events.filter((e) => e.state === "cancelled").length;
+  if (cancelled > 0) return `${head}; ${plural(cancelled, "run")} cancelled in the last day.`;
+  if (events.length === 0) return `Deployable on ${version}; no lifecycle run in the last day.`;
+  return `Deployable on ${version}; every run in the last day was green.`;
+}
+
+function proofFact(model: Model, now: Date): BriefFact {
+  const { lifecycle } = model.stack;
+  const label = "Last proof";
+  const newest = (["smoke", "refresh"] as const)
+    .flatMap((kind) => {
+      const run = lifecycle[kind].runs
+        .filter((r) => r.status === "completed" && r.conclusion === "success")
+        .at(-1);
+      return run ? [{ kind, run }] : [];
+    })
+    .sort((a, b) => Date.parse(b.run.updatedAt) - Date.parse(a.run.updatedAt))[0];
+  if (!newest) {
+    return {
+      label,
+      figure: "?",
+      sub: `no green smoke or refresh in ${HISTORY_DAYS} days`,
+      tone: "neutral",
+    };
+  }
+  const { kind, run } = newest;
+  const stat = lifecycle[kind];
+  return {
+    label,
+    figure: span(Date.parse(run.updatedAt) - Date.parse(run.createdAt)) ?? "?",
+    sub: [
+      kind === "smoke" ? "smoke · fresh cluster" : "refresh · in place",
+      agoText(run.updatedAt, now),
+      stat.last?.id === run.id ? streakText(stat) : undefined,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    tone: "ok",
+  };
+}
+
+function envFacts(
+  model: Model,
+  env: BriefFact | undefined,
+  held: string | undefined,
+  now: Date,
+): BriefFact[] {
+  const { stack } = model;
+  const running: BriefFact = {
+    ...(env ?? { figure: "?", sub: "deployability unread", tone: "neutral" as const }),
+    label: "Running",
+  };
+  const declares = running.sub.match(/ · declares \S+$/)?.[0] ?? "";
+  const stopped = stoppedAttempts(stack).at(-1);
+  if (held) {
+    running.sub = `held · ${held}${declares}`;
+    running.tone = "bad";
+  } else if (!stack.inflight && stack.deployable.state !== "yes" && stopped) {
+    running.sub = `not deployable · ${attemptLine(stopped)}${declares}`;
+    running.tone = "bad";
+  }
+  const d = deployableStat(model, now);
+  const heldNow = stack.availability?.heldNow ?? false;
+  const deployable: BriefFact = {
+    label: d.label,
+    figure: d.value === null || d.value === undefined ? "?" : String(d.value),
+    sub: d.sub ?? "",
+    tone: heldNow ? (stack.inflight ? "warn" : "bad") : "neutral",
+  };
+  return [running, deployable, proofFact(model, now)];
+}
+
+function deployNote(model: Model): string {
+  const days = model.stack.history.deploys;
+  if (!days) return "Fork lane deploys were not read.";
+  const today = days.at(-1);
+  const n = today ? today.passed + today.failed : 0;
+  const counted =
+    n === 0
+      ? "No fork lane deployed today."
+      : `Fork lanes today: ${plural(n, "deploy")}, ${today?.failed ?? 0} failed.`;
+  return `${counted} Deploys are counted per day, so the timeline leaves them out.`;
+}
+
+function environmentOf(model: Model, env: BriefFact | undefined, now: Date): Environment {
+  const from = now.getTime() - DAY_MS;
+  const lanes = envLanes(model, from, now);
+  const held = heldReason(model, now);
+  return {
+    headline: envHeadline(model, lanes, held, now),
+    facts: envFacts(model, env, held, now),
+    lanes,
+    from: new Date(from).toISOString(),
+    to: now.toISOString(),
+    note: deployNote(model),
+  };
+}
+
 // Pure: the same model, doctor and clock always write the same briefing.
 export function buildBriefing(model: Model, doctor: DoctorView, now: Date): Briefing {
   const nextIso = syncAt(now);
@@ -1160,6 +1444,13 @@ export function buildBriefing(model: Model, doctor: DoctorView, now: Date): Brie
         rows: [],
         bands: [],
       },
+      environment: {
+        headline,
+        facts: [],
+        lanes: [],
+        from: new Date(now.getTime() - DAY_MS).toISOString(),
+        to: now.toISOString(),
+      },
     };
   }
   const focusable = model.queue.items.filter((i) => i.rung <= 1);
@@ -1184,5 +1475,6 @@ export function buildBriefing(model: Model, doctor: DoctorView, now: Date): Brie
     themes,
     horizon: { headline: horizonOf(themes, next) },
     flow: flowOf(model, facts, stuck, next, now),
+    environment: environmentOf(model, facts[0], now),
   };
 }

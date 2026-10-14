@@ -53,18 +53,21 @@ describe("the console frame", () => {
     expect(out).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
   });
 
-  test("a tab strip switches between Today, the default, Flow and Horizon", () => {
+  test("a tab strip switches between Today, the default, Flow, Horizon and Environment", () => {
     const tabs = [...html.matchAll(/data-view="([^"]+)" aria-selected="([^"]+)"/g)];
     expect(tabs.map((m) => [m[1], m[2]])).toEqual([
       ["today", "true"],
       ["flow", "false"],
       ["horizon", "false"],
+      ["environment", "false"],
     ]);
     expect(html).toContain('<div data-view-pane="flow" hidden>');
     expect(html).toContain('<div data-view-pane="horizon" hidden>');
+    expect(html).toContain('<div data-view-pane="environment" hidden>');
     expect(html).toContain(
-      "saveState({ view: state.view, sel: state.sel, theme: state.theme, cell: state.cell })",
+      "saveState({ view: state.view, sel: state.sel, theme: state.theme, cell: state.cell, event: state.event })",
     );
+    expect(html).toContain('["event", "data-event", "data-event-detail", "aria-pressed"]');
   });
 
   describe("the Flow view", () => {
@@ -136,7 +139,10 @@ describe("the console frame", () => {
   });
 
   describe("the Horizon view", () => {
-    const horizon = html.slice(html.indexOf('data-view-pane="horizon"'), html.indexOf("<script>"));
+    const horizon = html.slice(
+      html.indexOf('data-view-pane="horizon"'),
+      html.indexOf('data-view-pane="environment"'),
+    );
 
     test("leads with the horizon headline and renders every theme with the first selected", () => {
       expect(horizon).toContain(`<h2>${b.horizon.headline}</h2>`);
@@ -166,6 +172,82 @@ describe("the console frame", () => {
       const out = consoleHtml(evil, FIXTURE_NOW);
       expect(out).not.toContain("<b>x</b>");
       expect(out).not.toContain('"><i>');
+      expect(out).toContain("&lt;b&gt;x&lt;/b&gt;");
+    });
+  });
+
+  describe("the Environment view", () => {
+    const env = html.slice(html.indexOf('data-view-pane="environment"'), html.indexOf("<script>"));
+
+    test("leads with the environment headline and its three facts", () => {
+      expect(env).toContain(`<h2>${b.environment.headline}</h2>`);
+      expect(b.environment.facts).toHaveLength(3);
+      for (const f of b.environment.facts) {
+        expect(env).toContain(`<div class="k">${f.label}</div><div class="v">${f.figure}</div>`);
+      }
+    });
+
+    test("every lane renders a row and every event a bar with a visible label and a detail", () => {
+      for (const lane of b.environment.lanes) {
+        expect(env).toContain(`<div class="tl-lab">${lane.label}</div>`);
+        for (const e of lane.events) {
+          const key = `${lane.id}:${e.id}`;
+          const bar = new RegExp(
+            `data-event="${key}"[^>]*title="[^"]+"[^>]*><span class="evl[^"]*">[^<]+</span>`,
+          );
+          expect(env).toMatch(bar);
+          expect(env).toContain(`data-event-detail="${key}"`);
+        }
+      }
+    });
+
+    test("every bar sits inside the window", () => {
+      const bars = [...env.matchAll(/style="left:([\d.]+)%;width:([\d.]+)%;/g)];
+      const count = b.environment.lanes.reduce((n, l) => n + l.events.length, 0);
+      expect(bars).toHaveLength(count);
+      for (const m of bars) {
+        const left = Number(m[1]);
+        const width = Number(m[2]);
+        expect(left).toBeGreaterThanOrEqual(0);
+        expect(width).toBeGreaterThanOrEqual(0);
+        expect(left + width).toBeLessThanOrEqual(100.01);
+      }
+    });
+
+    test("the newest failed event is selected by default", () => {
+      const shown = [...env.matchAll(/data-event-detail="([^"]+)"(?! hidden)>/g)].map((m) => m[1]);
+      expect(shown).toEqual(["refresh:38203142060"]);
+      expect(env).toContain('data-event="refresh:38203142060" aria-pressed="true"');
+    });
+
+    test("every inspector button opens a queue item", () => {
+      const queue = new Set(buildModel(fixtureFacts(), FIXTURE_NOW).queue.items.map((i) => i.id));
+      const ids = [...env.matchAll(/data-inspect="([^"]+)"/g)].map((m) => m[1]);
+      expect(ids.length).toBeGreaterThan(0);
+      for (const id of ids) expect(queue.has(id as string)).toBe(true);
+    });
+
+    test("the hour axis prints local clock times", () => {
+      expect(env).toMatch(/class="tl-hour" style="left:[\d.]+%">\d\d:00</);
+    });
+
+    test("environment text from the forges is escaped and carries no links", () => {
+      expect(env).not.toContain("<a ");
+      expect(env).not.toMatch(/https?:\/\//);
+      const lane = b.environment.lanes[0]!;
+      const event = lane.events[0]!;
+      const evil: Briefing = {
+        ...b,
+        environment: {
+          ...b.environment,
+          note: "<s>",
+          lanes: [{ ...lane, events: [{ ...event, label: "<b>x</b>", detail: '"><i>' }] }],
+        },
+      };
+      const out = consoleHtml(evil, FIXTURE_NOW);
+      expect(out).not.toContain("<b>x</b>");
+      expect(out).not.toContain('"><i>');
+      expect(out).not.toContain("<s>");
       expect(out).toContain("&lt;b&gt;x&lt;/b&gt;");
     });
   });
