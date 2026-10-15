@@ -1,0 +1,44 @@
+name: Feature request
+description: Propose a capability or change to the SPI rib.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The rib watches the SPI forks, their upstream projects, the template and
+        the shared stack, and acts on GitHub only through verbs in the inspector.
+        Describe the question you are trying to answer or the action you keep
+        taking by hand; we'll work out where it fits.
+
+        This repo is public. Leave out tokens, personal logins and emails.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What is hard to see or to do today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What you'd like to see. Rough is fine.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Today
+        - Repositories
+        - Environment
+        - Flow
+        - Horizon
+        - Inspector or a verb
+        - Doctor / sign-ins
+        - spi_* tools or the Watch Officer
+        - Docs
+        - Not sure / other
+    validations:
+      required: true
