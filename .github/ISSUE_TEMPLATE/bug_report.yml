@@ -1,0 +1,72 @@
+name: Bug report
+description: Something in the SPI rib isn't working as expected.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This repo is public. Leave out tokens, personal logins and emails; describe
+        people by role instead ("an outside contributor"). For a security issue, do
+        **not** file here; see
+        [SECURITY.md](https://github.com/danielscholl-osdu/keelson-rib-spi/security/policy).
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Today
+        - Repositories
+        - Environment
+        - Flow
+        - Horizon
+        - Inspector or a verb (Approve, Sync all forks, Roll out, Rerun)
+        - Doctor / sign-ins
+        - spi_* tools or the Watch Officer
+        - Not sure / other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: The actual behavior, and the item, row or button involved.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: What GitHub or GitLab actually shows, with a link if it helps.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Rib version or commit, `keelson version`, `gh --version`, `glab --version`, and OS.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Any useful server log lines or `bun dev/sweep.ts` output, with tokens and personal logins redacted.
+      render: text
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before filing
+      options:
+        - label: I searched existing issues for a duplicate.
+          required: true
+        - label: I removed tokens, personal logins and emails from this report.
+          required: true
