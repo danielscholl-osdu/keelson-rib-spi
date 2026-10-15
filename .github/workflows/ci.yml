@@ -34,6 +34,14 @@ jobs:
           # Pin to the runtime Keelson validates against. Bump deliberately.
           bun-version: 1.3.14
 
+      # Packages from a private mirror pin URLs Dependabot and contributors can't fetch.
+      - name: Check bun.lock is registry-neutral
+        run: |
+          if grep -oE '"https://[^/"]+' bun.lock | grep -v '"https://github.com$'; then
+            echo "::error file=bun.lock::bun.lock pins a package to a registry mirror. Strip the URLs with: perl -pi -e 's#\"https://(?!github\.com/)[^\"]*\.tgz\"#\"\"#g' bun.lock" >&2
+            exit 1
+          fi
+
       # @keelson/shared resolves from the release tarball pinned in package.json,
       # so this job is reproducible and needs no keelson checkout.
       - name: Install deps
