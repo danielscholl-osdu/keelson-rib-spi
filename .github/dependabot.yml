@@ -1,11 +1,9 @@
-# Dependabot bumps package.json but cannot update bun.lock; the
-# dependabot-bun-lock workflows regenerate it on the PR branch so CI's
-# frozen install passes. @keelson/shared is a release tarball URL that
-# Dependabot does not track: bump it by hand alongside the harness release.
+# @keelson/shared is a release tarball URL that Dependabot does not track:
+# bump it by hand alongside the harness release.
 
 version: 2
 updates:
-  - package-ecosystem: npm
+  - package-ecosystem: bun
     directory: "/"
     cooldown:
       default-days: 7

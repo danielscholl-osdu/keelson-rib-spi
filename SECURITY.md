@@ -2,12 +2,12 @@
 
 ## Supported versions
 
-The SPI rib is pre-1.0. Security fixes land on the latest `0.x` release only.
+Security fixes land on the latest release only.
 
-| Version              | Supported          |
-|----------------------|--------------------|
-| Latest `0.x` release | :white_check_mark: |
-| Any older release    | :x:                |
+| Version         | Supported          |
+|-----------------|--------------------|
+| Latest release  | :white_check_mark: |
+| Any older       | :x:                |
 
 ## Reporting a vulnerability
 
