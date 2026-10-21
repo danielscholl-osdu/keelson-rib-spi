@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/danielscholl-osdu/keelson-rib-spi/compare/v1.0.0...v1.1.0) (2026-10-21)
+
+
+### Added
+
+* **releases:** monthly release notes with PDF export ([#12](https://github.com/danielscholl-osdu/keelson-rib-spi/issues/12)) ([c17c315](https://github.com/danielscholl-osdu/keelson-rib-spi/commit/c17c315285f302348e4dcb9144dc3be14e8d2f5c))
+
 ## 1.0.0 (2026-10-15)
 
 
