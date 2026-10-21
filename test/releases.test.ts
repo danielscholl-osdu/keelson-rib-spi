@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expectHtml } from "../src/boards/console";
@@ -19,7 +19,7 @@ import rib from "../src/index";
 import { CONSOLE_KEY, INSPECT_KEY, RELEASE_KEY } from "../src/keys";
 import { monthFacts, parseBody, releaseMonths } from "../src/model/releases";
 import { createNotes, type NotesRead, readNotes, skeleton } from "../src/notes/file";
-import { pdfName } from "../src/notes/pdf";
+import { pdfName, writePdf } from "../src/notes/pdf";
 import { Store } from "../src/store";
 import fixture from "./fixtures/releases.json";
 import { fakeContext, fixtureFacts } from "./harness";
@@ -295,6 +295,42 @@ describe("the document", () => {
       "Read release notes",
     ]);
     expect(pdfName("2026.10", false)).toBe("SPI Release Notes 2026.10 (draft).pdf");
+  });
+
+  test("concurrent exports print with separate profiles and leave no work behind", async () => {
+    const dir = tmp();
+    const profiles: string[] = [];
+    const exec = {
+      runJSON: async () => ({ ok: true, data: null }),
+      runText: async (_cmd: string, args: string[]) => {
+        profiles.push(args.find((a) => a.startsWith("--user-data-dir=")) ?? "");
+        const out = args.find((a) => a.startsWith("--print-to-pdf="))?.slice(15) ?? "";
+        await Bun.sleep(5);
+        writeFileSync(out, "%PDF");
+        return { ok: true, data: "" };
+      },
+    };
+    const before = process.env.RIB_SPI_CHROME;
+    process.env.RIB_SPI_CHROME = process.execPath;
+    try {
+      const job = (name: string) => ({
+        html: "<p>x</p>",
+        name,
+        approved: false,
+        workDir: join(dir, ".print"),
+        outDir: dir,
+      });
+      const results = await Promise.all([
+        writePdf(exec as never, job("2026.09")),
+        writePdf(exec as never, job("2026.10")),
+      ]);
+      expect(results.every((r) => r.ok)).toBe(true);
+      expect(new Set(profiles).size).toBe(2);
+      expect(readdirSync(join(dir, ".print"))).toEqual([]);
+    } finally {
+      if (before === undefined) delete process.env.RIB_SPI_CHROME;
+      else process.env.RIB_SPI_CHROME = before;
+    }
   });
 });
 

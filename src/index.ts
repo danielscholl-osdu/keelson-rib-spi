@@ -241,7 +241,7 @@ function releaseNotesTool(asked: string | undefined): unknown {
         kind: c.kind,
         from: c.from ?? null,
         to: c.to ?? null,
-        releases: c.count,
+        releases: c.unread ? null : c.count,
         upstream: c.upstream ?? null,
         ...(c.kind === "service"
           ? { coreLibAzure: c.pins?.lib ?? null, java: c.pins?.java ?? null }

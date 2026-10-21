@@ -6,7 +6,7 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -66,7 +66,7 @@ export interface PdfJob {
   outDir: string;
 }
 
-// A throwaway profile keeps the print off the operator's running browser.
+// Each job gets its own page and throwaway profile, so exports never share a browser.
 export async function writePdf(
   exec: RibExec,
   job: PdfJob,
@@ -76,7 +76,21 @@ export async function writePdf(
     return { ok: false, error: "no Chrome, Chromium or Edge found; set RIB_SPI_CHROME" };
   mkdirSync(job.workDir, { recursive: true });
   mkdirSync(job.outDir, { recursive: true });
-  const page = join(job.workDir, `${job.name}.html`);
+  const work = mkdtempSync(join(job.workDir, `${job.name}-`));
+  try {
+    return await print(exec, browser, job, work);
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+}
+
+async function print(
+  exec: RibExec,
+  browser: string,
+  job: PdfJob,
+  work: string,
+): Promise<{ ok: true; path: string } | { ok: false; error: string }> {
+  const page = join(work, `${job.name}.html`);
   writeFileSync(page, job.html);
   const out = join(job.outDir, pdfName(job.name, job.approved));
   const started = Date.now() - 1000;
@@ -88,7 +102,7 @@ export async function writePdf(
       "--no-first-run",
       "--no-default-browser-check",
       "--no-pdf-header-footer",
-      `--user-data-dir=${join(job.workDir, "profile")}`,
+      `--user-data-dir=${join(work, "profile")}`,
       `--print-to-pdf=${out}`,
       pathToFileURL(page).href,
     ],
