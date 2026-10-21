@@ -38,15 +38,30 @@ import { consoleHtml, expectHtml } from "./boards/console.ts";
 import { DOCTOR_ID, doctorBoard, doctorStatus } from "./boards/doctor.ts";
 import { type InspectState, inspectBoard, inspectTitle, stepTitle } from "./boards/inspect.ts";
 import { MR_PREFIX, mrTitle } from "./boards/radar.ts";
+import {
+  RELEASE_NOTES_ACTION,
+  RELEASE_OPEN_ACTION,
+  RELEASE_PDF_ACTION,
+  releaseBoard,
+  releaseDocHtml,
+  releaseHtmlEmpty,
+  releasePrintHtml,
+  releaseTitle,
+} from "./boards/release.ts";
 import { repoTitle } from "./boards/repo.ts";
 import { STEP_PREFIX } from "./boards/template.ts";
 import { buildBriefing } from "./brief/index.ts";
+import { RELEASE_PREFIX, type ReleaseDoc, releaseDoc, releaseLine } from "./brief/release.ts";
 import { REPO_PREFIX } from "./brief/repos.ts";
 import { checkable, entryAcrossForks, type ForkEntry } from "./collect/filters.ts";
+import { ReleaseReader } from "./collect/releases.ts";
 import { FORKS, INFLIGHT_POLL_MS, SWEEP_MS } from "./config.ts";
 import { Gh, Glab } from "./forge.ts";
-import { BADGE_KEY, CONSOLE_KEY, INSPECT_KEY, RIB_ID } from "./keys.ts";
+import { BADGE_KEY, CONSOLE_KEY, INSPECT_KEY, RELEASE_KEY, RIB_ID } from "./keys.ts";
 import type { QueueItem } from "./model/queue.ts";
+import { isMonth, monthFacts, releaseMonths } from "./model/releases.ts";
+import { createNotes, notesDir, readNotes } from "./notes/file.ts";
+import { findBrowser, pdfDir, writePdf } from "./notes/pdf.ts";
 import { Store } from "./store.ts";
 import { INSPECT_ACTION, REFRESH_ACTION, SURFACES } from "./surfaces.ts";
 import { Sweeper } from "./sweep.ts";
@@ -63,6 +78,8 @@ let inspect: InspectState = {};
 let actionLog = new ActionLog(undefined);
 let readiness: Readiness | undefined;
 const othersCache = new Map<string, { at: number; entries: ForkEntry[] }>();
+// Months the Releases tab lists; older months stay readable through spi_release_notes.
+const RELEASE_MONTHS = 12;
 // Re-run waits by queue item, in memory only: a restart drops them and the item stays queued.
 const waits = new Map<string, DeployableWait>();
 
@@ -70,11 +87,13 @@ const COMPOSERS: Record<(typeof VIEW_KEYS)[number], Composer> = {
   [INSPECT_KEY]: (s, now) =>
     inspect.selected === DOCTOR_ID
       ? doctorBoard(s.facts, now, readiness)
-      : inspectBoard(s.model, inspect, now, actionLog.lastFor(lastKey(inspect.selected)), {
-          scopes: s.facts.auth.data?.gh.scopes,
-          ops: !!context?.registerOp,
-          ...waitingFor(inspect.selected),
-        }),
+      : inspect.selected?.startsWith(RELEASE_PREFIX)
+        ? releaseInspector(inspect.selected.slice(RELEASE_PREFIX.length), now)
+        : inspectBoard(s.model, inspect, now, actionLog.lastFor(lastKey(inspect.selected)), {
+            scopes: s.facts.auth.data?.gh.scopes,
+            ops: !!context?.registerOp,
+            ...waitingFor(inspect.selected),
+          }),
 };
 
 // Rollout verbs log under one item, whichever template-set id the inspector shows.
@@ -90,6 +109,10 @@ function badgeOf(data: unknown): RibSurfaceBadge {
   return data as RibSurfaceBadge;
 }
 
+let releases: ReleaseReader | undefined;
+let releaseMonth: string | undefined;
+const lastPdf = new Map<string, { path: string; at: string }>();
+
 let snapshots: SnapshotManager | undefined;
 let context: RibContext | undefined;
 let sweeper: Sweeper | undefined;
@@ -98,9 +121,135 @@ let unregisters: Array<() => void> = [];
 let timers: Array<ReturnType<typeof setInterval>> = [];
 
 function recomposeAll(): void {
-  for (const key of [...VIEW_KEYS, CONSOLE_KEY, BADGE_KEY]) {
+  for (const key of [...VIEW_KEYS, CONSOLE_KEY, BADGE_KEY, RELEASE_KEY]) {
     snapshots?.recompose(key).catch(() => undefined);
   }
+}
+
+function notesFolder(): string {
+  return notesDir(context?.getDataDir?.());
+}
+
+function monthDoc(month: string, now: Date): ReleaseDoc | undefined {
+  const r = releases;
+  if (!r) return undefined;
+  return releaseDoc(monthFacts(r.data, month, now), readNotes(notesFolder(), month), now);
+}
+
+function releaseInspector(month: string, now: Date) {
+  const doc = monthDoc(month, now);
+  if (!doc) {
+    return {
+      view: "board" as const,
+      sections: [
+        {
+          kind: "rows" as const,
+          items: [{ glyph: "neutral" as const, text: "Releases are not read yet." }],
+        },
+      ],
+    };
+  }
+  const notes = readNotes(notesFolder(), month);
+  const data = releases?.data;
+  return releaseBoard({
+    doc,
+    notesPath: notes.path,
+    notesExists: notes.state !== "missing",
+    ...(lastPdf.get(month) ? { lastPdf: lastPdf.get(month) } : {}),
+    ...(data?.at ? { readAt: data.at } : {}),
+    errors: Object.entries(data?.errors ?? {}).map(([k, e]) => `${k}: ${e}`),
+    pdfReady: !!findBrowser(),
+  });
+}
+
+function releasesPane(now: Date) {
+  const r = releases;
+  if (!r) return undefined;
+  const lines = releaseMonths(r.data, now)
+    .slice(0, RELEASE_MONTHS)
+    .map((m) => monthDoc(m, now))
+    .filter((d): d is ReleaseDoc => !!d)
+    .map(releaseLine);
+  return { lines, reading: r.busy };
+}
+
+async function exportPdf(month: string, now: Date): Promise<RibActionResult> {
+  const run = exec;
+  const doc = monthDoc(month, now);
+  if (!run || !doc) return { ok: false, error: "releases are not read yet" };
+  const dataDir = context?.getDataDir?.();
+  const res = await writePdf(run, {
+    html: releasePrintHtml(doc),
+    name: doc.name,
+    approved: doc.notes === "approved",
+    workDir: `${notesFolder()}/.print`,
+    outDir: pdfDir(dataDir),
+  });
+  if (!res.ok) return { ok: false, error: res.error };
+  lastPdf.set(month, { path: res.path, at: now.toISOString() });
+  if (process.platform === "darwin") run.runText("open", ["-R", res.path]).catch(() => undefined);
+  snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
+  return { ok: true, data: { message: `Saved ${res.path}` } };
+}
+
+const NOTES_FIELDS = {
+  status: '"draft" until a person reviews it, then "approved"',
+  headline: "one sentence naming the month's outcome for a consumer",
+  keyChanges: "up to three sentences",
+  actions:
+    '[{ level: "required" | "recommended" | "info", title, body?, owner?, when?, ifSkipped? }]',
+  highlights:
+    '[{ title, body?, visual?: "coverage" | "library" | "commands" | "steps", items?: [{ text, sub? }] }]; coverage and library draw from the facts, commands and steps from items',
+  knownIssues: '[{ state: "open" | "resolved", title, body? }]',
+  changelog:
+    '[{ area, items: [{ type: "breaking" | "new" | "improved" | "fixed" | "security", text }] }]; omit to show the computed changelog',
+};
+
+function releaseNotesTool(asked: string | undefined): unknown {
+  const r = releases;
+  const s = sweeper;
+  if (!r || !s) throw new Error("spi is not bound yet");
+  const now = s.now();
+  const month = asked ?? now.toISOString().slice(0, 7);
+  const facts = monthFacts(r.data, month, now);
+  const notes = readNotes(notesFolder(), month);
+  return {
+    month,
+    months: releaseMonths(r.data, now),
+    readAt: r.data.at ?? null,
+    notes: {
+      path: notes.path,
+      state: notes.state,
+      ...(notes.state === "invalid" ? { error: notes.error } : {}),
+      ...(notes.state === "ok" ? { content: notes.notes } : {}),
+      fields: NOTES_FIELDS,
+    },
+    facts: {
+      label: facts.label,
+      through: facts.through,
+      open: facts.open,
+      releases: facts.releases,
+      repositoriesReleased: facts.released,
+      services: facts.services,
+      stack: facts.stack ?? null,
+      template: facts.template ?? null,
+      coreLibAzure: facts.libs,
+      dependencyUpdates: facts.deps,
+      unread: facts.unread,
+      components: facts.components.map((c) => ({
+        id: c.id,
+        kind: c.kind,
+        from: c.from ?? null,
+        to: c.to ?? null,
+        releases: c.count,
+        upstream: c.upstream ?? null,
+        ...(c.kind === "service"
+          ? { coreLibAzure: c.pins?.lib ?? null, java: c.pins?.java ?? null }
+          : {}),
+      })),
+    },
+    candidates: facts.changes.map((c) => `${c.type} · ${c.component} ${c.tag} · ${c.text}`),
+  };
 }
 
 function waitingFor(id: string | undefined): { waiting?: { id: string; at: string } } {
@@ -139,6 +288,17 @@ function bind(ctx: RibContext): Sweeper {
     },
   });
   sweeper = s;
+  const reader = new ReleaseReader(
+    new Gh(exec),
+    new Store(ctx.getDataDir?.()),
+    () => s.now(),
+    () => {
+      for (const key of [CONSOLE_KEY, RELEASE_KEY, INSPECT_KEY]) {
+        snapshots?.recompose(key).catch(() => undefined);
+      }
+    },
+  );
+  releases = reader;
   unregisters.push(
     registerVerb(APPROVE_RUNS),
     registerVerb(SYNC_FORKS),
@@ -160,7 +320,21 @@ function bind(ctx: RibContext): Sweeper {
         CONSOLE_KEY,
         () => {
           const now = s.now();
-          return consoleHtml(buildBriefing(s.model, doctorStatus(s.facts, now), now), now);
+          return consoleHtml(
+            buildBriefing(s.model, doctorStatus(s.facts, now), now),
+            now,
+            releasesPane(now),
+          );
+        },
+        { validate: expectHtml },
+      ),
+    );
+    unregisters.push(
+      sm.register(
+        RELEASE_KEY,
+        () => {
+          const doc = releaseMonth ? monthDoc(releaseMonth, s.now()) : undefined;
+          return doc ? releaseDocHtml(doc) : releaseHtmlEmpty();
         },
         { validate: expectHtml },
       ),
@@ -169,9 +343,11 @@ function bind(ctx: RibContext): Sweeper {
   }
   recomposeAll();
   s.sweep({ force: true }).catch(() => undefined);
+  reader.read().catch(() => undefined);
   refreshReadiness();
   const sweepTimer = setInterval(() => {
     s.sweep().catch(() => undefined);
+    reader.read().catch(() => undefined);
     refreshReadiness();
   }, SWEEP_MS);
   const pollTimer = setInterval(() => {
@@ -194,6 +370,9 @@ function unbind(): void {
   sweeper = undefined;
   context = undefined;
   readiness = undefined;
+  releases = undefined;
+  releaseMonth = undefined;
+  lastPdf.clear();
   exec = undefined;
   inspect = {};
   othersCache.clear();
@@ -298,6 +477,7 @@ const rib: Rib = {
 
   views: [
     { key: CONSOLE_KEY, canvasKind: "html", title: "SPI console" },
+    { key: RELEASE_KEY, canvasKind: "html", title: "SPI release notes" },
     ...VIEW_KEYS.map(
       (key): RibViewDescriptor => ({
         key,
@@ -310,7 +490,7 @@ const rib: Rib = {
   surfaces: SURFACES,
 
   // Composers bind here because this is the first hook that receives the context.
-  registerTools: (ctx: RibContext) => registerSpiTools(bind(ctx)),
+  registerTools: (ctx: RibContext) => registerSpiTools(bind(ctx), releaseNotesTool),
 
   onAction: async (action: RibAction): Promise<RibActionResult> => {
     const s = sweeper;
@@ -322,7 +502,36 @@ const rib: Rib = {
     if (action.type === REFRESH_ACTION) {
       if (s.sweeping) return { ok: true, data: { message: "A sweep is already running" } };
       s.sweep({ force: true }).catch(() => undefined);
+      releases?.read({ force: true }).catch(() => undefined);
       return { ok: true, data: { message: "Sweeping GitHub and GitLab" } };
+    }
+    if (
+      action.type === RELEASE_OPEN_ACTION ||
+      action.type === RELEASE_PDF_ACTION ||
+      action.type === RELEASE_NOTES_ACTION
+    ) {
+      const month = (action.payload as { month?: unknown } | undefined)?.month;
+      if (typeof month !== "string" || !isMonth(month)) {
+        return { ok: false, error: "release actions need { month: 'YYYY-MM' }" };
+      }
+      const now = s.now();
+      if (action.type === RELEASE_PDF_ACTION) return exportPdf(month, now);
+      if (action.type === RELEASE_NOTES_ACTION) {
+        const made = createNotes(notesFolder(), month);
+        await snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
+        return {
+          ok: true,
+          data: { message: made.created ? `Created ${made.path}` : `${made.path} already exists` },
+        };
+      }
+      const doc = monthDoc(month, now);
+      if (!doc) return { ok: false, error: "releases are not read yet" };
+      releaseMonth = month;
+      await snapshots?.recompose(RELEASE_KEY).catch(() => undefined);
+      return {
+        ok: true,
+        data: { effect: "open-canvas" as const, key: RELEASE_KEY, title: releaseTitle(doc) },
+      };
     }
     if (action.type === ACT_ACTION) {
       if (!exec) return { ok: false, error: "spi is not bound yet" };
@@ -358,6 +567,22 @@ const rib: Rib = {
             effect: "open-canvas" as const,
             key: INSPECT_KEY,
             title: "Doctor",
+            placement: "side" as const,
+          },
+        };
+      }
+      if (id.startsWith(RELEASE_PREFIX)) {
+        const month = id.slice(RELEASE_PREFIX.length);
+        const doc = isMonth(month) ? monthDoc(month, s.now()) : undefined;
+        if (!doc) return { ok: false, error: `${id} is not a month the rib has read` };
+        inspect = { selected: id };
+        await snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
+        return {
+          ok: true,
+          data: {
+            effect: "open-canvas" as const,
+            key: INSPECT_KEY,
+            title: releaseTitle(doc),
             placement: "side" as const,
           },
         };

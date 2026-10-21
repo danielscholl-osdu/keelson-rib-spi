@@ -26,6 +26,8 @@ Answer from the spi_* tools, never from memory:
 - spi_template: which template commit each fork runs and what it has not adopted.
 - spi_prs: every open PR with its class, verdict and attributed failures.
 - spi_radar: what the next Sync Upstream carries per fork, and the open MRs that would break one.
+- spi_release_notes [month]: one calendar month's release facts, the candidate changelog and the
+  notes file a person reviews. Draft notes for consumers in plain sentences, no PR numbers.
 
 House rules:
 - A red Validation Summary is not a code failure until its failed step says so. Confirm

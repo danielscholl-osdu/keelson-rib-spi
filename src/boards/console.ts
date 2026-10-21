@@ -21,10 +21,12 @@ import type {
   Theme,
   Tone,
 } from "../brief/index.ts";
+import type { ReleaseLine } from "../brief/release.ts";
 import type { RepoCell, RepoEntry, RepoLine, RepoSection } from "../brief/repos.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
 import { span, stamp, zoned } from "../util.ts";
 import { DOCTOR_ID } from "./doctor.ts";
+import { releasesPaneHtml } from "./release.ts";
 
 // A console past this size means the briefing stopped folding.
 export const CONSOLE_MAX_BYTES = 256_000;
@@ -502,6 +504,8 @@ button.envband { cursor: pointer; }
 .note { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
 .events { margin-top: 12px; }
 .facts.four { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.facts.relfacts { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 10px; }
+.relfacts .v { font-size: 20px; }
 .rtable { min-width: 0; overflow-x: auto; }
 .rgrid { min-width: 640px; }
 .rhead, .rrow { display: grid; box-sizing: border-box; grid-template-columns: minmax(100px, 1.3fr) minmax(100px, 1fr) repeat(2, minmax(64px, .8fr)) repeat(2, minmax(118px, 1.2fr)); gap: 0 8px; align-items: baseline; }
@@ -569,6 +573,7 @@ const SCRIPT = `(function () {
     ["cell", "data-cell", "data-cell-detail", "aria-pressed"],
     ["event", "data-event", "data-event-detail", "aria-pressed"],
     ["repo", "data-repo", "data-repo-detail", "aria-pressed"],
+    ["rel", "data-rel", "data-rel-detail", "aria-pressed"],
   ];
   var state = {};
   KINDS.forEach(function (c) { state[c[0]] = current(c[1]); });
@@ -580,7 +585,7 @@ const SCRIPT = `(function () {
     });
   });
   document.addEventListener("click", function (e) {
-    var t = e.target && e.target.closest ? e.target.closest("[data-view],[data-sel],[data-theme-sel],[data-cell],[data-event],[data-repo],[data-inspect]") : null;
+    var t = e.target && e.target.closest ? e.target.closest("[data-view],[data-sel],[data-theme-sel],[data-cell],[data-event],[data-repo],[data-rel],[data-inspect]") : null;
     if (!t) return;
     for (var i = 0; i < KINDS.length; i++) {
       var c = KINDS[i];
@@ -588,7 +593,7 @@ const SCRIPT = `(function () {
       if (id === null) continue;
       if (show(c[1], c[2], id, c[3])) {
         state[c[0]] = id;
-        if (k.saveState) k.saveState({ view: state.view, sel: state.sel, theme: state.theme, cell: state.cell, event: state.event, repo: state.repo });
+        if (k.saveState) k.saveState({ view: state.view, sel: state.sel, theme: state.theme, cell: state.cell, event: state.event, repo: state.repo, rel: state.rel });
       }
       return;
     }
@@ -598,7 +603,12 @@ const SCRIPT = `(function () {
 
 // Markup only: the briefing has already decided every word, so this lays it out and adds
 // selection. The frame cannot open links; evidence and verbs live in the inspector.
-export function consoleHtml(b: Briefing, now: Date): string {
+export interface ReleasesPane {
+  lines: readonly ReleaseLine[];
+  reading: boolean;
+}
+
+export function consoleHtml(b: Briefing, now: Date, releases?: ReleasesPane): string {
   const swept = zoned(b.sweptAt, now);
   const unread =
     b.doctor.state === "partial"
@@ -624,12 +634,13 @@ ${b.summary ? `<p class="summary">${esc(b.summary)}</p>` : ""}
 ${b.facts.length > 0 ? todayHtml(b) : ""}`;
   const views =
     b.facts.length > 0
-      ? `<div class="tabs" role="tablist">${tab("today", "Today", true)}${tab("repositories", "Repositories", false)}${tab("environment", "Environment", false)}${tab("flow", "Flow", false)}${tab("horizon", "Horizon", false)}${meta}</div>
+      ? `<div class="tabs" role="tablist">${tab("today", "Today", true)}${tab("repositories", "Repositories", false)}${tab("environment", "Environment", false)}${tab("flow", "Flow", false)}${tab("horizon", "Horizon", false)}${releases ? tab("releases", "Releases", false) : ""}${meta}</div>
 <div data-view-pane="today">${today}</div>
 <div data-view-pane="repositories" hidden>${repositoriesHtml(b)}</div>
 <div data-view-pane="environment" hidden>${environmentHtml(b, now)}</div>
 <div data-view-pane="flow" hidden>${flowHtml(b)}</div>
-<div data-view-pane="horizon" hidden>${horizonHtml(b)}</div>`
+<div data-view-pane="horizon" hidden>${horizonHtml(b)}</div>
+${releases ? `<div data-view-pane="releases" hidden>${releasesPaneHtml(releases.lines, releases.reading)}</div>` : ""}`
       : `${meta ? `<div class="tabs">${meta}</div>` : ""}${today}`;
   return `<style>${designTokenCssBlock()}${STYLE}</style>
 <div class="wrap">

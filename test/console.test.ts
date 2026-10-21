@@ -102,7 +102,7 @@ describe("the console frame", () => {
     expect(html).toContain('<div data-view-pane="horizon" hidden>');
     expect(html).toContain('<div data-view-pane="environment" hidden>');
     expect(html).toContain(
-      "saveState({ view: state.view, sel: state.sel, theme: state.theme, cell: state.cell, event: state.event, repo: state.repo })",
+      "saveState({ view: state.view, sel: state.sel, theme: state.theme, cell: state.cell, event: state.event, repo: state.repo, rel: state.rel })",
     );
     expect(html).toContain('["event", "data-event", "data-event-detail", "aria-pressed"]');
   });

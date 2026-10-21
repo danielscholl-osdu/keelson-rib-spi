@@ -14,3 +14,4 @@ export const CONSOLE_KEY = "rib:spi:console";
 export const BADGE_KEY = "rib:spi:badge";
 // The side inspector has no region; an inspect action opens it in the canvas drawer.
 export const INSPECT_KEY = "rib:spi:inspect";
+export const RELEASE_KEY = "rib:spi:release";

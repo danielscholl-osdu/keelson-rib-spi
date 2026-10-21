@@ -123,6 +123,7 @@ export const PLANNED: readonly ServiceDef[] = SERVICES.filter((s) => !s.repo);
 
 export const TEMPLATE_REPO = "Azure/osdu-spi";
 export const STACK_REPO = "Azure/osdu-spi-stack";
+export const CORE_LIB_REPO = "Azure/osdu-spi-core-lib-azure";
 // The GitHub App the sync engine and template workflows open PRs and issues as.
 export const AUTOMATION_APP = "osdu-spi-automation";
 export const GITLAB_HOST = "community.opengroup.org";
@@ -167,7 +168,15 @@ export type LifecycleKind = keyof typeof LIFECYCLE_WORKFLOWS;
 
 export const HISTORY_DAYS = 21;
 
+export const RELEASE_REPOS: readonly string[] = [
+  TEMPLATE_REPO,
+  STACK_REPO,
+  CORE_LIB_REPO,
+  ...FORKS.map((f) => f.repo),
+];
+
 export const SWEEP_MS = 5 * 60_000;
+export const RELEASES_EVERY_MS = 60 * 60_000;
 export const GITLAB_EVERY_MS = 30 * 60_000;
 export const SECURITY_EVERY_MS = 30 * 60_000;
 export const INFLIGHT_POLL_MS = 15_000;
