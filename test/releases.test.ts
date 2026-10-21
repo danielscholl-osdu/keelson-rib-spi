@@ -327,6 +327,10 @@ describe("the document", () => {
       expect(results.every((r) => r.ok)).toBe(true);
       expect(new Set(profiles).size).toBe(2);
       expect(readdirSync(join(dir, ".print"))).toEqual([]);
+      expect(readFileSync(join(dir, pdfName("2026.10", false)), "utf8")).toBe("%PDF");
+      const silent = { ...exec, runText: async () => ({ ok: true, data: "" }) };
+      const stale = await writePdf(silent as never, job("2026.10"));
+      expect(stale).toEqual({ ok: false, error: "the browser wrote no PDF" });
     } finally {
       if (before === undefined) delete process.env.RIB_SPI_CHROME;
       else process.env.RIB_SPI_CHROME = before;

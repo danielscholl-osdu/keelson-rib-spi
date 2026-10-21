@@ -6,7 +6,15 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -92,8 +100,7 @@ async function print(
 ): Promise<{ ok: true; path: string } | { ok: false; error: string }> {
   const page = join(work, `${job.name}.html`);
   writeFileSync(page, job.html);
-  const out = join(job.outDir, pdfName(job.name, job.approved));
-  const started = Date.now() - 1000;
+  const printed = join(work, "out.pdf");
   const res = await exec.runText(
     browser,
     [
@@ -103,23 +110,24 @@ async function print(
       "--no-default-browser-check",
       "--no-pdf-header-footer",
       `--user-data-dir=${join(work, "profile")}`,
-      `--print-to-pdf=${out}`,
+      `--print-to-pdf=${printed}`,
       pathToFileURL(page).href,
     ],
     { timeoutMs: 90_000, acceptNonZeroExit: true },
   );
-  let fresh = false;
+  let size = 0;
   try {
-    const st = statSync(out);
-    fresh = st.size > 0 && st.mtimeMs >= started;
+    size = statSync(printed).size;
   } catch {
-    fresh = false;
+    size = 0;
   }
-  if (!fresh) {
+  if (size === 0) {
     return {
       ok: false,
       error: res.ok ? "the browser wrote no PDF" : `the browser failed: ${res.error}`,
     };
   }
+  const out = join(job.outDir, pdfName(job.name, job.approved));
+  copyFileSync(printed, out);
   return { ok: true, path: out };
 }
