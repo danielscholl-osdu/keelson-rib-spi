@@ -6,7 +6,7 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, watch, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "@keelson/shared";
@@ -130,4 +130,58 @@ export function createNotes(dir: string, month: string): { path: string; created
     throw e;
   }
   return { path, created: true };
+}
+
+export type NotesStatus = Notes["status"];
+
+// Edits the status in the file's own text so every other word and its layout stay as written.
+export function setNotesStatus(
+  dir: string,
+  month: string,
+  status: NotesStatus,
+): { ok: true; path: string; changed: boolean } | { ok: false; error: string } {
+  const read = readNotes(dir, month);
+  if (read.state === "missing") return { ok: false, error: `${read.path} does not exist` };
+  if (read.state === "invalid") {
+    return { ok: false, error: `${read.path} does not parse: ${read.error}` };
+  }
+  if (read.notes.status === status) return { ok: true, path: read.path, changed: false };
+  if (status === "approved" && !read.notes.headline.trim()) {
+    return { ok: false, error: "write a headline in the notes file before approving it" };
+  }
+  const text = readFileSync(read.path, "utf8");
+  const field = /(?<!\\)"status"(\s*:\s*)"(?:draft|approved)"/;
+  const next = field.test(text)
+    ? text.replace(field, `"status"$1"${status}"`)
+    : text.replace("{", `{\n  "status": "${status}",`);
+  const after = notesSchema.safeParse(JSON.parse(next));
+  const same =
+    after.success &&
+    after.data.status === status &&
+    JSON.stringify({ ...after.data, status: read.notes.status }) === JSON.stringify(read.notes);
+  if (!same) return { ok: false, error: `${read.path}: could not change only the status` };
+  const tmp = `${read.path}.tmp`;
+  writeFileSync(tmp, next);
+  renameSync(tmp, read.path);
+  return { ok: true, path: read.path, changed: true };
+}
+
+// Chat and editors write notes too, so a change to any month's file redraws the views.
+export function watchNotes(dir: string, onChange: () => void): (() => void) | undefined {
+  if (!existsSync(dir)) return undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const w = watch(dir, { persistent: false }, (_event, name) => {
+      if (name && !/^\d{4}-\d{2}\.json$/.test(String(name))) return;
+      clearTimeout(timer);
+      timer = setTimeout(onChange, 150);
+    });
+    w.on("error", () => undefined);
+    return () => {
+      clearTimeout(timer);
+      w.close();
+    };
+  } catch {
+    return undefined;
+  }
 }

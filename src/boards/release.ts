@@ -24,6 +24,7 @@ type Section = CanvasBoardView["sections"][number];
 export const RELEASE_OPEN_ACTION = "release-open";
 export const RELEASE_PDF_ACTION = "release-pdf";
 export const RELEASE_NOTES_ACTION = "release-notes-file";
+export const RELEASE_STATUS_ACTION = "release-notes-status";
 
 // A changelog area or manifest group this short prints on one page rather than splitting.
 const KEEP_WHOLE = 6;
@@ -266,7 +267,7 @@ function actionCard(a: DocAction): string {
 }
 
 function reviewed(d: ReleaseDoc): boolean {
-  return d.notes === "draft" || d.notes === "approved";
+  return d.headlineWritten;
 }
 
 function actionHtml(d: ReleaseDoc): string {
@@ -556,12 +557,41 @@ export function releaseBoard(s: ReleaseBoardState): CanvasBoardView {
             pendingLabel: "Creating…",
           },
         ]),
+    ...(d.notes === "draft"
+      ? [
+          {
+            type: RELEASE_STATUS_ACTION,
+            label: "Approve notes",
+            tone: "ok" as const,
+            payload: { ...payload, status: "approved" },
+            pendingLabel: "Approving…",
+            ...(d.headlineWritten
+              ? {}
+              : { disabled: true, reason: "Write a headline in the notes file first" }),
+            confirm: {
+              title: `Approve SPI ${d.name} release notes?`,
+              body: "The notes file's status becomes approved, and the document and PDF drop the draft banner. Nothing else in the file changes.",
+              confirmLabel: "Approve",
+            },
+          },
+        ]
+      : []),
+    ...(d.notes === "approved"
+      ? [
+          {
+            type: RELEASE_STATUS_ACTION,
+            label: "Back to draft",
+            payload: { ...payload, status: "draft" },
+            pendingLabel: "Reverting…",
+          },
+        ]
+      : []),
   ];
   const notesLine =
     d.notes === "approved"
       ? "Approved. The PDF carries no draft banner."
       : d.notes === "draft"
-        ? 'Draft. Set "status" to "approved" in the notes file once a person has reviewed it.'
+        ? "Draft. Approve it once a person has reviewed the notes file."
         : d.notes === "invalid"
           ? `The notes file does not parse: ${d.notesError ?? "invalid"}. The document shows only computed parts.`
           : "No notes file yet. The headline, actions, highlights and known issues come from it.";
@@ -608,7 +638,7 @@ export function releaseBoard(s: ReleaseBoardState): CanvasBoardView {
         },
         {
           glyph: "neutral",
-          text: "Ask chat to draft the file with spi_release_notes, then review it and set status to approved.",
+          text: "Ask chat to draft the file with spi_release_notes, review it, then approve it here.",
         },
       ],
     },

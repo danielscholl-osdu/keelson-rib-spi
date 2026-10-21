@@ -4,8 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expectHtml } from "../src/boards/console";
 import {
+  RELEASE_NOTES_ACTION,
   RELEASE_OPEN_ACTION,
   RELEASE_PDF_ACTION,
+  RELEASE_STATUS_ACTION,
   releaseBoard,
   releaseDocHtml,
   releasePrintHtml,
@@ -18,7 +20,14 @@ import type { Gh } from "../src/forge";
 import rib from "../src/index";
 import { CONSOLE_KEY, INSPECT_KEY, RELEASE_KEY } from "../src/keys";
 import { monthFacts, parseBody, releaseMonths } from "../src/model/releases";
-import { createNotes, type NotesRead, readNotes, skeleton } from "../src/notes/file";
+import {
+  createNotes,
+  type NotesRead,
+  readNotes,
+  setNotesStatus,
+  skeleton,
+  watchNotes,
+} from "../src/notes/file";
 import { pdfName, writePdf } from "../src/notes/pdf";
 import { Store } from "../src/store";
 import fixture from "./fixtures/releases.json";
@@ -259,9 +268,16 @@ describe("the document", () => {
     const read: NotesRead = {
       state: "ok",
       path: "/x/2026-10.json",
-      notes: { ...skeleton(), status: "approved" },
+      notes: { ...skeleton(), status: "approved", headline: "Reviewed" },
     };
     expect(releaseDoc(f, read, NOW).required).toEqual([]);
+    const untouched = releaseDoc(
+      f,
+      { state: "ok", path: "/x/2026-10.json", notes: skeleton() },
+      NOW,
+    );
+    expect(untouched.required.length).toBeGreaterThan(0);
+    expect(untouched.stats.slice(2).map((x) => x.figure)).toEqual(["?", "?"]);
   });
 
   test("without a notes file, actions and known issues are unreviewed, not zero", () => {
@@ -295,6 +311,40 @@ describe("the document", () => {
       "Read release notes",
     ]);
     expect(pdfName("2026.10", false)).toBe("SPI Release Notes 2026.10 (draft).pdf");
+  });
+
+  test("a draft offers Approve behind a confirm, and an approved month offers Back to draft", () => {
+    const f = monthFacts(reads(), "2026-10", NOW);
+    const read = (status: "draft" | "approved", headline = "Thirteen forks"): NotesRead => ({
+      state: "ok",
+      path: "/x/2026-10.json",
+      notes: { ...skeleton(), status, headline },
+    });
+    const status = (r: NotesRead) =>
+      releaseBoard({
+        doc: releaseDoc(f, r, NOW),
+        notesPath: "/x/2026-10.json",
+        notesExists: true,
+        errors: [],
+        pdfReady: true,
+      })
+        .sections.flatMap((s) =>
+          s.kind === "cards" ? s.items.flatMap((c) => c.actions ?? []) : [],
+        )
+        .find((a) => a.type === RELEASE_STATUS_ACTION);
+    const approve = status(read("draft"));
+    expect(approve).toMatchObject({
+      label: "Approve notes",
+      payload: { month: "2026-10", status: "approved" },
+      confirm: { confirmLabel: "Approve" },
+    });
+    expect(approve?.disabled).toBeUndefined();
+    expect(status(read("draft", ""))).toMatchObject({ disabled: true });
+    expect(status(read("approved"))).toMatchObject({
+      label: "Back to draft",
+      payload: { status: "draft" },
+    });
+    expect(status({ state: "missing", path: "/x/2026-10.json" })).toBeUndefined();
   });
 
   test("concurrent exports print with separate profiles and leave no work behind", async () => {
@@ -351,6 +401,55 @@ describe("the notes file", () => {
     expect(read.state === "ok" ? read.notes.headline : undefined).toBe("kept");
   });
 
+  test("status changes in place, every other byte stays, and approval needs a headline", () => {
+    const dir = tmp();
+    const path = join(dir, "2026-09.json");
+    const text = `{
+  "status": "draft",
+  "headline": "Four forks",
+  "keyChanges": ["A \\"status\\": \\"draft\\" mention stays"],
+  "actions": [{ "level": "info", "title": "Kept compact" }]
+}
+`;
+    writeFileSync(path, text);
+    expect(setNotesStatus(dir, "2026-09", "approved")).toEqual({ ok: true, path, changed: true });
+    expect(readFileSync(path, "utf8")).toBe(
+      text.replace('"status": "draft"', '"status": "approved"'),
+    );
+    expect(setNotesStatus(dir, "2026-09", "approved")).toMatchObject({ ok: true, changed: false });
+    expect(setNotesStatus(dir, "2026-09", "draft")).toMatchObject({ ok: true, changed: true });
+    expect(readFileSync(path, "utf8")).toBe(text);
+
+    createNotes(dir, "2026-08");
+    expect(setNotesStatus(dir, "2026-08", "approved")).toEqual({
+      ok: false,
+      error: "write a headline in the notes file before approving it",
+    });
+    expect(setNotesStatus(dir, "2026-07", "approved").ok).toBe(false);
+    writeFileSync(join(dir, "2026-06.json"), '{"headline": "No status yet"}');
+    expect(setNotesStatus(dir, "2026-06", "approved").ok).toBe(true);
+    expect(readNotes(dir, "2026-06")).toMatchObject({
+      state: "ok",
+      notes: { status: "approved", headline: "No status yet" },
+    });
+  });
+
+  test("a month's file written outside the rib triggers a redraw", async () => {
+    const dir = tmp();
+    expect(watchNotes(join(dir, "absent"), () => undefined)).toBeUndefined();
+    let calls = 0;
+    const changed = new Promise<void>((resolve) => {
+      const stop = watchNotes(dir, () => {
+        calls++;
+        stop?.();
+        resolve();
+      });
+      setTimeout(() => writeFileSync(join(dir, "2026-08.json"), "{}"), 60);
+    });
+    await changed;
+    expect(calls).toBe(1);
+  });
+
   test("a file that does not parse says where", () => {
     const dir = tmp();
     writeFileSync(join(dir, "2026-10.json"), JSON.stringify({ status: "shipped" }));
@@ -393,6 +492,34 @@ describe("the rib", () => {
     const console = String(snapshots.latest(CONSOLE_KEY)?.data ?? "");
     expect(console).toContain('data-view="releases"');
     expect(console).toContain('data-inspect="release:2026-10"');
+  });
+
+  test("Create, then Approve and Back to draft, change the month everywhere", async () => {
+    const { ctx, snapshots } = stored();
+    rib.registerTools?.(ctx);
+    const act = (type: string, payload: unknown) =>
+      rib.onAction?.({ type, origin: "board", payload }, ctx);
+    expect((await act(RELEASE_NOTES_ACTION, { month: "2026-10" }))?.ok).toBe(true);
+    const path = join(ctx.getDataDir?.() ?? "", "release-notes", "2026-10.json");
+    expect(await act(RELEASE_STATUS_ACTION, { month: "2026-10", status: "approved" })).toEqual({
+      ok: false,
+      error: "write a headline in the notes file before approving it",
+    });
+    writeFileSync(path, JSON.stringify({ ...skeleton(), headline: "Thirteen forks" }, null, 2));
+    expect(await act(RELEASE_STATUS_ACTION, { month: "2026-10", status: "approved" })).toEqual({
+      ok: true,
+      data: { message: "Approved SPI 2026.10 release notes" },
+    });
+    expect(readNotes(join(path, ".."), "2026-10")).toMatchObject({ notes: { status: "approved" } });
+    await snapshots.recompose(CONSOLE_KEY);
+    expect(String(snapshots.latest(CONSOLE_KEY)?.data ?? "")).toContain("APPROVED");
+    expect((await act(RELEASE_STATUS_ACTION, { month: "2026-10", status: "draft" }))?.ok).toBe(
+      true,
+    );
+    expect(await act(RELEASE_STATUS_ACTION, { month: "2026-10", status: "shipped" })).toEqual({
+      ok: false,
+      error: "release-notes-status needs status 'approved' or 'draft'",
+    });
   });
 
   test("the console frame cannot export, and a bad month is refused", async () => {
