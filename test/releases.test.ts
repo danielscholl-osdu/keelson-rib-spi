@@ -13,7 +13,7 @@ import {
 import { releaseDoc } from "../src/brief/release";
 import type { ReleaseReads } from "../src/collect/releases";
 import { javaOf, pinKey, pinPoms, ReleaseReader } from "../src/collect/releases";
-import { FORKS, STACK_REPO } from "../src/config";
+import { FORKS, STACK_REPO, TEMPLATE_REPO } from "../src/config";
 import type { Gh } from "../src/forge";
 import rib from "../src/index";
 import { CONSOLE_KEY, INSPECT_KEY, RELEASE_KEY } from "../src/keys";
@@ -162,6 +162,24 @@ describe("a calendar month from the recorded release read", () => {
     expect(f.open).toBe(false);
     expect(f.through).toBe("Sep 1 to 30");
     expect(f.components.find((c) => c.id === "core-lib-azure")).toBeUndefined();
+  });
+
+  test("dependency bumps count once per component, and template bumps not at all", () => {
+    const body =
+      "## 1.0.1\n### Miscellaneous Chores\n* **deps:** bump jackson to 2.21.7\n* **deps:** bump jackson to 2.21.7";
+    const r = reads();
+    const fork = FORKS[0]?.repo ?? "";
+    r.releases[TEMPLATE_REPO] = [{ tag: "v9.0.0", at: "2026-10-20T00:00:00Z", body }];
+    r.releases[fork] = [
+      { tag: "v9.0.1", at: "2026-10-20T00:00:00Z", body },
+      ...(r.releases[fork] ?? []).filter((x) => x.at < "2026-10"),
+    ];
+    for (const repo of Object.keys(r.releases)) {
+      if (repo !== TEMPLATE_REPO && repo !== fork) {
+        r.releases[repo] = (r.releases[repo] ?? []).filter((x) => x.at < "2026-10");
+      }
+    }
+    expect(monthFacts(r, "2026-10", NOW).deps).toBe(1);
   });
 
   test("a repository never read is unknown, not empty", () => {

@@ -268,11 +268,13 @@ export function monthFacts(reads: ReleaseReads, month: string, now: Date): Month
         return;
       }
       for (const line of parseBody(r.body)) {
+        const key = `${c.id}:${line.text.toLowerCase()}`;
         if (line.dep && line.type !== "security" && line.type !== "breaking") {
-          deps++;
+          // Template bumps reach fork automation, not consumers.
+          if (kind !== "template" && !seen.has(key)) deps++;
+          seen.add(key);
           continue;
         }
-        const key = `${c.id}:${line.text.toLowerCase()}`;
         if (seen.has(key)) continue;
         seen.add(key);
         changes.push({ type: line.type, text: line.text, component: c.id, kind, tag: r.tag });
