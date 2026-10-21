@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/danielscholl-osdu/keelson-rib-spi/compare/v1.1.0...v1.2.0) (2026-10-21)
+
+
+### Added
+
+* **releases:** approve release notes from the inspector ([#14](https://github.com/danielscholl-osdu/keelson-rib-spi/issues/14)) ([e931797](https://github.com/danielscholl-osdu/keelson-rib-spi/commit/e931797c6dff58069f8950d70d247cf005782e94))
+
 ## [1.1.0](https://github.com/danielscholl-osdu/keelson-rib-spi/compare/v1.0.0...v1.1.0) (2026-10-21)
 
 
