@@ -6,7 +6,15 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-import { existsSync, mkdirSync, readFileSync, renameSync, watch, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  type FSWatcher,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  watch,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "@keelson/shared";
@@ -153,7 +161,7 @@ export function setNotesStatus(
   const field = /(?<!\\)"status"(\s*:\s*)"(?:draft|approved)"/;
   const next = field.test(text)
     ? text.replace(field, `"status"$1"${status}"`)
-    : text.replace("{", `{\n  "status": "${status}",`);
+    : text.replace(/^(\s*)\{/, `$1{\n  "status": "${status}",`);
   const after = notesSchema.safeParse(JSON.parse(next));
   const same =
     after.success &&
@@ -166,22 +174,36 @@ export function setNotesStatus(
   return { ok: true, path: read.path, changed: true };
 }
 
-// Chat and editors write notes too, so a change to any month's file redraws the views.
-export function watchNotes(dir: string, onChange: () => void): (() => void) | undefined {
-  if (!existsSync(dir)) return undefined;
+// Chat and editors write notes too; a folder not made yet is polled for, never created.
+export function watchNotes(dir: string, onChange: () => void, retryMs = 5000): () => void {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    const w = watch(dir, { persistent: false }, (_event, name) => {
-      if (name && !/^\d{4}-\d{2}\.json$/.test(String(name))) return;
-      clearTimeout(timer);
-      timer = setTimeout(onChange, 150);
-    });
-    w.on("error", () => undefined);
-    return () => {
-      clearTimeout(timer);
-      w.close();
-    };
-  } catch {
-    return undefined;
+  let w: FSWatcher | undefined;
+  const start = (): boolean => {
+    if (!existsSync(dir)) return false;
+    try {
+      w = watch(dir, { persistent: false }, (_event, name) => {
+        if (name && !/^\d{4}-\d{2}\.json$/.test(String(name))) return;
+        clearTimeout(timer);
+        timer = setTimeout(onChange, 150);
+      });
+      w.on("error", () => undefined);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  let poll: ReturnType<typeof setInterval> | undefined;
+  if (!start()) {
+    poll = setInterval(() => {
+      if (!start()) return;
+      clearInterval(poll);
+      onChange();
+    }, retryMs);
+    poll.unref?.();
   }
+  return () => {
+    clearInterval(poll);
+    clearTimeout(timer);
+    w?.close();
+  };
 }

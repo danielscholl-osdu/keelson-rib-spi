@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expectHtml } from "../src/boards/console";
@@ -436,7 +443,6 @@ describe("the notes file", () => {
 
   test("a month's file written outside the rib triggers a redraw", async () => {
     const dir = tmp();
-    expect(watchNotes(join(dir, "absent"), () => undefined)).toBeUndefined();
     let calls = 0;
     const changed = new Promise<void>((resolve) => {
       const stop = watchNotes(dir, () => {
@@ -448,6 +454,23 @@ describe("the notes file", () => {
     });
     await changed;
     expect(calls).toBe(1);
+  });
+
+  test("a notes folder made after startup is watched once it appears", async () => {
+    const dir = join(tmp(), "later");
+    let calls = 0;
+    const stop = watchNotes(dir, () => calls++, 20);
+    await Bun.sleep(60);
+    expect(existsSync(dir)).toBe(false);
+    expect(calls).toBe(0);
+    mkdirSync(dir);
+    writeFileSync(join(dir, "2026-08.json"), "{}");
+    await Bun.sleep(80);
+    expect(calls).toBe(1);
+    writeFileSync(join(dir, "2026-08.json"), "{ }");
+    await Bun.sleep(250);
+    stop();
+    expect(calls).toBe(2);
   });
 
   test("a file that does not parse says where", () => {

@@ -535,7 +535,6 @@ const rib: Rib = {
       if (action.type === RELEASE_PDF_ACTION) return exportPdf(month, now);
       if (action.type === RELEASE_NOTES_ACTION) {
         const made = createNotes(notesFolder(), month);
-        watchNotesFolder();
         recomposeAll();
         return {
           ok: true,
