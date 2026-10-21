@@ -86,6 +86,7 @@ export interface ReleaseDoc {
   notes: NotesState;
   notesError?: string;
   headline: string;
+  headlineWritten: boolean;
   stats: DocStat[];
   keyChanges: string[];
   required: DocAction[];
@@ -225,9 +226,11 @@ export function releaseDoc(f: MonthFacts, read: NotesRead | undefined, now: Date
       title: `${c.component} ${c.tag}: ${c.text}`,
       body: "A breaking change. Check it before taking this version.",
     }));
-  const actions: DocAction[] = n ? n.actions : breaking;
+  // A file with no headline is an untouched skeleton, not a review.
+  const written = n?.headline.trim() ? n : undefined;
+  const actions: DocAction[] = written ? written.actions : breaking;
   const required = actions.filter((a) => a.level !== "info");
-  const issues = n?.knownIssues ?? [];
+  const issues = written?.knownIssues ?? [];
   const openIssues = issues.filter((i) => i.state === "open").length;
   const services = f.services;
   const mustDo = actions.filter((a) => a.level === "required").length;
@@ -249,20 +252,24 @@ export function releaseDoc(f: MonthFacts, read: NotesRead | undefined, now: Date
       anchor: "components",
     },
     {
-      short: "Required actions",
-      figure: n ? String(mustDo) : "?",
-      label: !n
+      short: "Actions",
+      figure: written ? String(required.length) : "?",
+      label: !written
         ? "actions not reviewed yet"
-        : mustDo > 0
-          ? word(mustDo, "required action")
-          : "no action required",
+        : required.length === 0
+          ? "no action required"
+          : mustDo === required.length
+            ? word(mustDo, "required action")
+            : mustDo === 0
+              ? word(required.length, "recommended action")
+              : `actions to take, ${mustDo} required`,
       ...(mustDo > 0 ? { tone: "bad" as const } : {}),
       anchor: "action",
     },
     {
       short: "Open issues",
-      figure: n ? String(openIssues) : "?",
-      label: n ? `open known ${word(openIssues, "issue")}` : "known issues not reviewed yet",
+      figure: written ? String(openIssues) : "?",
+      label: written ? `open known ${word(openIssues, "issue")}` : "known issues not reviewed yet",
       anchor: "issues",
     },
   ];
@@ -300,6 +307,7 @@ export function releaseDoc(f: MonthFacts, read: NotesRead | undefined, now: Date
     notes,
     ...(read?.state === "invalid" ? { notesError: read.error } : {}),
     headline: n?.headline.trim() || computedHeadline(f),
+    headlineWritten: !!n?.headline.trim(),
     stats,
     keyChanges: n?.keyChanges ?? [],
     required,

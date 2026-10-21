@@ -60,9 +60,10 @@ A change needs `bun run check`, `bun run typecheck` and `bun test` green.
   each target read again and refused if it changed, the outcome logged, then a
   resweep. Writes go to GitHub only, never GitLab or the cluster. No token is
   stored; the operator's sign-ins are used per call.
-- **Local files only from the inspector.** Creating a month's notes file and
-  writing its PDF are local writes, never forge writes; they run from inspector
-  buttons, and a notes file that exists is never overwritten.
+- **Local files only from the inspector.** Creating a month's notes file,
+  approving it and writing its PDF are local writes, never forge writes; they
+  run from inspector buttons. A notes file that exists is never overwritten:
+  Approve and Back to draft change only its `status`, in place.
 - **The console frame never acts.** `rib:spi:console` is html in a sandboxed
   frame, so its markup is untrusted: `onAction` accepts only `inspect` from a
   `canvas-html` origin, and every verb stays a button in the inspector drawer.

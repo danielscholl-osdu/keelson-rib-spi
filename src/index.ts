@@ -42,6 +42,7 @@ import {
   RELEASE_NOTES_ACTION,
   RELEASE_OPEN_ACTION,
   RELEASE_PDF_ACTION,
+  RELEASE_STATUS_ACTION,
   releaseBoard,
   releaseDocHtml,
   releaseHtmlEmpty,
@@ -59,8 +60,8 @@ import { FORKS, INFLIGHT_POLL_MS, SWEEP_MS } from "./config.ts";
 import { Gh, Glab } from "./forge.ts";
 import { BADGE_KEY, CONSOLE_KEY, INSPECT_KEY, RELEASE_KEY, RIB_ID } from "./keys.ts";
 import type { QueueItem } from "./model/queue.ts";
-import { isMonth, monthFacts, releaseMonths } from "./model/releases.ts";
-import { createNotes, notesDir, readNotes } from "./notes/file.ts";
+import { isMonth, monthFacts, monthName, releaseMonths } from "./model/releases.ts";
+import { createNotes, notesDir, readNotes, setNotesStatus, watchNotes } from "./notes/file.ts";
 import { findBrowser, pdfDir, writePdf } from "./notes/pdf.ts";
 import { Store } from "./store.ts";
 import { INSPECT_ACTION, REFRESH_ACTION, SURFACES } from "./surfaces.ts";
@@ -124,6 +125,17 @@ function recomposeAll(): void {
   for (const key of [...VIEW_KEYS, CONSOLE_KEY, BADGE_KEY, RELEASE_KEY]) {
     snapshots?.recompose(key).catch(() => undefined);
   }
+}
+
+let unwatchNotes: (() => void) | undefined;
+
+function watchNotesFolder(): void {
+  if (unwatchNotes) return;
+  unwatchNotes = watchNotes(notesFolder(), () => {
+    for (const key of [CONSOLE_KEY, RELEASE_KEY, INSPECT_KEY]) {
+      snapshots?.recompose(key).catch(() => undefined);
+    }
+  });
 }
 
 function notesFolder(): string {
@@ -299,6 +311,7 @@ function bind(ctx: RibContext): Sweeper {
     },
   );
   releases = reader;
+  watchNotesFolder();
   unregisters.push(
     registerVerb(APPROVE_RUNS),
     registerVerb(SYNC_FORKS),
@@ -366,6 +379,8 @@ function unbind(): void {
   unregisters = [];
   for (const t of timers) clearInterval(t);
   timers = [];
+  unwatchNotes?.();
+  unwatchNotes = undefined;
   snapshots = undefined;
   sweeper = undefined;
   context = undefined;
@@ -508,9 +523,11 @@ const rib: Rib = {
     if (
       action.type === RELEASE_OPEN_ACTION ||
       action.type === RELEASE_PDF_ACTION ||
-      action.type === RELEASE_NOTES_ACTION
+      action.type === RELEASE_NOTES_ACTION ||
+      action.type === RELEASE_STATUS_ACTION
     ) {
-      const month = (action.payload as { month?: unknown } | undefined)?.month;
+      const payload = action.payload as { month?: unknown; status?: unknown } | undefined;
+      const month = payload?.month;
       if (typeof month !== "string" || !isMonth(month)) {
         return { ok: false, error: "release actions need { month: 'YYYY-MM' }" };
       }
@@ -518,10 +535,30 @@ const rib: Rib = {
       if (action.type === RELEASE_PDF_ACTION) return exportPdf(month, now);
       if (action.type === RELEASE_NOTES_ACTION) {
         const made = createNotes(notesFolder(), month);
-        await snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
+        recomposeAll();
         return {
           ok: true,
           data: { message: made.created ? `Created ${made.path}` : `${made.path} already exists` },
+        };
+      }
+      if (action.type === RELEASE_STATUS_ACTION) {
+        const status = payload?.status;
+        if (status !== "approved" && status !== "draft") {
+          return { ok: false, error: "release-notes-status needs status 'approved' or 'draft'" };
+        }
+        const set = setNotesStatus(notesFolder(), month, status);
+        if (!set.ok) return { ok: false, error: set.error };
+        recomposeAll();
+        const name = monthName(month);
+        return {
+          ok: true,
+          data: {
+            message: !set.changed
+              ? `SPI ${name} notes are already ${status}`
+              : status === "approved"
+                ? `Approved SPI ${name} release notes`
+                : `SPI ${name} release notes are a draft again`,
+          },
         };
       }
       const doc = monthDoc(month, now);
