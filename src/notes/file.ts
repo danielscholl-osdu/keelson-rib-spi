@@ -6,7 +6,7 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "@keelson/shared";
@@ -122,8 +122,12 @@ export function skeleton(): Notes {
 // Never overwrites: a file that exists already holds someone's words.
 export function createNotes(dir: string, month: string): { path: string; created: boolean } {
   const path = notesPath(dir, month);
-  if (existsSync(path)) return { path, created: false };
   mkdirSync(dir, { recursive: true });
-  writeFileSync(path, `${JSON.stringify(skeleton(), null, 2)}\n`, { flag: "wx" });
+  try {
+    writeFileSync(path, `${JSON.stringify(skeleton(), null, 2)}\n`, { flag: "wx" });
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "EEXIST") return { path, created: false };
+    throw e;
+  }
   return { path, created: true };
 }

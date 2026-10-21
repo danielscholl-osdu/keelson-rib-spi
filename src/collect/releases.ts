@@ -54,10 +54,16 @@ export function pinKey(repo: string, tag: string): string {
   return `${repo}@${tag}`;
 }
 
+const JAVA_PROPS = [
+  /<java\.version>\s*([^<$\s]+)\s*</,
+  /<maven\.compiler\.release>\s*([^<$\s]+)\s*</,
+  /<maven\.compiler\.target>\s*([^<$\s]+)\s*</,
+];
+
 // The first of java.version, maven.compiler.release and maven.compiler.target.
 export function javaOf(pom: string): string | null {
-  for (const name of ["java.version", "maven.compiler.release", "maven.compiler.target"]) {
-    const v = new RegExp(`<${name.replace(/\./g, "\\.")}>\\s*([^<$\\s]+)\\s*<`).exec(pom)?.[1];
+  for (const re of JAVA_PROPS) {
+    const v = re.exec(pom)?.[1];
     if (v) return v.replace(/^1\./, "");
   }
   return null;
