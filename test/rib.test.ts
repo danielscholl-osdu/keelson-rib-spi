@@ -13,7 +13,7 @@ import { ROLLOUT_ITEM, SYNC_FORKS } from "../src/act/rollout";
 import { registerVerb } from "../src/act/verbs";
 import { DOCTOR_ID } from "../src/boards/doctor";
 import rib from "../src/index";
-import { BADGE_KEY, CONSOLE_KEY, INSPECT_KEY } from "../src/keys";
+import { BADGE_KEY, CONSOLE_KEY, INSPECT_KEY, RELEASE_KEY } from "../src/keys";
 import { failingExec, fakeContext, fixtureFacts } from "./harness";
 
 afterEach(async () => {
@@ -69,9 +69,11 @@ describe("binding", () => {
   test("registers the console, the inspector and the badge, and each resting frame passes its validator", async () => {
     const { ctx, snapshots } = fakeContext();
     const tools = rib.registerTools?.(ctx) ?? [];
-    expect(snapshots.keys().sort()).toEqual([BADGE_KEY, CONSOLE_KEY, INSPECT_KEY].sort());
+    expect(snapshots.keys().sort()).toEqual(
+      [BADGE_KEY, CONSOLE_KEY, INSPECT_KEY, RELEASE_KEY].sort(),
+    );
     const frames = await snapshots.composeAll();
-    expect(frames.size).toBe(3);
+    expect(frames.size).toBe(4);
     expect(tools.map((t) => t.name).sort()).toEqual([
       "spi_brief",
       "spi_incidents",
@@ -79,6 +81,7 @@ describe("binding", () => {
       "spi_line",
       "spi_prs",
       "spi_radar",
+      "spi_release_notes",
       "spi_security",
       "spi_stack",
       "spi_template",

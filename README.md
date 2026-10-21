@@ -25,6 +25,7 @@ briefing (`src/brief/`), which `spi_brief` returns to chat as well.
 | Environment | Is the environment dependable? | The running version, the 21-day deployable share and the last proof, over a 24-hour timeline of upgrades, refreshes, smoke runs and maintenance holds. |
 | Flow | Where is change stuck? | One row per fork that needs a person, one column per station (upstream, sync, cascade, main, release, lane, template). A column every fork agrees on becomes one band, the environment is one row above the table, and quiet forks fold into one row. |
 | Horizon | What will affect us next? | One row per upstream cause across forks (a halt entry, a Java move, ports owed, the template rollout, the Azure removal deadline), queued commits kept apart from open MRs. |
+| Releases | What shipped this month? | One row per calendar month with its headline, numbers and whether its notes are approved. Opening a month gives the release notes and a PDF. |
 
 The Repositories view sorts every open item by properties the rib reads, never
 by package or service name. A PR's kind comes from its conventional-commit
@@ -89,6 +90,35 @@ links to GitHub. A list GitHub hides from the token, such as
 code scanning that is off, says so instead of reading as zero. Secret scanning
 is not read.
 
+## Release notes
+
+The Releases view writes monthly release notes for SPI consumers. Each month
+has two halves:
+
+- **Computed** from GitHub: every release of the template, the stack,
+  `osdu-spi-core-lib-azure` and each fork in the calendar month (UTC), the
+  version each moved from and to, the changelog parsed from the release bodies,
+  and each service's core-lib-azure and Java read from its poms at the release
+  tag. A fork's first release shows as one line instead of the template history
+  it inherits, template changes fold into one line, and dependency bumps are
+  counted, not listed. PR numbers and links stay out.
+- **Written** in a notes file, one per month: the headline, key changes,
+  required and informational actions, highlights, known issues and, when set,
+  a changelog that replaces the computed one. The file lives in
+  `<keelson home>/rib-spi/release-notes/YYYY-MM.json`, or in
+  `RIB_SPI_NOTES_DIR` (point it at a git checkout to review the notes as PRs).
+  Until its `status` is `approved`, every copy says it is a draft.
+
+A month's inspector has **Read release notes** (the document in the drawer),
+**Download PDF** and, while the month has no file, **Create notes file**. The
+PDF is printed by a headless Chrome, Chromium or Edge (`RIB_SPI_CHROME`
+overrides the binary) into `~/Downloads` (`RIB_SPI_PDF_DIR` overrides it); the
+console frame cannot download, so the file is written by the rib. Ask chat to
+draft a month with `spi_release_notes`, then review the file and approve it.
+
+`bun dev/releases.ts [YYYY-MM] [out-dir]` reads the releases live and writes
+that month's html and PDF.
+
 ## Services
 
 | Service | Fork | Upstream project |
@@ -105,7 +135,7 @@ map lives in `src/config.ts`.
 ## Tools and agent
 
 `spi_brief`, `spi_watchstand`, `spi_incidents`, `spi_line`, `spi_stack`,
-`spi_template`, `spi_prs`, `spi_issues` and `spi_security` answer from the same sweep the console renders, so chat, workflows and
+`spi_template`, `spi_prs`, `spi_issues`, `spi_security` and `spi_release_notes` answer from the same sweep the console renders, so chat, workflows and
 Keelson MCP clients get the same counts as the tab. The **SPI Watch Officer**
 agent answers from those tools.
 

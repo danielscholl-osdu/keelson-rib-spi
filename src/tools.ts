@@ -127,9 +127,28 @@ function repoMatch(r: string, repo: string | undefined): boolean {
   return !repo || shortRepo(r) === repo || r === repo || shortRepo(r).endsWith(repo);
 }
 
-export function registerSpiTools(sweeper: Sweeper): ToolDefinition[] {
+export function registerSpiTools(
+  sweeper: Sweeper,
+  releaseNotes?: (month: string | undefined) => unknown,
+): ToolDefinition[] {
   const now = () => sweeper.now();
+  const release = releaseNotes
+    ? [
+        tool(
+          "spi_release_notes",
+          "One calendar month of SPI release notes for consumers (default: the month in progress): the computed facts (each component's version from and to, release count, upstream base, core-lib-azure and Java at the release tag, the services forked that month), the candidate changelog parsed from release bodies, the notes file's path, state and current content, and the fields that file takes. Use it to draft or revise the notes file: write plain sentences a consumer can act on, no PR numbers, and leave status as draft for a person to approve. The rib never writes the file from this tool.",
+          z.object({
+            month: z
+              .string()
+              .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
+              .optional(),
+          }),
+          (input) => releaseNotes(input.month),
+        ),
+      ]
+    : [];
   return [
+    ...release,
     tool(
       "spi_brief",
       "The SPI briefing in sentences, the same words the tab's console shows: a headline naming at most two causes as imperatives, a summary, three facts (environment version, forks with sync stopped, template adoption), up to five focus items each with cause, effect, next step and verb, the ready line of PRs waiting on review, and themes that group one upstream cause (a halt entry, a Java move, ports owed, the template rollout, the Azure removal deadline) across every fork it reaches. Start here when asked what needs attention and why.",
