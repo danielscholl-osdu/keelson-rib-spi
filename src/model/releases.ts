@@ -25,6 +25,7 @@ export interface Component {
   to?: string;
   count: number;
   first: boolean;
+  unread: boolean;
   created?: string;
   upstream?: string;
   pins?: BuildPins;
@@ -52,9 +53,9 @@ export interface MonthFacts {
   open: boolean;
   through: string;
   components: Component[];
-  releases: number;
-  released: number;
-  services: { total: number; forked: number; shipping: number; forkedNow: string[] };
+  releases: number | null;
+  released: number | null;
+  services: { total: number; forked: number; shipping: number | null; forkedNow: string[] };
   stack?: string;
   template?: string;
   libs: LibShare[];
@@ -178,20 +179,24 @@ export interface BodyLine {
 export function parseBody(body: string): BodyLine[] {
   const out: BodyLine[] = [];
   let type: ChangeType | undefined;
+  let inSection = false;
   for (const raw of body.split("\n")) {
     const heading = /^#{2,4}\s+(.*)$/.exec(raw);
     if (heading) {
-      type = /^#{3,4}/.test(raw) ? sectionType(heading[1] ?? "") : undefined;
+      inSection = /^#{3,4}/.test(raw);
+      type = inSection ? sectionType(heading[1] ?? "") : undefined;
       continue;
     }
-    if (!type) continue;
+    if (!inSection) continue;
     const item = /^\s{0,1}[*-]\s+(?:\*\*([^*]+?):?\*\*:?\s*)?(.+)$/.exec(raw);
     if (!item) continue;
     const scope = item[1]?.trim();
     const text = plainLine(item[2] ?? "");
     if (!text || NOISE.some((re) => re.test(text))) continue;
     const dep = scope === "deps" || /^bump\b/i.test(text);
-    let t = type;
+    // Untyped sections (Miscellaneous, Build System) reach a consumer only as dependency bumps.
+    if (!type && !dep) continue;
+    let t: ChangeType = type ?? "fixed";
     if (SECURITY.test(text) && t !== "breaking") t = "security";
     else if (t === "new" && IMPROVED.test(text)) t = "improved";
     out.push({ type: t, text, dep, ...(scope ? { scope } : {}) });
@@ -227,10 +232,11 @@ export function monthFacts(reads: ReleaseReads, month: string, now: Date): Month
   const components: Component[] = [];
 
   for (const repo of RELEASE_REPOS) {
-    const list = reads.releases[repo] ?? [];
+    const known = reads.releases[repo];
+    const list = known ?? [];
     const created = reads.created[repo];
     if (created && Date.parse(created) >= end.getTime()) continue;
-    if (!created && list.length === 0) continue;
+    if (!created && known && list.length === 0) continue;
     const prior = before(list, start);
     const upTo = before(list, end);
     const within = upTo.filter((r) => Date.parse(r.at) >= start.getTime());
@@ -242,6 +248,7 @@ export function monthFacts(reads: ReleaseReads, month: string, now: Date): Month
       kind,
       count: within.length,
       first: prior.length === 0 && within.length > 0,
+      unread: !known,
       ...(prior[0] ? { from: prior[0].tag } : {}),
       ...(latest ? { to: latest.tag } : {}),
       ...(created ? { created } : {}),
@@ -280,7 +287,10 @@ export function monthFacts(reads: ReleaseReads, month: string, now: Date): Month
     const v = s.pins?.lib ?? "?";
     libs.set(v, [...(libs.get(v) ?? []), s.id]);
   }
-  const unread = RELEASE_REPOS.filter((r) => reads.errors[r]).map(componentId);
+  const unread = RELEASE_REPOS.filter((r) => reads.errors[r] || !reads.releases[r]).map(
+    componentId,
+  );
+  const partial = components.some((c) => c.unread);
   const stack = components.find((c) => c.kind === "stack")?.to;
   const template = components.find((c) => c.kind === "template")?.to;
   return {
@@ -294,12 +304,12 @@ export function monthFacts(reads: ReleaseReads, month: string, now: Date): Month
       ? `${shortDate(start)} to ${last.getUTCDate()}`
       : `${shortDate(start)} to ${new Date(end.getTime() - 1).getUTCDate()}`,
     components,
-    releases: components.reduce((n, c) => n + c.count, 0),
-    released: components.filter((c) => c.count > 0).length,
+    releases: partial ? null : components.reduce((n, c) => n + c.count, 0),
+    released: partial ? null : components.filter((c) => c.count > 0).length,
     services: {
       total: FORKS.length,
       forked: services.length,
-      shipping: services.filter((s) => !!s.to).length,
+      shipping: services.some((s) => s.unread) ? null : services.filter((s) => !!s.to).length,
       forkedNow: services.filter((s) => s.created && monthOf(s.created) === month).map((s) => s.id),
     },
     ...(stack ? { stack } : {}),

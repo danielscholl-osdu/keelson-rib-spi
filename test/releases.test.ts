@@ -12,12 +12,15 @@ import {
 } from "../src/boards/release";
 import { releaseDoc } from "../src/brief/release";
 import type { ReleaseReads } from "../src/collect/releases";
-import { javaOf, pinPoms } from "../src/collect/releases";
+import { javaOf, pinKey, pinPoms, ReleaseReader } from "../src/collect/releases";
+import { FORKS, STACK_REPO } from "../src/config";
+import type { Gh } from "../src/forge";
 import rib from "../src/index";
 import { CONSOLE_KEY, INSPECT_KEY, RELEASE_KEY } from "../src/keys";
 import { monthFacts, parseBody, releaseMonths } from "../src/model/releases";
 import { createNotes, type NotesRead, readNotes, skeleton } from "../src/notes/file";
 import { pdfName } from "../src/notes/pdf";
+import { Store } from "../src/store";
 import fixture from "./fixtures/releases.json";
 import { fakeContext, fixtureFacts } from "./harness";
 
@@ -65,6 +68,35 @@ describe("release bodies", () => {
       { type: "fixed", text: "CI-friendly Maven versions", dep: false },
       { type: "security", text: "CVE remediation wave 1 (tomcat, jackson-databind)", dep: false },
     ]);
+  });
+
+  test("untyped sections keep their dependency bumps and drop the rest", () => {
+    const lines = parseBody(`## [1.2.1](https://x/compare/v1.2.0...v1.2.1) (2026-10-15)
+### Miscellaneous Chores
+* **deps:** bump spring-boot to 3.5.16
+* Remove Azure provider`);
+    expect(lines).toEqual([
+      { type: "fixed", text: "bump spring-boot to 3.5.16", dep: true, scope: "deps" },
+    ]);
+  });
+
+  test("a pin read with GraphQL errors is recorded and retried, never cached", async () => {
+    const fork = FORKS[0]?.repo ?? "";
+    const gh = {
+      pages: async (path: string) =>
+        path.startsWith(`repos/${fork}/`)
+          ? [{ tag: "v1.0.0", at: "2026-10-01T00:00:00Z", body: "" }]
+          : [],
+      rest: async () => ["pom.xml"],
+      graphql: async (query: string) =>
+        query.includes("createdAt")
+          ? { data: {}, errors: [] }
+          : { data: { repository: { p0: null } }, errors: [{ message: "Something went wrong" }] },
+    } as unknown as Gh;
+    const reader = new ReleaseReader(gh, new Store(undefined), () => NOW);
+    await reader.read({ force: true });
+    expect(reader.data.pins[pinKey(fork, "v1.0.0")]).toBeUndefined();
+    expect(reader.data.errors[pinKey(fork, "v1.0.0")]).toContain("Something went wrong");
   });
 
   test("poms: Java from the first property set, test modules never pin the library", () => {
@@ -131,6 +163,21 @@ describe("a calendar month from the recorded release read", () => {
     expect(f.through).toBe("Sep 1 to 30");
     expect(f.components.find((c) => c.id === "core-lib-azure")).toBeUndefined();
   });
+
+  test("a repository never read is unknown, not empty", () => {
+    const r = reads();
+    delete r.releases[STACK_REPO];
+    const f = monthFacts(r, "2026-10", NOW);
+    expect(f.releases).toBeNull();
+    expect(f.unread).toContain("spi-stack");
+    const doc = releaseDoc(f, undefined, NOW);
+    expect(doc.stats[1]?.figure).toBe("?");
+    expect(doc.rows.find((x) => x.id === "spi-stack")).toMatchObject({
+      version: "?",
+      releases: null,
+      state: "unread",
+    });
+  });
 });
 
 describe("the document", () => {
@@ -186,6 +233,17 @@ describe("the document", () => {
     expect(html).toContain('@top-right { content: "2026.10 · APPROVED"');
     expect(html).not.toContain("Version summary");
     expect(releaseDocHtml(doc)).toContain("Version summary");
+  });
+
+  test("a notes file's actions replace the computed ones, even when it lists none", () => {
+    const f = monthFacts(reads(), "2026-10", NOW);
+    expect(releaseDoc(f, undefined, NOW).required.length).toBeGreaterThan(0);
+    const read: NotesRead = {
+      state: "ok",
+      path: "/x/2026-10.json",
+      notes: { ...skeleton(), status: "approved" },
+    };
+    expect(releaseDoc(f, read, NOW).required).toEqual([]);
   });
 
   test("without a notes file, actions and known issues are unreviewed, not zero", () => {

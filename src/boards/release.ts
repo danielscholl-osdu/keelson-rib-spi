@@ -396,7 +396,7 @@ function componentsHtml(d: ReleaseDoc, print: boolean): string {
   const row = (r: ReleaseDoc["rows"][number]) => {
     const lib = r.group === "Services" ? (r.lib === undefined ? "–" : (r.lib ?? "?")) : "–";
     const java = r.group === "Services" ? (r.java === undefined ? "–" : (r.java ?? "?")) : "–";
-    return `<tr><td class="svc">${name(r.id, r.url)}</td><td class="m${r.state === "unreleased" ? " dim" : ""}">${versionCell(r)}</td><td class="m">${r.releases || "–"}</td><td class="m">${esc(r.upstream ?? "–")}</td><td class="m">${esc(lib)}</td><td class="m">${esc(java)}</td></tr>`;
+    return `<tr><td class="svc">${name(r.id, r.url)}</td><td class="m${r.state === "unreleased" ? " dim" : ""}">${versionCell(r)}</td><td class="m">${r.releases === null ? "?" : r.releases || "–"}</td><td class="m">${esc(r.upstream ?? "–")}</td><td class="m">${esc(lib)}</td><td class="m">${esc(java)}</td></tr>`;
   };
   const group = (g: "Services" | "Platform") => {
     const rows = d.rows.filter((r) => r.group === g);

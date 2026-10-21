@@ -68,11 +68,11 @@ export interface DocRow {
   version: string;
   from?: string;
   to?: string;
-  releases: number;
+  releases: number | null;
   upstream?: string;
   lib?: string | null;
   java?: string | null;
-  state: "released" | "unreleased";
+  state: "released" | "unreleased" | "unread";
   url?: string;
 }
 
@@ -147,6 +147,9 @@ function computedChangelog(f: MonthFacts): DocArea[] {
 }
 
 function computedHeadline(f: MonthFacts): string {
+  if (f.releases === null || f.released === null) {
+    return `Releases for ${f.label} are not fully read yet: ${f.unread.join(", ")}.`;
+  }
   if (f.releases === 0) return `No SPI releases ${f.open ? "yet " : ""}in ${f.label}.`;
   return `${plural(f.releases, "release")} across ${plural(f.released, "repository", "repositories")} in ${f.label}.`;
 }
@@ -163,7 +166,7 @@ function visualOf(
         .filter((c) => c.kind === "service")
         .map((c) => ({
           id: c.id,
-          version: c.to ?? "no release",
+          version: c.unread ? "?" : (c.to ?? "no release"),
           fresh: f.services.forkedNow.includes(c.id),
         })),
     };
@@ -176,15 +179,21 @@ function manifestRow(c: Component): DocRow {
   return {
     id: c.id,
     group: c.kind === "service" ? "Services" : "Platform",
-    version: c.to ? (c.count > 0 ? `${c.from ?? "new"} → ${c.to}` : c.to) : "no release",
+    version: c.unread
+      ? "?"
+      : c.to
+        ? c.count > 0
+          ? `${c.from ?? "new"} → ${c.to}`
+          : c.to
+        : "no release",
     ...(c.count > 0 && c.from ? { from: c.from } : {}),
     ...(c.count > 0 && c.to ? { to: c.to } : {}),
-    releases: c.count,
+    releases: c.unread ? null : c.count,
     ...(c.upstream ? { upstream: c.upstream } : {}),
     ...(c.kind === "service" && c.to
       ? { lib: c.pins?.lib ?? null, java: c.pins?.java ?? null }
       : {}),
-    state: c.to ? "released" : "unreleased",
+    state: c.unread ? "unread" : c.to ? "released" : "unreleased",
     ...(c.to ? { url: tagUrl(c.repo, c.to) } : {}),
   };
 }
@@ -216,7 +225,7 @@ export function releaseDoc(f: MonthFacts, read: NotesRead | undefined, now: Date
       title: `${c.component} ${c.tag}: ${c.text}`,
       body: "A breaking change. Check it before taking this version.",
     }));
-  const actions: DocAction[] = n && n.actions.length > 0 ? n.actions : breaking;
+  const actions: DocAction[] = n ? n.actions : breaking;
   const required = actions.filter((a) => a.level !== "info");
   const issues = n?.knownIssues ?? [];
   const openIssues = issues.filter((i) => i.state === "open").length;
@@ -225,15 +234,18 @@ export function releaseDoc(f: MonthFacts, read: NotesRead | undefined, now: Date
   const word = (k: number, one: string, many = `${one}s`) => (k === 1 ? one : many);
   const stats: DocStat[] = [
     {
-      figure: `${services.shipping}/${services.total}`,
+      figure: `${services.shipping ?? "?"}/${services.total}`,
       short: "Services released",
       label: `services released from SPI forks${services.forkedNow.length > 0 ? `, ${services.forkedNow.length} forked this month` : ""}`,
       anchor: "components",
     },
     {
       short: "Releases",
-      figure: String(f.releases),
-      label: `${word(f.releases, "release")} across ${plural(f.released, "repository", "repositories")}`,
+      figure: f.releases === null ? "?" : String(f.releases),
+      label:
+        f.releases === null || f.released === null
+          ? `releases, ${plural(f.unread.length, "repository", "repositories")} not read yet`
+          : `${word(f.releases, "release")} across ${plural(f.released, "repository", "repositories")}`,
       anchor: "components",
     },
     {

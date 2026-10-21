@@ -93,9 +93,13 @@ async function readPins(gh: Gh, repo: string, tag: string): Promise<BuildPins> {
         `p${i}: object(expression: ${JSON.stringify(`${tag}:${p}`)}) { ... on Blob { text } }`,
     )
     .join(" ");
-  const { data } = await gh.graphql<{ repository: Record<string, RawBlob | null> | null }>(
-    `{ repository(owner: "${owner}", name: "${name}") { ${fields} } }`,
-  );
+  const { data, errors } = await gh.graphql<{
+    repository: Record<string, RawBlob | null> | null;
+  }>(`{ repository(owner: "${owner}", name: "${name}") { ${fields} } }`);
+  // Pins are cached for good, so a partial read must fail and be retried.
+  if (errors.length > 0 || !data.repository) {
+    throw new Error(errors[0]?.message ?? `${repo} not readable at ${tag}`);
+  }
   const texts = poms.map((_, i) => data.repository?.[`p${i}`]?.text ?? "");
   const root = texts[0] ?? "";
   const lib = texts
