@@ -110,13 +110,18 @@ has two halves:
   Until its `status` is `approved`, every copy says it is a draft.
 
 A month's inspector has **Read release notes** (the document in the drawer),
-**Download PDF**, **Create notes file** while the month has no file, and
+**Download PDF**, **Create notes file** while the month has no file,
+**Update notes** (**Draft notes** with no file yet) for a draft, and
 **Approve notes** for a draft with a headline (**Back to draft** once it is
-approved). Approving changes only the file's `status`, in place. The PDF is
+approved). Approving changes only the file's `status`, in place. Update runs
+an agent turn on the latest release read: it keeps sentences that are still
+true, folds in what landed since, and writes the result as a draft after
+saving the previous file in `release-notes/.history/`. The PDF is
 printed by a headless Chrome, Chromium or Edge (`RIB_SPI_CHROME` overrides the
 binary) into `~/Downloads` (`RIB_SPI_PDF_DIR` overrides it); the console frame
-cannot download, so the file is written by the rib. Ask chat to draft a month
-with `spi_release_notes`, review the file, then approve it in the inspector.
+cannot download, so the file is written by the rib. Chat can draft or revise a
+month with `spi_release_notes` instead; either way, review the file, then
+approve it in the inspector.
 
 `bun dev/releases.ts [YYYY-MM] [out-dir]` reads the releases live and writes
 that month's html and PDF.

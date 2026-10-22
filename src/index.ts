@@ -12,6 +12,8 @@ import {
   type Rib,
   type RibAction,
   type RibActionResult,
+  type RibAgentTurn,
+  type RibAgentTurnRequest,
   type RibContext,
   type RibExec,
   type RibSurfaceBadge,
@@ -39,10 +41,12 @@ import { DOCTOR_ID, doctorBoard, doctorStatus } from "./boards/doctor.ts";
 import { type InspectState, inspectBoard, inspectTitle, stepTitle } from "./boards/inspect.ts";
 import { MR_PREFIX, mrTitle } from "./boards/radar.ts";
 import {
+  type NotesUpdate,
   RELEASE_NOTES_ACTION,
   RELEASE_OPEN_ACTION,
   RELEASE_PDF_ACTION,
   RELEASE_STATUS_ACTION,
+  RELEASE_UPDATE_ACTION,
   releaseBoard,
   releaseDocHtml,
   releaseHtmlEmpty,
@@ -61,12 +65,22 @@ import { Gh, Glab } from "./forge.ts";
 import { BADGE_KEY, CONSOLE_KEY, INSPECT_KEY, RELEASE_KEY, RIB_ID } from "./keys.ts";
 import type { QueueItem } from "./model/queue.ts";
 import { isMonth, monthFacts, monthName, releaseMonths } from "./model/releases.ts";
-import { createNotes, notesDir, readNotes, setNotesStatus, watchNotes } from "./notes/file.ts";
+import { DRAFT_SYSTEM, draftPrompt, parseDraft } from "./notes/draft.ts";
+import {
+  createNotes,
+  notesDir,
+  notesText,
+  readNotes,
+  setNotesStatus,
+  watchNotes,
+  writeDraft,
+} from "./notes/file.ts";
 import { findBrowser, pdfDir, writePdf } from "./notes/pdf.ts";
 import { Store } from "./store.ts";
 import { INSPECT_ACTION, REFRESH_ACTION, SURFACES } from "./surfaces.ts";
 import { Sweeper } from "./sweep.ts";
 import { registerSpiTools } from "./tools.ts";
+import { errorText } from "./util.ts";
 
 type Composer = (sweeper: Sweeper, now: Date) => CanvasBoardView;
 
@@ -113,6 +127,9 @@ function badgeOf(data: unknown): RibSurfaceBadge {
 let releases: ReleaseReader | undefined;
 let releaseMonth: string | undefined;
 const lastPdf = new Map<string, { path: string; at: string }>();
+const notesUpdates = new Map<string, NotesUpdate>();
+const updateAborts = new Set<AbortController>();
+const UPDATE_TIMEOUT_MS = 10 * 60_000;
 
 let snapshots: SnapshotManager | undefined;
 let context: RibContext | undefined;
@@ -171,6 +188,8 @@ function releaseInspector(month: string, now: Date) {
     ...(data?.at ? { readAt: data.at } : {}),
     errors: Object.entries(data?.errors ?? {}).map(([k, e]) => `${k}: ${e}`),
     pdfReady: !!findBrowser(),
+    agentReady: !!context?.runAgentTurn,
+    ...(notesUpdates.get(month) ? { update: notesUpdates.get(month) } : {}),
   });
 }
 
@@ -262,6 +281,95 @@ function releaseNotesTool(asked: string | undefined): unknown {
     },
     candidates: facts.changes.map((c) => `${c.type} · ${c.component} ${c.tag} · ${c.text}`),
   };
+}
+
+// The agent gets no tools: the rib checks its reply and writes the file itself.
+function startNotesUpdate(month: string, now: Date): RibActionResult {
+  const ctx = context;
+  const run = ctx?.runAgentTurn;
+  if (!ctx || !run) return { ok: false, error: "this host runs no agent turns for ribs" };
+  if (!releases?.data.at) return { ok: false, error: "releases are not read yet" };
+  const name = monthName(month);
+  if (notesUpdates.get(month)?.state === "running") {
+    return { ok: false, error: `SPI ${name} notes are already updating` };
+  }
+  const dir = notesFolder();
+  const read = readNotes(dir, month);
+  if (read.state === "invalid") {
+    return { ok: false, error: `${read.path} does not parse: ${read.error}; fix it first` };
+  }
+  if (read.state === "ok" && read.notes.status === "approved") {
+    return { ok: false, error: "approved notes are not updated; set them back to draft first" };
+  }
+  const before = notesText(dir, month);
+  const { notes, ...facts } = releaseNotesTool(month) as {
+    notes: { fields: unknown };
+  } & Record<string, unknown>;
+  const prompt = draftPrompt(
+    month,
+    { ...facts, fields: notes.fields },
+    read.state === "ok" ? read.notes : undefined,
+  );
+  const op = ctx.registerOp?.({
+    kind: RELEASE_UPDATE_ACTION,
+    title: `Update SPI ${name} release notes`,
+  });
+  const abort = new AbortController();
+  op?.signal.addEventListener("abort", () => abort.abort());
+  updateAborts.add(abort);
+  const at = now.toISOString();
+  notesUpdates.set(month, { state: "running", at });
+  snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
+  draftTurn(run, prompt, abort.signal)
+    .then((reply) => {
+      if (!updateAborts.has(abort)) return;
+      const parsed = reply.ok ? parseDraft(reply.text) : reply;
+      const wrote = parsed.ok ? writeDraft(dir, month, parsed.notes, before, at) : parsed;
+      notesUpdates.set(
+        month,
+        wrote.ok
+          ? { state: "done", at, ...(wrote.kept ? { kept: wrote.kept } : {}) }
+          : { state: "failed", at, error: wrote.error },
+      );
+      if (wrote.ok) op?.done({ path: wrote.path });
+      else op?.error(wrote.error);
+      recomposeAll();
+    })
+    .catch(() => undefined)
+    .finally(() => updateAborts.delete(abort));
+  return {
+    ok: true,
+    data: { message: `Updating SPI ${name} release notes${op ? ` as op ${op.id}` : ""}` },
+  };
+}
+
+async function draftTurn(
+  run: (req: RibAgentTurnRequest) => RibAgentTurn,
+  prompt: string,
+  signal: AbortSignal,
+): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
+  try {
+    const turn = run({
+      system: DRAFT_SYSTEM,
+      prompt,
+      allowedTools: [],
+      modelClass: "deep",
+      timeoutMs: UPDATE_TIMEOUT_MS,
+      abortSignal: signal,
+    });
+    try {
+      for await (const _ of turn.stream) {
+      }
+    } catch {
+      // A stream error surfaces in the result.
+    }
+    const result = await turn.result;
+    return result.status === "ok"
+      ? { ok: true, text: result.text }
+      : { ok: false, error: result.error ?? `the agent turn ended ${result.status}` };
+  } catch (err) {
+    return { ok: false, error: errorText(err) };
+  }
 }
 
 function waitingFor(id: string | undefined): { waiting?: { id: string; at: string } } {
@@ -388,6 +496,9 @@ function unbind(): void {
   releases = undefined;
   releaseMonth = undefined;
   lastPdf.clear();
+  for (const a of updateAborts) a.abort();
+  updateAborts.clear();
+  notesUpdates.clear();
   exec = undefined;
   inspect = {};
   othersCache.clear();
@@ -524,7 +635,8 @@ const rib: Rib = {
       action.type === RELEASE_OPEN_ACTION ||
       action.type === RELEASE_PDF_ACTION ||
       action.type === RELEASE_NOTES_ACTION ||
-      action.type === RELEASE_STATUS_ACTION
+      action.type === RELEASE_STATUS_ACTION ||
+      action.type === RELEASE_UPDATE_ACTION
     ) {
       const payload = action.payload as { month?: unknown; status?: unknown } | undefined;
       const month = payload?.month;
@@ -533,6 +645,7 @@ const rib: Rib = {
       }
       const now = s.now();
       if (action.type === RELEASE_PDF_ACTION) return exportPdf(month, now);
+      if (action.type === RELEASE_UPDATE_ACTION) return startNotesUpdate(month, now);
       if (action.type === RELEASE_NOTES_ACTION) {
         const made = createNotes(notesFolder(), month);
         recomposeAll();
