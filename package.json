@@ -1,6 +1,6 @@
 {
   "name": "@keelson/rib-spi",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Keelson rib for the Azure OSDU SPI program: each service as one line from its upstream GitLab project through its GitHub fork to the shared stack, with failures folded into incidents by cause.",
   "license": "Apache-2.0",
   "author": "Daniel Scholl",
