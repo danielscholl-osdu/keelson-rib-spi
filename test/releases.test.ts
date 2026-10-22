@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -505,6 +506,14 @@ describe("the notes file", () => {
       error: "the agent wrote no headline",
     });
     expect(parseDraft(JSON.stringify({ ...notes, extra: 1 })).ok).toBe(false);
+    expect(parseDraft(JSON.stringify({ headline: "Only a headline" }))).toEqual({
+      ok: false,
+      error: "the agent's notes leave out keyChanges, actions, highlights, knownIssues",
+    });
+    expect(parseDraft(JSON.stringify(notes), { ...skeleton(), changelog: [] })).toEqual({
+      ok: false,
+      error: "the agent's notes leave out changelog",
+    });
     const current = { ...skeleton(), headline: "Kept", changelog: [] };
     expect(draftPrompt("2026-10", { open: true }, current)).toContain('"headline": "Kept"');
     expect(draftPrompt("2026-10", { open: true }, current)).toContain("keep its areas");
@@ -535,11 +544,34 @@ describe("the notes file", () => {
     expect(readNotes(dir, "2026-10")).toMatchObject({ notes: { headline: next.headline } });
 
     expect(writeDraft(dir, "2026-10", next, before, at)).toMatchObject({ ok: false });
-    const blocked = join(path, "notes");
-    expect(writeDraft(blocked, "2026-10", next, undefined, at)).toMatchObject({
-      ok: false,
-      error: expect.stringContaining("was not written"),
-    });
+    if (process.getuid?.() !== 0) {
+      const readOnly = join(dir, "read-only");
+      mkdirSync(readOnly);
+      chmodSync(readOnly, 0o555);
+      try {
+        expect(writeDraft(readOnly, "2026-10", next, undefined, at)).toMatchObject({
+          ok: false,
+          error: expect.stringContaining("was not written"),
+        });
+      } finally {
+        chmodSync(readOnly, 0o755);
+      }
+    }
+    if (process.getuid?.() !== 0) {
+      const locked = join(dir, "2026-09.json");
+      writeFileSync(locked, JSON.stringify({ ...skeleton(), status: "approved", headline: "x" }));
+      chmodSync(locked, 0o000);
+      try {
+        expect(() => notesText(dir, "2026-09")).toThrow();
+        expect(writeDraft(dir, "2026-09", next, undefined, at)).toMatchObject({
+          ok: false,
+          error: expect.stringContaining("could not be read"),
+        });
+      } finally {
+        chmodSync(locked, 0o644);
+      }
+      expect(JSON.parse(readFileSync(locked, "utf8")).status).toBe("approved");
+    }
     setNotesStatus(dir, "2026-10", "approved");
     expect(writeDraft(dir, "2026-10", next, notesText(dir, "2026-10"), at)).toEqual({
       ok: false,
@@ -708,6 +740,48 @@ describe("the rib", () => {
       ok: false,
       error: "approved notes are not updated; set them back to draft first",
     });
+  });
+
+  test("a cancelled update writes nothing, even when the agent answers", async () => {
+    let reply: (text: string) => void = () => undefined;
+    const answer = new Promise<string>((r) => {
+      reply = r;
+    });
+    const cancel = new AbortController();
+    const opErrors: string[] = [];
+    const { ctx } = stored();
+    const agentCtx = {
+      ...ctx,
+      runAgentTurn: () => ({
+        stream: (async function* () {})(),
+        result: answer.then((text) => ({ status: "ok" as const, text })),
+      }),
+      registerOp: () => ({
+        id: "op-1",
+        signal: cancel.signal,
+        log: () => undefined,
+        progress: () => undefined,
+        done: () => undefined,
+        error: (e: string) => {
+          opErrors.push(e);
+        },
+      }),
+    };
+    rib.registerTools?.(agentCtx);
+    const dir = join(ctx.getDataDir?.() ?? "", "release-notes");
+    mkdirSync(dir, { recursive: true });
+    const text = JSON.stringify({ ...skeleton(), headline: "Thirteen forks" });
+    writeFileSync(join(dir, "2026-10.json"), text);
+    const started = await rib.onAction?.(
+      { type: RELEASE_UPDATE_ACTION, origin: "board", payload: { month: "2026-10" } },
+      agentCtx,
+    );
+    expect(started).toMatchObject({ ok: true, data: { message: expect.stringContaining("op-1") } });
+    cancel.abort();
+    reply(JSON.stringify({ ...skeleton(), headline: "Overwritten" }));
+    for (let i = 0; i < 50 && opErrors.length === 0; i++) await Bun.sleep(10);
+    expect(opErrors).toEqual(["the update was cancelled"]);
+    expect(notesText(dir, "2026-10")).toBe(text);
   });
 
   test("a host without agent turns offers no Update and refuses one", async () => {
