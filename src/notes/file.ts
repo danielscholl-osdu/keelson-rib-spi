@@ -174,6 +174,45 @@ export function setNotesStatus(
   return { ok: true, path: read.path, changed: true };
 }
 
+export function notesText(dir: string, month: string): string | undefined {
+  try {
+    return readFileSync(notesPath(dir, month), "utf8");
+  } catch {
+    return undefined;
+  }
+}
+
+// An agent's revision lands only on the draft it read; the file it replaces is kept in .history.
+export function writeDraft(
+  dir: string,
+  month: string,
+  notes: Notes,
+  read: string | undefined,
+  at: string,
+): { ok: true; path: string; kept?: string } | { ok: false; error: string } {
+  const path = notesPath(dir, month);
+  const now = notesText(dir, month);
+  if (now !== read) {
+    return { ok: false, error: `${path} changed while the update ran; press Update again` };
+  }
+  const current = readNotes(dir, month);
+  if (current.state === "ok" && current.notes.status === "approved") {
+    return { ok: false, error: "approved notes are not updated; set them back to draft first" };
+  }
+  mkdirSync(dir, { recursive: true });
+  let kept: string | undefined;
+  if (now !== undefined) {
+    const history = join(dir, ".history");
+    mkdirSync(history, { recursive: true });
+    kept = join(history, `${month}.${at.replace(/[:.]/g, "-")}.json`);
+    writeFileSync(kept, now);
+  }
+  const tmp = `${path}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify({ ...notes, status: "draft" }, null, 2)}\n`);
+  renameSync(tmp, path);
+  return { ok: true, path, ...(kept ? { kept } : {}) };
+}
+
 // Chat and editors write notes too; a folder not made yet is polled for, never created.
 export function watchNotes(dir: string, onChange: () => void, retryMs = 5000): () => void {
   let timer: ReturnType<typeof setTimeout> | undefined;

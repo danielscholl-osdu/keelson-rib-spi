@@ -9,12 +9,14 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { RibAgentTurnRequest } from "@keelson/shared";
 import { expectHtml } from "../src/boards/console";
 import {
   RELEASE_NOTES_ACTION,
   RELEASE_OPEN_ACTION,
   RELEASE_PDF_ACTION,
   RELEASE_STATUS_ACTION,
+  RELEASE_UPDATE_ACTION,
   releaseBoard,
   releaseDocHtml,
   releasePrintHtml,
@@ -27,13 +29,16 @@ import type { Gh } from "../src/forge";
 import rib from "../src/index";
 import { CONSOLE_KEY, INSPECT_KEY, RELEASE_KEY } from "../src/keys";
 import { monthFacts, parseBody, releaseMonths } from "../src/model/releases";
+import { draftPrompt, parseDraft } from "../src/notes/draft";
 import {
   createNotes,
   type NotesRead,
+  notesText,
   readNotes,
   setNotesStatus,
   skeleton,
   watchNotes,
+  writeDraft,
 } from "../src/notes/file";
 import { pdfName, writePdf } from "../src/notes/pdf";
 import { Store } from "../src/store";
@@ -354,6 +359,49 @@ describe("the document", () => {
     expect(status({ state: "missing", path: "/x/2026-10.json" })).toBeUndefined();
   });
 
+  test("Update is offered on drafts and missing months when the host runs agent turns", () => {
+    const f = monthFacts(reads(), "2026-10", NOW);
+    const board = (r: NotesRead | undefined, extra: Partial<Parameters<typeof releaseBoard>[0]>) =>
+      releaseBoard({
+        doc: releaseDoc(f, r, NOW),
+        notesPath: "/x/2026-10.json",
+        notesExists: !!r,
+        errors: [],
+        pdfReady: true,
+        ...extra,
+      });
+    const update = (b: ReturnType<typeof releaseBoard>) =>
+      b.sections
+        .flatMap((s) => (s.kind === "cards" ? s.items.flatMap((c) => c.actions ?? []) : []))
+        .find((a) => a.type === RELEASE_UPDATE_ACTION);
+    const draft: NotesRead = {
+      state: "ok",
+      path: "/x/2026-10.json",
+      notes: { ...skeleton(), headline: "Thirteen forks" },
+    };
+    expect(update(board(draft, {}))).toBeUndefined();
+    expect(update(board(draft, { agentReady: true }))).toMatchObject({
+      label: "Update notes",
+      payload: { month: "2026-10" },
+      confirm: { confirmLabel: "Update" },
+    });
+    expect(update(board(undefined, { agentReady: true }))?.label).toBe("Draft notes");
+    const approved: NotesRead = { ...draft, notes: { ...draft.notes, status: "approved" } };
+    expect(update(board(approved, { agentReady: true }))).toBeUndefined();
+    const running = board(draft, {
+      agentReady: true,
+      update: { state: "running", at: NOW.toISOString() },
+    });
+    expect(update(running)).toMatchObject({ disabled: true });
+    const failed = board(draft, {
+      agentReady: true,
+      update: { state: "failed", at: NOW.toISOString(), error: "the agent wrote no headline" },
+    });
+    expect(JSON.stringify(failed)).toContain(
+      "The last update wrote nothing: the agent wrote no headline",
+    );
+  });
+
   test("concurrent exports print with separate profiles and leave no work behind", async () => {
     const dir = tmp();
     const profiles: string[] = [];
@@ -438,6 +486,59 @@ describe("the notes file", () => {
     expect(readNotes(dir, "2026-06")).toMatchObject({
       state: "ok",
       notes: { status: "approved", headline: "No status yet" },
+    });
+  });
+
+  test("an agent's draft is checked against the schema and always lands as a draft", () => {
+    const notes = { ...skeleton(), status: "approved", headline: "Thirteen forks" };
+    const fenced = parseDraft(`Here it is:\n\`\`\`json\n${JSON.stringify(notes)}\n\`\`\``);
+    expect(fenced).toMatchObject({
+      ok: true,
+      notes: { status: "draft", headline: "Thirteen forks" },
+    });
+    expect(parseDraft("I could not find any releases.")).toEqual({
+      ok: false,
+      error: "the agent replied without JSON",
+    });
+    expect(parseDraft(JSON.stringify({ ...notes, headline: " " }))).toEqual({
+      ok: false,
+      error: "the agent wrote no headline",
+    });
+    expect(parseDraft(JSON.stringify({ ...notes, extra: 1 })).ok).toBe(false);
+    const current = { ...skeleton(), headline: "Kept", changelog: [] };
+    expect(draftPrompt("2026-10", { open: true }, current)).toContain('"headline": "Kept"');
+    expect(draftPrompt("2026-10", { open: true }, current)).toContain("keep its areas");
+    expect(draftPrompt("2026-10", { open: true }, undefined)).toContain(
+      "There is no notes file yet",
+    );
+  });
+
+  test("a draft write keeps the file it replaces and refuses one that moved or was approved", () => {
+    const dir = tmp();
+    const at = "2026-10-22T19:30:00.000Z";
+    const next = { ...skeleton(), headline: "Thirteen forks, two stack releases since" };
+    expect(writeDraft(dir, "2026-11", next, undefined, at)).toMatchObject({ ok: true });
+    expect(existsSync(join(dir, ".history"))).toBe(false);
+
+    const path = join(dir, "2026-10.json");
+    writeFileSync(path, JSON.stringify({ ...skeleton(), headline: "Thirteen forks" }));
+    const before = notesText(dir, "2026-10");
+    const wrote = writeDraft(dir, "2026-10", next, before, at);
+    expect(wrote).toEqual({
+      ok: true,
+      path,
+      kept: join(dir, ".history", "2026-10.2026-10-22T19-30-00-000Z.json"),
+    });
+    expect(
+      readFileSync(join(dir, ".history", "2026-10.2026-10-22T19-30-00-000Z.json"), "utf8"),
+    ).toBe(before ?? "");
+    expect(readNotes(dir, "2026-10")).toMatchObject({ notes: { headline: next.headline } });
+
+    expect(writeDraft(dir, "2026-10", next, before, at)).toMatchObject({ ok: false });
+    setNotesStatus(dir, "2026-10", "approved");
+    expect(writeDraft(dir, "2026-10", next, notesText(dir, "2026-10"), at)).toEqual({
+      ok: false,
+      error: "approved notes are not updated; set them back to draft first",
     });
   });
 
@@ -543,6 +644,80 @@ describe("the rib", () => {
       ok: false,
       error: "release-notes-status needs status 'approved' or 'draft'",
     });
+  });
+
+  test("Update runs a tool-free agent turn and writes its draft over the one it read", async () => {
+    let reply: (text: string) => void = () => undefined;
+    const answer = new Promise<string>((r) => {
+      reply = r;
+    });
+    const asked: RibAgentTurnRequest[] = [];
+    const { ctx, snapshots } = stored();
+    const agentCtx = {
+      ...ctx,
+      runAgentTurn: (req: RibAgentTurnRequest) => {
+        asked.push(req);
+        return {
+          stream: (async function* () {})(),
+          result: answer.then((text) => ({ status: "ok" as const, text })),
+        };
+      },
+    };
+    rib.registerTools?.(agentCtx);
+    const act = (type: string, payload: unknown) =>
+      rib.onAction?.({ type, origin: "board", payload }, agentCtx);
+    const dir = join(ctx.getDataDir?.() ?? "", "release-notes");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "2026-10.json"),
+      JSON.stringify({ ...skeleton(), headline: "Thirteen forks" }, null, 2),
+    );
+
+    const started = await act(RELEASE_UPDATE_ACTION, { month: "2026-10" });
+    expect(started).toEqual({
+      ok: true,
+      data: { message: "Updating SPI 2026.10 release notes" },
+    });
+    expect(asked).toHaveLength(1);
+    expect(asked[0]?.allowedTools).toEqual([]);
+    expect(asked[0]?.prompt).toContain('"headline": "Thirteen forks"');
+    expect(asked[0]?.prompt).toContain('"candidates"');
+    expect(await act(RELEASE_UPDATE_ACTION, { month: "2026-10" })).toEqual({
+      ok: false,
+      error: "SPI 2026.10 notes are already updating",
+    });
+    await rib.onAction?.({ type: "inspect", payload: { id: "release:2026-10" } }, agentCtx);
+    expect(JSON.stringify(snapshots.latest(INSPECT_KEY)?.data)).toContain("An update is running");
+
+    reply(JSON.stringify({ ...skeleton(), headline: "Thirteen forks and stack v0.31.0" }));
+    for (let i = 0; i < 50 && notesText(dir, "2026-10")?.includes("v0.31.0") !== true; i++) {
+      await Bun.sleep(10);
+    }
+    expect(readNotes(dir, "2026-10")).toMatchObject({
+      notes: { status: "draft", headline: "Thirteen forks and stack v0.31.0" },
+    });
+    expect(readdirSync(join(dir, ".history"))).toHaveLength(1);
+
+    await act(RELEASE_STATUS_ACTION, { month: "2026-10", status: "approved" });
+    expect(await act(RELEASE_UPDATE_ACTION, { month: "2026-10" })).toEqual({
+      ok: false,
+      error: "approved notes are not updated; set them back to draft first",
+    });
+  });
+
+  test("a host without agent turns offers no Update and refuses one", async () => {
+    const { ctx, snapshots } = stored();
+    rib.registerTools?.(ctx);
+    await rib.onAction?.({ type: "inspect", payload: { id: "release:2026-10" } }, ctx);
+    expect(JSON.stringify(snapshots.latest(INSPECT_KEY)?.data)).not.toContain(
+      RELEASE_UPDATE_ACTION,
+    );
+    expect(
+      await rib.onAction?.(
+        { type: RELEASE_UPDATE_ACTION, origin: "board", payload: { month: "2026-10" } },
+        ctx,
+      ),
+    ).toEqual({ ok: false, error: "this host runs no agent turns for ribs" });
   });
 
   test("the console frame cannot export, and a bad month is refused", async () => {

@@ -25,6 +25,7 @@ export const RELEASE_OPEN_ACTION = "release-open";
 export const RELEASE_PDF_ACTION = "release-pdf";
 export const RELEASE_NOTES_ACTION = "release-notes-file";
 export const RELEASE_STATUS_ACTION = "release-notes-status";
+export const RELEASE_UPDATE_ACTION = "release-notes-update";
 
 // A changelog area or manifest group this short prints on one page rather than splitting.
 const KEEP_WHOLE = 6;
@@ -517,7 +518,14 @@ export interface ReleaseBoardState {
   readAt?: string;
   errors: string[];
   pdfReady: boolean;
+  agentReady?: boolean;
+  update?: NotesUpdate;
 }
+
+export type NotesUpdate =
+  | { state: "running"; at: string }
+  | { state: "done"; at: string; kept?: string }
+  | { state: "failed"; at: string; error: string };
 
 const NOTES_TONE: Record<NotesState, CanvasTone> = {
   approved: "ok",
@@ -557,6 +565,26 @@ export function releaseBoard(s: ReleaseBoardState): CanvasBoardView {
             pendingLabel: "Creating…",
           },
         ]),
+    ...(s.agentReady && (d.notes === "draft" || d.notes === "none")
+      ? [
+          {
+            type: RELEASE_UPDATE_ACTION,
+            label: s.notesExists ? "Update notes" : "Draft notes",
+            payload,
+            pendingLabel: "Starting…",
+            ...(s.update?.state === "running"
+              ? { disabled: true, reason: "An update is running" }
+              : {}),
+            confirm: {
+              title: `${s.notesExists ? "Update" : "Draft"} SPI ${d.name} release notes?`,
+              body: s.notesExists
+                ? "An agent revises the draft from the latest release read, keeping sentences that are still true. The current file is kept in .history beside it, and the notes stay a draft."
+                : "An agent writes a first draft from the latest release read. The notes stay a draft for a person to review.",
+              confirmLabel: s.notesExists ? "Update" : "Draft",
+            },
+          },
+        ]
+      : []),
     ...(d.notes === "draft"
       ? [
           {
@@ -595,6 +623,10 @@ export function releaseBoard(s: ReleaseBoardState): CanvasBoardView {
         : d.notes === "invalid"
           ? `The notes file does not parse: ${d.notesError ?? "invalid"}. The document shows only computed parts.`
           : "No notes file yet. The headline, actions, highlights and known issues come from it.";
+  const updateLine =
+    s.update?.state === "running"
+      ? "An agent is updating the notes. The document redraws when it writes the file."
+      : undefined;
   const sections: Section[] = [
     {
       kind: "rows",
@@ -613,10 +645,13 @@ export function releaseBoard(s: ReleaseBoardState): CanvasBoardView {
       title: "Release notes",
       items: [
         {
-          title: notesLine,
+          title: updateLine ?? notesLine,
           edge: "brand",
           fields: [
             { label: "Notes file", value: s.notesPath },
+            ...(s.update?.state === "done" && s.update.kept
+              ? [{ label: "Previous version", value: s.update.kept }]
+              : []),
             ...(s.lastPdf ? [{ label: "Last PDF", value: s.lastPdf.path }] : []),
           ],
           actions,
@@ -638,7 +673,7 @@ export function releaseBoard(s: ReleaseBoardState): CanvasBoardView {
         },
         {
           glyph: "neutral",
-          text: "Ask chat to draft the file with spi_release_notes, review it, then approve it here.",
+          text: "Draft or update the file here, or ask chat to with spi_release_notes, then review and approve it.",
         },
       ],
     },
@@ -647,6 +682,7 @@ export function releaseBoard(s: ReleaseBoardState): CanvasBoardView {
     ...(s.pdfReady
       ? []
       : ["No Chrome, Chromium or Edge found for the PDF; set RIB_SPI_CHROME to a browser binary."]),
+    ...(s.update?.state === "failed" ? [`The last update wrote nothing: ${s.update.error}`] : []),
     ...s.errors,
   ];
   if (problems.length > 0) {
