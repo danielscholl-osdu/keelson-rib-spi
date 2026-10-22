@@ -199,17 +199,21 @@ export function writeDraft(
   if (current.state === "ok" && current.notes.status === "approved") {
     return { ok: false, error: "approved notes are not updated; set them back to draft first" };
   }
-  mkdirSync(dir, { recursive: true });
   let kept: string | undefined;
-  if (now !== undefined) {
-    const history = join(dir, ".history");
-    mkdirSync(history, { recursive: true });
-    kept = join(history, `${month}.${at.replace(/[:.]/g, "-")}.json`);
-    writeFileSync(kept, now);
+  try {
+    mkdirSync(dir, { recursive: true });
+    if (now !== undefined) {
+      const history = join(dir, ".history");
+      mkdirSync(history, { recursive: true });
+      kept = join(history, `${month}.${at.replace(/[:.]/g, "-")}.json`);
+      writeFileSync(kept, now);
+    }
+    const tmp = `${path}.tmp`;
+    writeFileSync(tmp, `${JSON.stringify({ ...notes, status: "draft" }, null, 2)}\n`);
+    renameSync(tmp, path);
+  } catch (err) {
+    return { ok: false, error: `${path} was not written: ${(err as Error).message}` };
   }
-  const tmp = `${path}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify({ ...notes, status: "draft" }, null, 2)}\n`);
-  renameSync(tmp, path);
   return { ok: true, path, ...(kept ? { kept } : {}) };
 }
 

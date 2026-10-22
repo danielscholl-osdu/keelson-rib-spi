@@ -535,6 +535,11 @@ describe("the notes file", () => {
     expect(readNotes(dir, "2026-10")).toMatchObject({ notes: { headline: next.headline } });
 
     expect(writeDraft(dir, "2026-10", next, before, at)).toMatchObject({ ok: false });
+    const blocked = join(path, "notes");
+    expect(writeDraft(blocked, "2026-10", next, undefined, at)).toMatchObject({
+      ok: false,
+      error: expect.stringContaining("was not written"),
+    });
     setNotesStatus(dir, "2026-10", "approved");
     expect(writeDraft(dir, "2026-10", next, notesText(dir, "2026-10"), at)).toEqual({
       ok: false,
