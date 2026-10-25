@@ -287,6 +287,8 @@ export function portLedger(
       .map((p) => ({ p, v: classifyPath(filter, p) }))
       .filter((x) => x.v.bucket === "Port");
     if (hits.length === 0) continue;
+    // Upstream deleting fork-owned code is the removal, not a change the fork takes.
+    if (hits.every((x) => (m.deleted ?? []).includes(x.p))) continue;
     const paths = hits.map((x) => x.p);
     const trees = [...new Set(hits.map((x) => x.v.entry ?? ""))];
     const pr = cited.get(`${service.project}!${m.iid}`.toLowerCase());

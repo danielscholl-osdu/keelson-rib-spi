@@ -113,6 +113,40 @@ describe("the port ledger", () => {
     );
   });
 
+  test("an upstream MR that only deletes fork-owned code is the removal, not a port", () => {
+    const m = model((f) => {
+      const ent = f.radar.data?.services.entitlements;
+      if (!ent?.merged) throw new Error("fixture has entitlements merged MRs");
+      const gone = [
+        "provider/entitlements-v2-azure/pom.xml",
+        "testing/entitlements-v2-test-azure/pom.xml",
+      ];
+      ent.merged.push({
+        iid: 969,
+        title: "chore: remove Azure provider and Azure CI/CD",
+        url: "u",
+        mergedAt: "2026-10-20T00:00:00Z",
+        headSha: "f00",
+        paths: [...gone, "README.md"],
+        deleted: gone,
+      });
+      ent.merged.push({
+        iid: 970,
+        title: "Delete one file, edit another",
+        url: "u",
+        mergedAt: "2026-10-21T00:00:00Z",
+        headSha: "f01",
+        paths: [
+          "provider/entitlements-v2-azure/src/Old.java",
+          "provider/entitlements-v2-azure/src/New.java",
+        ],
+        deleted: ["provider/entitlements-v2-azure/src/Old.java"],
+      });
+    });
+    expect(owed(m)).toMatchObject({ entitlements: [963, 956, 970] });
+    expect(m.radar.services.entitlements?.removal).toBe("fork-only");
+  });
+
   test("an unread fork PR list or merged diff leaves the ledger unmeasured: '?' and no item", () => {
     const m = model((f) => {
       const ent = f.radar.data?.services.entitlements;
