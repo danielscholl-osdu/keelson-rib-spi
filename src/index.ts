@@ -69,7 +69,9 @@ import { DRAFT_SYSTEM, draftPrompt, parseDraft } from "./notes/draft.ts";
 import {
   createNotes,
   notesDir,
+  notesPath,
   notesText,
+  parseNotes,
   readNotes,
   setNotesStatus,
   watchNotes,
@@ -294,14 +296,19 @@ function startNotesUpdate(month: string, now: Date): RibActionResult {
     return { ok: false, error: `SPI ${name} notes are already updating` };
   }
   const dir = notesFolder();
-  const read = readNotes(dir, month);
+  let before: string | undefined;
+  try {
+    before = notesText(dir, month);
+  } catch (err) {
+    return { ok: false, error: `${notesPath(dir, month)} could not be read: ${errorText(err)}` };
+  }
+  const read = parseNotes(notesPath(dir, month), before);
   if (read.state === "invalid") {
     return { ok: false, error: `${read.path} does not parse: ${read.error}; fix it first` };
   }
   if (read.state === "ok" && read.notes.status === "approved") {
     return { ok: false, error: "approved notes are not updated; set them back to draft first" };
   }
-  const before = notesText(dir, month);
   const { notes, ...facts } = releaseNotesTool(month) as {
     notes: { fields: unknown };
   } & Record<string, unknown>;
@@ -323,7 +330,12 @@ function startNotesUpdate(month: string, now: Date): RibActionResult {
   draftTurn(run, prompt, abort.signal)
     .then((reply) => {
       if (!updateAborts.has(abort)) return;
-      const parsed = reply.ok ? parseDraft(reply.text) : reply;
+      const current = read.state === "ok" ? read.notes : undefined;
+      const parsed = abort.signal.aborted
+        ? { ok: false as const, error: "the update was cancelled" }
+        : reply.ok
+          ? parseDraft(reply.text, current)
+          : reply;
       const wrote = parsed.ok ? writeDraft(dir, month, parsed.notes, before, at) : parsed;
       notesUpdates.set(
         month,

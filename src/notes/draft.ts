@@ -33,7 +33,7 @@ export function draftPrompt(month: string, facts: unknown, current: Notes | unde
     "- Write plain sentences a consumer can act on. No PR numbers, commit shas or links.",
     "- headline is one sentence naming the month's outcome; keyChanges is at most three sentences.",
     '- status stays "draft".',
-    "- Reply with the whole notes file as one JSON object, no prose and no code fence.",
+    "- Reply with the whole notes file as one JSON object with every key, no prose and no code fence.",
     "",
     "Current notes file:",
     current ? JSON.stringify(current, null, 2) : "(none)",
@@ -43,8 +43,12 @@ export function draftPrompt(month: string, facts: unknown, current: Notes | unde
   ].join("\n");
 }
 
+const SECTIONS = ["headline", "keyChanges", "actions", "highlights", "knownIssues"];
+
+// The reply replaces the whole file, so a section it leaves out would be emptied by the schema's defaults.
 export function parseDraft(
   text: string,
+  current?: Notes,
 ): { ok: true; notes: Notes } | { ok: false; error: string } {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
@@ -54,6 +58,11 @@ export function parseDraft(
     raw = JSON.parse(text.slice(start, end + 1));
   } catch (err) {
     return { ok: false, error: `the agent's JSON does not parse: ${(err as Error).message}` };
+  }
+  const required = current?.changelog ? [...SECTIONS, "changelog"] : SECTIONS;
+  const missing = raw && typeof raw === "object" ? required.filter((k) => !(k in raw)) : required;
+  if (missing.length > 0) {
+    return { ok: false, error: `the agent's notes leave out ${missing.join(", ")}` };
   }
   const parsed = notesSchema.safeParse(raw);
   if (!parsed.success) {

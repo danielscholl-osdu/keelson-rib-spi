@@ -102,6 +102,11 @@ export function readNotes(dir: string, month: string): NotesRead {
   } catch {
     return { state: "missing", path };
   }
+  return parseNotes(path, raw);
+}
+
+export function parseNotes(path: string, raw: string | undefined): NotesRead {
+  if (raw === undefined) return { state: "missing", path };
   try {
     const parsed = notesSchema.safeParse(JSON.parse(raw));
     if (parsed.success) return { state: "ok", path, notes: parsed.data };
@@ -174,11 +179,13 @@ export function setNotesStatus(
   return { ok: true, path: read.path, changed: true };
 }
 
+// Only a file that is not there reads as absent; any other read error throws.
 export function notesText(dir: string, month: string): string | undefined {
   try {
     return readFileSync(notesPath(dir, month), "utf8");
-  } catch {
-    return undefined;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw e;
   }
 }
 
@@ -191,11 +198,16 @@ export function writeDraft(
   at: string,
 ): { ok: true; path: string; kept?: string } | { ok: false; error: string } {
   const path = notesPath(dir, month);
-  const now = notesText(dir, month);
+  let now: string | undefined;
+  try {
+    now = notesText(dir, month);
+  } catch (err) {
+    return { ok: false, error: `${path} could not be read: ${(err as Error).message}` };
+  }
   if (now !== read) {
     return { ok: false, error: `${path} changed while the update ran; press Update again` };
   }
-  const current = readNotes(dir, month);
+  const current = parseNotes(path, now);
   if (current.state === "ok" && current.notes.status === "approved") {
     return { ok: false, error: "approved notes are not updated; set them back to draft first" };
   }
