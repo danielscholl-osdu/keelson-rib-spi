@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.1](https://github.com/danielscholl-osdu/keelson-rib-spi/compare/v1.3.0...v1.3.1) (2026-11-03)
+
+
+### Fixed
+
+* **collect:** key cached run jobs by run attempt ([#22](https://github.com/danielscholl-osdu/keelson-rib-spi/issues/22)) ([804d116](https://github.com/danielscholl-osdu/keelson-rib-spi/commit/804d11685cc32101d0873f27a82128b3950bb7f0))
+* **radar:** don't count upstream removals of fork-owned code as ports ([#19](https://github.com/danielscholl-osdu/keelson-rib-spi/issues/19)) ([4b32414](https://github.com/danielscholl-osdu/keelson-rib-spi/commit/4b32414443bca681d19325aab02b58065a35132a))
+
 ## [1.3.0](https://github.com/danielscholl-osdu/keelson-rib-spi/compare/v1.2.0...v1.3.0) (2026-10-22)
 
 
