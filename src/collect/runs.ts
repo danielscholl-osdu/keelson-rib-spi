@@ -328,6 +328,11 @@ function timed(job: JobDetail): boolean {
   return job.steps.length === 0 || job.steps.some((s) => s.startedAt !== undefined);
 }
 
+// A re-run keeps its run id, so a run's jobs are cached per attempt.
+export function jobsKey(run: Pick<RunFact, "id" | "attempt">): string {
+  return `${run.id}#${run.attempt}`;
+}
+
 export interface LifecycleState {
   runJobs: Record<string, JobDetail[]>;
   files: Record<string, string>;
@@ -351,7 +356,7 @@ export async function readLifecycle(
     out[kind] = await pool(list, 3, async (run): Promise<LifecycleRun> => {
       const entry: LifecycleRun = { ...run, kind };
       if (!withJobs) return entry;
-      const key = String(run.id);
+      const key = jobsKey(run);
       const known = state.runJobs[key];
       const settled =
         run.status === "completed" &&

@@ -13,6 +13,7 @@ import { emptyLedgerState } from "./collect/ledgers.ts";
 import { emptyRadarState, pruneRadar, type RadarState, readRadar } from "./collect/radar.ts";
 import {
   DetailCache,
+  jobsKey,
   type LifecycleState,
   type PrFilesCache,
   pollRun,
@@ -350,14 +351,14 @@ export class Sweeper {
       const read: Record<string, JobDetail[]> = {};
       for (const run of entry.main.filter((r) => r.status === "completed").slice(0, PROOF_WALK)) {
         const key = String(run.id);
-        let jobs = this.cache.lifecycle.runJobs[key];
+        let jobs = this.cache.lifecycle.runJobs[jobsKey(run)];
         if (!jobs) {
           try {
             jobs = await readRunJobs(gh, this.detailCache, fork.repo, run);
           } catch {
             break;
           }
-          this.cache.lifecycle.runJobs[key] = jobs;
+          this.cache.lifecycle.runJobs[jobsKey(run)] = jobs;
         }
         read[key] = jobs;
         if (javaBuilt(jobs)) break;
@@ -402,12 +403,12 @@ export class Sweeper {
     const liveRuns = new Set<string>();
     for (const runs of Object.values(lc ?? {})) {
       for (const run of runs ?? []) {
-        liveRuns.add(String(run.id));
+        liveRuns.add(jobsKey(run));
         for (const j of run.jobs ?? []) keep.add(`Azure/osdu-spi-stack#${j.id}`);
       }
     }
     for (const entry of Object.values(this.facts.runs.data ?? {})) {
-      for (const key of Object.keys(entry.mainRunJobs ?? {})) liveRuns.add(key);
+      for (const run of entry.main) if (entry.mainRunJobs?.[run.id]) liveRuns.add(jobsKey(run));
     }
     for (const key of Object.keys(this.cache.lifecycle.runJobs)) {
       if (!liveRuns.has(key)) delete this.cache.lifecycle.runJobs[key];

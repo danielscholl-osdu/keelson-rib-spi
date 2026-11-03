@@ -10,9 +10,11 @@ import {
   parseUpstreamSha,
 } from "../src/collect/github";
 import { emptyRadarState, pruneRadar, readRadar } from "../src/collect/radar";
+import { DetailCache, readLifecycle } from "../src/collect/runs";
 import { changeOf, firstParentChanges, readTemplate } from "../src/collect/template";
 import { FORKS, PLANNED, STACK_REPO, TEMPLATE_REPO } from "../src/config";
 import { encodeProject, Gh, Glab } from "../src/forge";
+import { inferMaintenance } from "../src/model/stack";
 import { fixtureFacts } from "./harness";
 
 describe("GraphQL query", () => {
@@ -550,5 +552,70 @@ describe("upstream radar", () => {
     ).toBe(true);
     const authors = Object.values(radar?.services ?? {}).flatMap((s) => s.mrs.map((m) => m.author));
     expect(authors.every((a) => /^upstream-author-\d+$/.test(a))).toBe(true);
+  });
+});
+
+describe("lifecycle jobs", () => {
+  test("a re-run that clears maintenance is read again, not served from the first attempt", async () => {
+    let attempt = 1;
+    const step = (name: string) => ({
+      number: 1,
+      name,
+      status: "completed",
+      conclusion: "success",
+      started_at: "2026-11-03T13:12:00Z",
+      completed_at: "2026-11-03T13:13:00Z",
+    });
+    const job = (id: number, name: string, steps: string[]) => ({
+      id,
+      name,
+      status: "completed",
+      conclusion: "success",
+      started_at: "2026-11-03T13:12:00Z",
+      completed_at: "2026-11-03T13:13:00Z",
+      html_url: `https://github.com/${STACK_REPO}/actions/runs/7/job/${id}`,
+      steps: steps.map(step),
+    });
+    const ok = <T>(data: T) => ({ ok: true as const, data, exitCode: 0 });
+    const exec: RibExec = {
+      runJSON: async <T>(_cmd: string, args: string[]) => {
+        const path = args[1] ?? "";
+        if (path.includes("/workflows/env-upgrade.yml/runs")) {
+          return ok([
+            {
+              id: 7,
+              name: "env-upgrade",
+              path: ".github/workflows/env-upgrade.yml",
+              event: "workflow_dispatch",
+              status: "completed",
+              conclusion: "success",
+              created_at: "2026-11-03T13:11:58Z",
+              updated_at: "2026-11-03T13:46:16Z",
+              head_branch: "main",
+              head_sha: "abc",
+              display_title: "Bump stackVersion to v0.35.1",
+              html_url: `https://github.com/${STACK_REPO}/actions/runs/7`,
+              run_attempt: attempt,
+            },
+          ] as T);
+        }
+        if (path.includes("/workflows/")) return ok([] as T);
+        if (path.includes("/runs/7/jobs")) {
+          const quiesce = job(1, "quiesce-existing-environment", ["Set maintenance"]);
+          return ok(
+            (attempt === 1 ? [quiesce] : [quiesce, job(2, "verify", ["Clear maintenance"])]) as T,
+          );
+        }
+        return { ok: false as const, error: `unexpected ${path}`, code: 1 };
+      },
+      runText: async () => ({ ok: false as const, error: "unused", code: 1 }),
+    };
+    const state = { runJobs: {}, files: {} };
+    const now = new Date("2026-11-03T18:00:00Z");
+    const first = await readLifecycle(new Gh(exec), new DetailCache(), state, now);
+    expect(inferMaintenance(first.upgrade).state).toBe("set");
+    attempt = 2;
+    const second = await readLifecycle(new Gh(exec), new DetailCache(), state, now);
+    expect(inferMaintenance(second.upgrade).state).toBe("clear");
   });
 });
