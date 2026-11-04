@@ -11,7 +11,7 @@ import { FORKS, githubUrl, SYNC_UPSTREAM_CRON } from "../config.ts";
 import type { Model } from "../model/index.ts";
 import type { Bucket, RadarService, Verdict } from "../model/radar.ts";
 import { nextFire, toCrons } from "../model/schedule.ts";
-import { clip, plural, stamp } from "../util.ts";
+import { clip, plural, stamp, whose } from "../util.ts";
 import { names } from "./fold.ts";
 
 type Section = CanvasBoardView["sections"][number];
@@ -128,9 +128,9 @@ export function mrBoard(model: Model, id: string, now: Date): CanvasBoardView {
   const tools = verdicts.filter((v) => v.bucket === "Toolchain");
   const said =
     halts.length > 0
-      ? `Merged, it halts ${at.fork}'s next Sync Upstream on ${names(halts.map((v) => v.entry ?? ""))} (${[...new Set(halts.map((v) => v.code))].join(", ")}).`
+      ? `Merged, it halts ${whose(at.fork)} next Sync Upstream on ${names(halts.map((v) => v.entry ?? ""))} (${[...new Set(halts.map((v) => v.code))].join(", ")}).`
       : tools.length > 0
-        ? `Merged, it carries ${names(tools.map((v) => v.value ?? ""))} into ${at.fork}'s next Sync Upstream.`
+        ? `Merged, it carries ${names(tools.map((v) => v.value ?? ""))} into ${whose(at.fork)} next Sync Upstream.`
         : `Merged, it syncs into ${at.fork} without a halt or a toolchain move.`;
   const sections: Section[] = [
     {

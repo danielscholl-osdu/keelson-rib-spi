@@ -749,8 +749,16 @@ function rolloutItem(r: RolloutModel, template: TemplateModel): QueueItem {
     url: r.target.url,
     effects: [],
     cause: [
-      { label: "target", value: `${r.target.label} · ${target}`, url: r.target.url },
-      ...(r.from ? [{ label: "forks run", value: `${r.from.label} · ${short(r.from.sha)}` }] : []),
+      { label: "main", value: `${target} · ${r.target.label}`, url: r.target.url },
+      ...(r.from
+        ? [
+            {
+              label: "forks on",
+              value: `${short(r.from.sha)} · ${plural(r.changes.length, "merge")} behind`,
+              url: githubUrl(TEMPLATE_REPO, `/compare/${r.from.sha}...${r.target.sha}`),
+            },
+          ]
+        : []),
       { label: "merged", value: `${r.merged} of ${r.total}` },
     ],
     cls: "ROLLOUT",

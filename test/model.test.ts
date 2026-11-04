@@ -128,9 +128,12 @@ describe("the fleet on 12 October", () => {
     const item = model.queue.items.find((i) => i.id === "rollout");
     expect(item?.rung).toBe(1);
     expect(item?.text).toBe("Rollout to template bb49a03 · 0 of 5 merged");
-    expect(model.rollout?.forks.map((f) => f.validation.text)).toEqual(
-      Array(5).fill("environment · on the stack"),
+    expect(model.rollout?.forks.map((f) => f.validation.text)).toEqual(Array(5).fill("env"));
+    expect(model.rollout?.forks[0]?.validation.note).toBe(
+      "Validation failed on the environment's own hold",
     );
+    expect(model.rollout?.next).toBe("env");
+    expect(model.rollout?.held).toBe("env-upgrade in verify");
   });
 
   test("once the stack is deployable again, the lanes it failed say so beside the rollout", () => {

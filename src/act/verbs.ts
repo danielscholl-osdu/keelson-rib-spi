@@ -106,7 +106,7 @@ export function verbAction(
     type: ACT_ACTION,
     label,
     pendingLabel: opts.pending ?? `${verb.label}…`,
-    ...(opts.primary ? { tone: "accent" as const } : {}),
+    ...(opts.primary ? { tone: "brand" as const } : {}),
     binding: { ...binding, verb: verb.id },
     ...(opts.disabled
       ? { disabled: true, reason: opts.disabled }

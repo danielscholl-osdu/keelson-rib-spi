@@ -738,3 +738,11 @@ export function attemptText(view: RunView, maintenanceRun?: number): string {
   }
   return clip(run.id === maintenanceRun ? `${text} · set maintenance` : text, 220);
 }
+
+// Why the environment takes no new lane: "env-upgrade in verify", or undefined when it may.
+export function heldText(stack: StackModel): string | undefined {
+  if (stack.deployable.state !== "no") return undefined;
+  const run = stack.inflight;
+  if (!run) return "maintenance mode";
+  return `env-${run.run.kind} ${run.current ? `in ${run.current}` : "in flight"}`;
+}

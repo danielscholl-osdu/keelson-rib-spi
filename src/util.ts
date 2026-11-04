@@ -160,3 +160,14 @@ export function againstUsual(
     ? `${now}${after}, usually ${typical.replace(/ min$/, "")}`
     : `${now}${after}, usually ${typical}`;
 }
+
+export function names(list: readonly string[]): string {
+  return list.length <= 1
+    ? (list[0] ?? "")
+    : `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
+}
+
+// "entitlements'" and "legal's".
+export function whose(name: string): string {
+  return name.endsWith("s") ? `${name}'` : `${name}'s`;
+}

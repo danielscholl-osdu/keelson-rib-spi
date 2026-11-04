@@ -12,6 +12,7 @@ import {
   NEW_HEAD,
   releasedFacts as released,
 } from "./harness";
+import { settled } from "./states";
 
 function dependabotPr(repo: string, number: number): PrFact {
   return {
@@ -32,7 +33,7 @@ function dependabotPr(repo: string, number: number): PrFact {
 }
 
 function model(edit?: (f: Facts) => void) {
-  const f = released();
+  const f = settled(released());
   edit?.(f);
   return buildModel(f, FIXTURE_NOW);
 }
@@ -45,17 +46,17 @@ function inspectSet(m: ReturnType<typeof buildModel>) {
 }
 
 describe("the rollout inspector", () => {
-  test("the ladder names each step by release and says no PR carries the newest yet", () => {
+  test("the ladder leads each step with its commit and says no PR carries the newest yet", () => {
     const ladder = inspectSet(model()).sections.find(
       (s) => s.kind === "rows" && s.title === "Release ladder · newest first",
     );
     if (ladder?.kind !== "rows") throw new Error("ladder");
     expect(ladder.items.map((i) => [i.chip?.label, i.trailing])).toEqual([
-      ["v1.3.0", "0 of 5 · no PR carries it yet"],
-      ["v1.2.0 +2", "1 of 5 · 4 waiting"],
-      ["v1.2.0", "5 of 5"],
+      ["c0de000", "0 of 5 · no PR carries it yet"],
+      ["ddfd9ff", "1 of 5 · 4 waiting"],
+      ["ea9a2e1", "5 of 5"],
     ]);
-    expect(ladder.items[0]?.text).toStartWith("8 changes · ");
+    expect(ladder.items[0]?.text).toStartWith("v1.3.0 · 8 changes · ");
     expect(ladder.items[0]?.text).toEndWith("resolve the Java release from the root pom");
     expect(ladder.items[0]?.action).toEqual({
       type: "inspect",

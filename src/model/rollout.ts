@@ -9,11 +9,12 @@
 import { forkOf, githubUrl, SYNC_UPSTREAM_CRON, TEMPLATE_REPO } from "../config.ts";
 import type { ForkRuns, JobDetail, PastPrFact, RunFact, TemplateChange } from "../facts.ts";
 import { type Judgement, judgeRun, type OrderRule } from "../rollout.ts";
-import { stamp } from "../util.ts";
+import { names, stamp } from "../util.ts";
 import { classifyPr } from "./attribution.ts";
 import { latestChecks } from "./checks.ts";
 import { type LaneLoad, laneRoom } from "./lanes.ts";
 import type { LineModel } from "./lines.ts";
+import type { RadarModel } from "./radar.ts";
 import { nextFire, toCrons } from "./schedule.ts";
 import { type Consequence, heldBecause, type TemplateModel, type TemplateRow } from "./template.ts";
 
@@ -25,6 +26,7 @@ export type RolloutNext =
   | "dispatch"
   | "rerun"
   | "wait"
+  | "env"
   | "stopped"
   | "retarget"
   | "release";
@@ -32,9 +34,11 @@ export type RolloutNext =
 export type CellTone = "ok" | "run" | "warn" | "bad" | "idle";
 
 export interface Cell {
+  // One or two words; the board lists the note beneath the table.
   text: string;
   tone: CellTone;
   url?: string;
+  note?: string;
 }
 
 // A run that failed only on the shared environment, owed its one re-run.
@@ -85,6 +89,7 @@ export interface ReachingChange {
 export interface RolloutModel {
   phase: RolloutPhase;
   next: RolloutNext;
+  held?: string;
   target: { sha: string; label: string; url: string };
   // The oldest position a fork still runs, when it is not the target.
   from?: { sha: string; label: string };
@@ -119,7 +124,16 @@ export interface RolloutModel {
   finished?: string;
   released: number;
   rerunsUsed: string[];
-  schedule: { upstream?: string; upstreamForks: number; template?: string; templateOpens: number };
+  schedule: {
+    upstream?: string;
+    // Forks whose next upstream sync opens a PR; `upstreamMaybe` of them carry only filtered paths
+    // and may open none, and `upstreamHalts` open a sync-failed issue instead.
+    upstreamForks: number;
+    upstreamMaybe: number;
+    upstreamHalts: string[];
+    template?: string;
+    templateOpens: number;
+  };
 }
 
 // A main run started this long after a merge is the merge's own run.
@@ -131,8 +145,8 @@ const DONE_WINDOW_MS = 24 * 3_600_000;
 const BORROWING: Consequence[] = ["images", "actions", "workflows"];
 const VALIDATION = "Validation";
 
-function cell(text: string, tone: CellTone, url?: string): Cell {
-  return url ? { text, tone, url } : { text, tone };
+function cell(text: string, tone: CellTone, url?: string, note?: string): Cell {
+  return { text, tone, ...(url ? { url } : {}), ...(note ? { note } : {}) };
 }
 
 const DASH = cell("·", "idle");
@@ -159,15 +173,22 @@ function lastGoodBefore(runs: ForkRuns | undefined, at: string): RolloutFork["la
 }
 
 function mainCell(run: RunFact | undefined, judgement: Judgement | undefined, now: Date): Cell {
-  if (!run) return cell("not read", "idle");
+  if (!run) return cell("unread", "idle", undefined, "main run not read");
   if (run.status !== "completed") return cell("running", "run", run.url);
   if (run.conclusion === "success") {
-    return cell(run.attempt > 1 ? `green · re-run ${run.attempt - 1}` : "green", "ok", run.url);
+    return run.attempt > 1
+      ? cell(`green ×${run.attempt}`, "ok", run.url, `main run green on attempt ${run.attempt}`)
+      : cell("green", "ok", run.url);
   }
   if (!judgement)
-    return cell(`red ${stamp(run.updatedAt, now) ?? ""} · reading`.trim(), "warn", run.url);
+    return cell(
+      "red",
+      "warn",
+      run.url,
+      `main run red${stamp(run.updatedAt, now) ? ` at ${stamp(run.updatedAt, now)}` : ""}, failed jobs still being read`,
+    );
   return judgement.class === "environment"
-    ? cell(`environment · attempt ${run.attempt}`, "warn", run.url)
+    ? cell("env", "warn", run.url, `main run hit an environment failure on attempt ${run.attempt}`)
     : cell("red", "bad", run.url);
 }
 
@@ -178,22 +199,33 @@ function validationCell(
   const pr = row.pr;
   if (!pr) {
     if (row.syncing) return { cell: cell("syncing", "run", row.syncing.url) };
-    if (row.dispatched) return { cell: cell("Sync Template dispatched · lane", "run") };
-    return { cell: cell("waits for a lane", "idle") };
+    if (row.dispatched) {
+      return {
+        cell: cell("dispatched", "run", undefined, "Sync Template dispatched, holding a lane"),
+      };
+    }
+    return { cell: cell("lane", "idle", undefined, "Sync Template waits for a lane") };
   }
   if (!carries) {
     if (row.syncing) return { cell: cell("syncing", "run", row.syncing.url) };
-    return { cell: cell(`PR at ${row.target ?? "an older template"}`, "warn", pr.url) };
+    return {
+      cell: cell("behind", "warn", pr.url, `its PR carries ${row.target ?? "an older template"}`),
+    };
   }
   const validation = latestChecks(pr.checks).filter((c) => c.workflow === VALIDATION);
   if (validation.some((c) => c.status !== "COMPLETED")) {
-    return { cell: cell("validating · lane", "run", pr.url) };
+    return { cell: cell("running", "run", pr.url, "Validation running, holding a lane") };
   }
   const env = row.failures.find((f) => !f.hidden && f.cls === "ENV");
   if (env?.judgement?.response === "rerun-failed") {
     const runId = pr.checks.find((c) => c.name === env.check && c.url === env.url)?.runId;
     return {
-      cell: cell("environment · attempt 1", "warn", env.url ?? pr.url),
+      cell: cell(
+        "env",
+        "warn",
+        env.url ?? pr.url,
+        "Validation hit an environment failure on attempt 1, owed one re-run",
+      ),
       ...(runId
         ? { env: { runId, where: "PR" as const, pr: pr.number, headSha: pr.headSha, url: env.url } }
         : {}),
@@ -201,24 +233,61 @@ function validationCell(
   }
   if (env?.judgement?.response === "stop") {
     return {
-      cell: cell(`red · ${env.judgement.note ?? "real failure"}`, "bad", env.url ?? pr.url),
+      cell: cell(
+        "red",
+        "bad",
+        env.url ?? pr.url,
+        `Validation red: ${env.judgement.note ?? "real failure"}`,
+      ),
     };
   }
-  if (env) return { cell: cell("environment · on the stack", "warn", env.url ?? pr.url) };
+  if (env) {
+    return {
+      cell: cell(
+        "env",
+        "warn",
+        env.url ?? pr.url,
+        "Validation failed on the environment's own hold",
+      ),
+    };
+  }
   const own = row.failures.find((f) => !f.hidden && f.cls !== "POLICY" && f.cls !== "ENV");
   if (own || row.verdict === "red") {
-    return { cell: cell(own ? `red · ${own.cls}` : "red", "bad", own?.url ?? pr.url) };
+    return {
+      cell: cell("red", "bad", own?.url ?? pr.url, own ? `Validation red: ${own.cls}` : undefined),
+    };
   }
-  if (row.verdict === "pending") return { cell: cell("checks running", "run", pr.url) };
+  if (row.verdict === "pending") return { cell: cell("running", "run", pr.url) };
   return { cell: cell("green", "ok", pr.url) };
 }
 
 function reviewCell(row: TemplateRow): Cell {
   const decision = row.pr?.reviewDecision;
   if (decision === "APPROVED") return cell("approved", "ok");
-  if (decision === "CHANGES_REQUESTED") return cell("changes requested", "bad");
-  if (decision === "REVIEW_REQUIRED") return cell("needs review", "warn");
-  return cell("no review required", "idle");
+  if (decision === "CHANGES_REQUESTED")
+    return cell("changes", "bad", undefined, "changes requested");
+  if (decision === "REVIEW_REQUIRED") return cell("review", "warn", undefined, "needs review");
+  return cell("not needed", "idle");
+}
+
+function upstreamOpens(
+  queued: readonly LineModel[],
+  radar: RadarModel | undefined,
+): { upstreamForks: number; upstreamMaybe: number; upstreamHalts: string[] } {
+  const halts: string[] = [];
+  let forks = 0;
+  let maybe = 0;
+  for (const l of queued) {
+    const svc = radar?.services[l.fork.id];
+    if (l.halt || svc?.state === "halted" || svc?.state === "will-halt") {
+      halts.push(l.fork.id);
+      continue;
+    }
+    forks++;
+    const verdicts = [...(svc?.certain ?? []), ...(svc?.possible ?? [])];
+    if (verdicts.length > 0 && verdicts.every((v) => v.bucket === "Filtered")) maybe++;
+  }
+  return { upstreamForks: forks, upstreamMaybe: maybe, upstreamHalts: halts };
 }
 
 // Each change past the oldest fork position, with what it reaches in a fork.
@@ -255,6 +324,9 @@ export function buildRollout(input: {
   runs: Record<string, ForkRuns> | undefined;
   lanes: LaneLoad;
   ordering?: readonly OrderRule[];
+  // Why the shared environment takes no new lanes right now, when it is held.
+  held?: string;
+  radar?: RadarModel;
   now: Date;
 }): RolloutModel | undefined {
   const { template: t, lines, runs, lanes, now } = input;
@@ -336,7 +408,7 @@ export function buildRollout(input: {
       })(),
     };
     if (onTarget && merge?.mergedAt) {
-      fork.merge = cell(`merged ${stamp(merge.mergedAt, now) ?? ""}`.trim(), "ok", merge.url);
+      fork.merge = cell(stamp(merge.mergedAt, now) ?? "merged", "ok", merge.url);
     } else if (onTarget) fork.merge = cell("on main", "ok");
     return fork;
   });
@@ -404,15 +476,26 @@ export function buildRollout(input: {
   if (phase === "stopped") {
     for (const f of forks) if (!f.onTarget && !f.red) f.merge = cell("paused", "idle");
   } else {
-    for (const f of mergeNext) f.merge = cell("next press", "warn");
-    for (const f of mergeWaits) f.merge = cell("waits for a lane", "idle");
+    for (const f of mergeNext) {
+      f.merge = input.held
+        ? cell("env", "idle", undefined, "merges once the environment is deployable")
+        : cell("next", "warn", undefined, "merges on the next press");
+    }
+    for (const f of mergeWaits) f.merge = cell("lane", "idle", undefined, "merge waits for a lane");
     for (const f of forks) {
       if (f.onTarget || !f.carries || f.heldBy.length === 0) continue;
-      f.merge = cell(`after ${f.heldBy.join(", ")}`, "idle");
+      f.merge = cell("held", "idle", undefined, `merges after ${names(f.heldBy)}`);
     }
   }
-  for (const f of dispatchWaits) if (!f.pr) f.validation = cell("waits for a lane", "idle");
-  for (const f of dispatchNext) if (!f.pr) f.validation = cell("dispatch next press", "warn");
+  for (const f of dispatchWaits) {
+    if (!f.pr) f.validation = cell("lane", "idle", undefined, "Sync Template waits for a lane");
+  }
+  for (const f of dispatchNext) {
+    if (f.pr) continue;
+    f.validation = input.held
+      ? cell("env", "idle", undefined, "dispatches once the environment is deployable")
+      : cell("next", "warn", undefined, "Sync Template dispatches on the next press");
+  }
 
   // A PR still to validate takes a lane for that and one for its merge; a green one only the merge.
   const needed = borrows
@@ -428,12 +511,12 @@ export function buildRollout(input: {
   const sync = (l: LineModel) => (l.upstream?.commits.length ?? 0) > 0;
 
   // An environment failure is re-run once, after the other lanes drain.
-  const drained = lanes.inflight.length === 0 && !lanes.unread;
+  const drained = lanes.inflight.length === 0 && !lanes.unread && !input.held;
   const envReruns = forks.flatMap((f) => (f.env ? [f.env] : []));
   const retarget = stops.some(
     (f) => t.rows.find((r) => r.service === f.service)?.marker !== head.sha,
   );
-  const next: RolloutNext =
+  const chosen: RolloutNext =
     phase === "done"
       ? "release"
       : phase === "stopped"
@@ -453,10 +536,16 @@ export function buildRollout(input: {
               : phase === "ready"
                 ? "start"
                 : "wait";
+  // A held environment takes no new lane: nothing that deploys is offered until it reads deployable.
+  const next: RolloutNext =
+    input.held && ["start", "merge", "dispatch", "rerun", "retarget", "wait"].includes(chosen)
+      ? "env"
+      : chosen;
 
   return {
     phase,
     next,
+    ...(input.held ? { held: input.held } : {}),
     target: {
       sha: head.sha,
       label,
@@ -489,8 +578,7 @@ export function buildRollout(input: {
     dispatchWaits,
     envReruns,
     reviews: forks.filter(
-      (f) =>
-        f.carries && (f.review.text === "needs review" || f.review.text === "changes requested"),
+      (f) => f.carries && (f.review.tone === "warn" || f.review.tone === "bad"),
     ),
     ...(() => {
       const started = earliest(
@@ -510,7 +598,7 @@ export function buildRollout(input: {
       .map((f) => f.service),
     schedule: {
       ...(fire !== undefined ? { upstream: new Date(fire).toISOString() } : {}),
-      upstreamForks: lines.filter(sync).length,
+      ...upstreamOpens(lines.filter(sync), input.radar),
       ...(t.nextSync ? { template: t.nextSync } : {}),
       templateOpens: forks.filter((f) => !f.onTarget && !f.pr && f.validation.tone !== "run")
         .length,

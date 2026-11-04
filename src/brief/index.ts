@@ -28,7 +28,7 @@ import {
   stoppedAttempts,
   viewRun,
 } from "../model/stack.ts";
-import { age, clip, plural, short, span, stamp } from "../util.ts";
+import { age, clip, plural, short, span, stamp, whose } from "../util.ts";
 import { type Repositories, repositoriesOf } from "./repos.ts";
 import { rolloutWords } from "./rollout.ts";
 import { ago as agoText, deployableWords, streakText } from "./words.ts";
@@ -264,7 +264,7 @@ function clause(item: QueueItem): string {
     case "template-run":
       return `Restart Sync Template on ${item.scope}`;
     case "access":
-      return `Restore ${item.scope}'s image pulls`;
+      return `Restore ${whose(item.scope)} image pulls`;
     case "rollout":
       return item.incident
         ? "Fix the template rollout forward"
@@ -563,7 +563,7 @@ function effectOf(item: QueueItem, stuck: readonly QueueItem[], next: string | u
         : undefined;
     return [
       `${queued ? plural(Number(queued), "commit") : "Queued commits"} reach the fork at the ${next ?? "next"} sync.`,
-      like ? `${cap(like.scope)}'s sync PR failed on the same move.` : undefined,
+      like ? `${cap(whose(like.scope))} sync PR failed on the same move.` : undefined,
     ]
       .filter(Boolean)
       .join(" ");
@@ -612,7 +612,7 @@ function describe(
       sub: [
         queued ? `${plural(Number(queued), "commit")} queued` : undefined,
         next ? `syncs at ${next}` : undefined,
-        like ? `expected to fail the way ${like.scope}'s did` : undefined,
+        like ? `expected to fail the way ${whose(like.scope)} did` : undefined,
       ]
         .filter(Boolean)
         .join(" · "),

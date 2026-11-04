@@ -6,10 +6,11 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
+import { upstreamPrs } from "../brief/rollout.ts";
 import { FLEET_RELEASE_WORKFLOW, TEMPLATE_REPO } from "../config.ts";
 import type { LaneLoad } from "../model/lanes.ts";
 import type { EnvRerun, RolloutFork, RolloutModel } from "../model/rollout.ts";
-import { plural, short, stamp } from "../util.ts";
+import { names, plural, short, stamp, whose } from "../util.ts";
 import { RERUN_LANES } from "./rerun.ts";
 import { paced, paceText, ROLL_OUT, SYNC_FORKS } from "./rollout.ts";
 import { type ActionItem, type Target, type Verb, verbAction } from "./verbs.ts";
@@ -34,12 +35,6 @@ export const FLEET_RELEASE: Verb = {
 export interface FlowActions {
   primary: ActionItem;
   secondary: ActionItem[];
-}
-
-function names(list: readonly string[]): string {
-  return list.length <= 1
-    ? (list[0] ?? "")
-    : `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
 }
 
 function services(list: readonly RolloutFork[]): string {
@@ -83,9 +78,7 @@ function scheduleLines(r: RolloutModel, now: Date): string[] {
   const out: string[] = [];
   const up = stamp(r.schedule.upstream, now);
   if (up && r.schedule.upstreamForks > 0) {
-    out.push(
-      `Upstream sync at ${up} opens ${plural(r.schedule.upstreamForks, "PR")} that share the lanes.`,
-    );
+    out.push(`Upstream sync at ${up} opens ${upstreamPrs(r)} that share the lanes.`);
   }
   const tmpl = stamp(r.schedule.template, now);
   if (tmpl) out.push(`The ${tmpl} template sync opens every fork still without a PR at once.`);
@@ -101,6 +94,11 @@ function orderLines(r: RolloutModel): string[] {
 
 function disabled(label: string, reason: string): ActionItem {
   return { type: "act", label, disabled: true, reason };
+}
+
+// The host shows a disabled reason only on hover, so a waiting verb says why in its label.
+function waiting(label: string, reason: string): ActionItem {
+  return disabled(`${label} · ${reason}`, reason);
 }
 
 function dispatchAction(
@@ -166,7 +164,12 @@ function mergeAction(r: RolloutModel, swept: string, item: string, load: LaneLoa
 function rerunAction(r: RolloutModel, swept: string, item: string, enabled: boolean): ActionItem {
   const first = r.envReruns[0] as EnvRerun;
   const label = `Re-run ${names(r.envReruns.map((e) => e.service))} once · environment failure, attempt 1`;
-  if (!enabled) return disabled(label, "after the other lanes drain");
+  if (!enabled) {
+    return waiting(
+      `Re-run ${names(r.envReruns.map((e) => e.service))} once`,
+      r.held ? "after the environment reads deployable" : "after the other lanes drain",
+    );
+  }
   return verbAction(
     RERUN_LANES,
     { item, swept, targets: r.envReruns.map(rerunTarget) },
@@ -174,7 +177,7 @@ function rerunAction(r: RolloutModel, swept: string, item: string, enabled: bool
       primary: true,
       label,
       pending: "Re-running…",
-      title: `Re-run ${first.service}'s failed jobs once`,
+      title: `Re-run ${whose(first.service)} failed jobs once`,
       detail: [
         "Every failed job carries the Environment annotation title, so this is the shared environment, not the change. It is re-run once; a second failure stops the line.",
       ],
@@ -259,6 +262,12 @@ export function flowActions(
           : disabled("Retarget the rollout to main", "every lane is busy");
       break;
     }
+    case "env":
+      primary = disabled(
+        `Waiting for the environment · ${r.held ?? "held"}`,
+        "merges, dispatches and re-runs resume once it reads deployable",
+      );
+      break;
     case "stopped":
       primary = disabled(
         `Merging paused · ${plural(r.stops.length, "main run")} red`,
@@ -281,38 +290,36 @@ export function flowActions(
     if (r.next !== "retarget") {
       const moved = r.stops.some((f) => f.carries);
       secondary.push(
-        disabled(
-          "Retarget the rollout to main",
+        waiting(
+          "Retarget to main",
           moved
-            ? "the fix is on its PR; merge it when approved and green"
+            ? "merge the fix on its PR first"
             : `once a template fix merges · main is still ${target}`,
         ),
       );
     }
-    for (const f of r.stops) {
-      secondary.push(disabled(`Re-run ${f.service}'s main run`, "not offered · real failure"));
-    }
   } else if (r.phase !== "done") {
+    const env = r.held ? "waits for the environment" : undefined;
     if (r.next !== "merge") {
       const ready = r.forks.filter((f) => f.ready && !f.onTarget);
       secondary.push(
-        disabled(
+        waiting(
           "Merge approved PRs",
           ready.length === 0
             ? "nothing is approved and green yet"
             : ready.every((f) => f.heldBy.length > 0)
-              ? `held · ${services(ready)} merge after ${names([...new Set(ready.flatMap((f) => f.heldBy))])}`
-              : "waits for a lane",
+              ? `${services(ready)} ${ready.length === 1 ? "merges" : "merge"} after ${names([...new Set(ready.flatMap((f) => f.heldBy))])}`
+              : (env ?? "waits for a lane"),
         ),
       );
     }
     if (r.next !== "dispatch" && r.next !== "start") {
-      const waiting = r.dispatchWaits;
-      if (waiting.length > 0) {
-        secondary.push(disabled(`Dispatch ${few(waiting)}`, "waits for a lane"));
+      const left = r.dispatchNext.concat(r.dispatchWaits);
+      if (left.length > 0) {
+        secondary.push(waiting(`Dispatch ${few(left)}`, env ?? "waits for a lane"));
       }
     } else if (r.dispatchWaits.length > 0) {
-      secondary.push(disabled(`Dispatch ${few(r.dispatchWaits)}`, "waits for the next press"));
+      secondary.push(waiting(`Dispatch ${few(r.dispatchWaits)}`, "on the next press"));
     }
     if (r.envReruns.length > 0 && r.next !== "rerun") {
       secondary.push(rerunAction(r, swept, item, false));

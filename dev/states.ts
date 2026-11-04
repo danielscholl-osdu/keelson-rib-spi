@@ -11,8 +11,14 @@ import type { Facts } from "../src/facts.ts";
 import { INSPECT_KEY } from "../src/keys.ts";
 import { Store } from "../src/store.ts";
 import { Sweeper } from "../src/sweep.ts";
-import { releasedFacts } from "../test/harness.ts";
-import { doneFacts, environmentFacts, rollingFacts, stoppedFacts } from "../test/states.ts";
+import {
+  doneFacts,
+  environmentFacts,
+  heldFacts,
+  readyFacts,
+  rollingFacts,
+  stoppedFacts,
+} from "../test/states.ts";
 
 const out = resolve(process.argv[2] ?? mkdtempSync(join(tmpdir(), "rib-spi-states-")));
 mkdirSync(out, { recursive: true });
@@ -34,10 +40,11 @@ const servicesFile = join(out, "services.json");
 copyFileSync(new URL("../test/fixtures/services.json", import.meta.url).pathname, servicesFile);
 
 const states: Record<string, () => Facts> = {
-  ready: releasedFacts,
+  ready: readyFacts,
   rolling: rollingFacts,
   stopped: stoppedFacts,
   environment: environmentFacts,
+  held: heldFacts,
   done: doneFacts,
 };
 

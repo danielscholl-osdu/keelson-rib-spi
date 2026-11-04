@@ -9,11 +9,11 @@
 import type { CanvasBoardView, CanvasTone } from "@keelson/shared";
 import { flowActions } from "../act/flow.ts";
 import type { ActionItem } from "../act/verbs.ts";
-import { names, nextSentence, nextWhy, pathName, rolloutWords } from "../brief/rollout.ts";
+import { nextSentence, nextWhy, pathName, rolloutWords, upstreamPrs } from "../brief/rollout.ts";
 import type { Model } from "../model/index.ts";
 import type { QueueItem } from "../model/queue.ts";
 import type { Cell, CellTone, RolloutFork, RolloutModel } from "../model/rollout.ts";
-import { age, plural, short, stamp } from "../util.ts";
+import { age, names, plural, short, stamp } from "../util.ts";
 import { ladderSection } from "./template.ts";
 
 type Section = CanvasBoardView["sections"][number];
@@ -35,11 +35,12 @@ const STATUS: Record<RolloutModel["phase"], { label: string; tone: CanvasTone }>
   done: { label: "ROLLOUT DONE", tone: "ok" },
 };
 
+// A pill never wraps: its words are joined with no-break spaces.
 function badge(c: Cell) {
   return c.text === "·"
     ? { value: "·" }
     : {
-        badges: [{ text: c.text, tone: CELL_TONE[c.tone] }],
+        badges: [{ text: c.text.replace(/ /g, "\u00a0"), tone: CELL_TONE[c.tone] }],
         ...(c.url ? { href: c.url } : {}),
       };
 }
@@ -50,25 +51,34 @@ function forkTable(r: RolloutModel): Section {
     title: `Forks · ${r.merged} of ${r.total} merged`,
     columns: [
       { key: "fork", label: "Fork" },
-      { key: "pr", label: "PR" },
       { key: "validation", label: "Validation" },
       { key: "review", label: "Review" },
       { key: "merge", label: "Merge" },
-      { key: "main", label: "Main run" },
+      { key: "main", label: "Main" },
     ],
-    rows: r.forks.map((f) => ({
-      fork: f.skip ? `${f.service} (${f.skip})` : f.service,
-      pr: f.pr
-        ? { value: `#${f.pr.number}`, href: f.pr.url }
-        : f.merged
-          ? { value: `#${f.merged.number}`, href: f.merged.url }
-          : "·",
-      validation: badge(f.validation),
-      review: badge(f.review),
-      merge: badge(f.merge),
-      main: badge(f.main),
-    })),
+    rows: r.forks.map((f) => {
+      const pr = f.pr ?? f.merged;
+      const fork = f.skip ? `${f.service} (${f.skip})` : f.service;
+      return {
+        fork: pr ? { value: fork, href: pr.url } : fork,
+        validation: badge(f.validation),
+        review: badge(f.review),
+        merge: badge(f.merge),
+        main: badge(f.main),
+      };
+    }),
   };
+}
+
+// What a one-word pill stands for, for the forks where it says more than its word.
+function notesSection(r: RolloutModel): Section | undefined {
+  const items = r.forks.flatMap((f) => {
+    const notes = [f.validation, f.review, f.merge, f.main].flatMap((c) =>
+      c.note ? [c.note] : [],
+    );
+    return notes.length > 0 ? [{ text: f.service, trailing: notes.join(" · ") }] : [];
+  });
+  return items.length > 0 ? { kind: "rows", items } : undefined;
 }
 
 function laneMeter(r: RolloutModel): Section | undefined {
@@ -100,7 +110,7 @@ function scheduleSection(r: RolloutModel, now: Date): Section | undefined {
       chip: { label: up, tone: "neutral" },
       text:
         r.schedule.upstreamForks > 0
-          ? `Upstream sync opens ${plural(r.schedule.upstreamForks, "PR")}${until ? ` in ${until}` : ""}.${r.borrows && r.phase !== "done" ? " They share these lanes; dispatch waits while they validate." : ""}`
+          ? `Upstream sync opens ${upstreamPrs(r)}${until ? ` in ${until}` : ""}.${r.borrows && r.phase !== "done" ? " They share these lanes; dispatch waits while they validate." : ""}`
           : "Upstream sync has nothing queued.",
     });
   }
@@ -117,7 +127,7 @@ function scheduleSection(r: RolloutModel, now: Date): Section | undefined {
   return items.length > 0 ? { kind: "rows", title: "Schedule", items } : undefined;
 }
 
-function pinsSection(r: RolloutModel, only?: RolloutFork): Section | undefined {
+function pinsSection(r: RolloutModel, now: Date, only?: RolloutFork): Section | undefined {
   const forks = (only ? [only] : r.forks).filter((f) => f.merged || f.red);
   if (forks.length === 0) return undefined;
   return {
@@ -133,7 +143,7 @@ function pinsSection(r: RolloutModel, only?: RolloutFork): Section | undefined {
       ...forks.map((f) => ({
         text: f.service,
         trailing: f.lastGood
-          ? `main ${short(f.lastGood.sha)} · green ${stamp(f.lastGood.at, new Date(f.lastGood.at)) ?? ""}`
+          ? `main ${short(f.lastGood.sha)} · green ${stamp(f.lastGood.at, now) ?? ""}`
           : "no green main run read before the merge",
         ...(f.lastGood ? { href: f.lastGood.url } : {}),
       })),
@@ -364,13 +374,15 @@ export function rolloutBoard(
   if (r.phase === "stopped") {
     const failed = failedSection(r, now);
     if (failed) sections.push(failed);
-    const pin = pinsSection(r, r.stops[0]);
+    const pin = pinsSection(r, now, r.stops[0]);
     if (pin) sections.push(pin);
     sections.push(whereStopped(r));
   } else {
     const meter = r.phase === "done" ? undefined : laneMeter(r);
     if (meter) sections.push(meter);
     sections.push(forkTable(r));
+    const notes = notesSection(r);
+    if (notes) sections.push(notes);
     if (r.phase === "ready") {
       sections.push({
         kind: "rows",
@@ -387,7 +399,7 @@ export function rolloutBoard(
     }
     const schedule = r.phase === "done" ? undefined : scheduleSection(r, now);
     if (schedule) sections.push(schedule);
-    const pins = pinsSection(r);
+    const pins = pinsSection(r, now);
     if (pins) sections.push(pins);
   }
   const reach = reachSection(r);
@@ -402,7 +414,7 @@ export function rolloutBoard(
       });
     }
   }
-  const ladder = r.phase === "stopped" ? undefined : ladderSection(model);
+  const ladder = r.phase === "stopped" ? undefined : ladderSection(model, true);
   if (ladder) sections.push(ladder);
   sections.push(...opts.extra);
   return {
