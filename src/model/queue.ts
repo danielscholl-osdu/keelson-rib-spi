@@ -798,6 +798,7 @@ function releaseItems(
         value: `${r.tag} · #${r.pr.number} · ${r.ready ? "approved and green" : (r.pr.reviewDecision ?? "pending").toLowerCase().replaceAll("_", " ")}`,
         url: r.pr.url,
       })),
+      inputs: open.map((r) => `${r.repo}#${r.pr.number}@${r.pr.headSha}`),
       incident: false,
       blocks: open.length,
     });

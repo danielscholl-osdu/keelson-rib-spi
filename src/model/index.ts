@@ -126,6 +126,7 @@ export function buildModel(
     lanes: laneLoad({
       repos,
       runs: facts.runs.data,
+      prsRead: !!facts.github.data,
       dispatched: opts.dispatched,
       pressed: opts.pressed,
     }),

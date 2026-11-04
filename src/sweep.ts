@@ -8,7 +8,7 @@
 
 import type { RibExec } from "@keelson/shared";
 import { z } from "@keelson/shared";
-import { readFleet, resolveFleet, resolveRollout } from "./collect/fleet.ts";
+import { fleetView, readFleet, useFleetView } from "./collect/fleet.ts";
 import { readGithub } from "./collect/github.ts";
 import { emptyLedgerState } from "./collect/ledgers.ts";
 import { emptyRadarState, pruneRadar, type RadarState, readRadar } from "./collect/radar.ts";
@@ -202,8 +202,13 @@ export class Sweeper {
 
   // The fleet and rollout file every collector and the model read, from the last good read.
   private applyFleet(): void {
-    setFleet(resolveFleet(this.facts.fleet.data, this.fleetFiles.services ?? null).services);
-    useRollout(resolveRollout(this.facts.fleet.data).rollout);
+    const view = fleetView(this.facts.fleet.data, {
+      services: this.fleetFiles.services ?? null,
+      rollout: this.fleetFiles.rollout ?? null,
+    });
+    setFleet(view.fleet.services);
+    useRollout(view.rollout.rollout);
+    useFleetView(view);
   }
 
   get sweeping(): boolean {

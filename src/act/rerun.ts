@@ -88,12 +88,17 @@ export interface LaneOptions {
 }
 
 // Re-run lanes while the stack is deployable; otherwise a wait that re-runs them once it is.
-export function laneActions(item: QueueItem, stack: StackModel, opts: LaneOptions): ActionItem[] {
+export function laneActions(item: QueueItem, stack: StackModel, given: LaneOptions): ActionItem[] {
   const lanes = item.lanes ?? [];
   if (lanes.length === 0) return [];
   const targets = laneTargets(lanes);
-  const binding = { item: item.id, swept: opts.swept, targets };
+  const binding = { item: item.id, swept: given.swept, targets };
   const n = lanes.length;
+  const stop =
+    item.judgement?.response === "stop"
+      ? `stop the line${item.judgement.note ? ` (${item.judgement.note})` : ""}: fix it forward in the template, no re-run`
+      : undefined;
+  const opts = stop && !given.blocked ? { ...given, blocked: stop } : given;
   if (stack.deployable.state === "yes") {
     const since = stamp(stack.lastGreen?.updatedAt, opts.now);
     const busy = new Set(opts.load?.inflight.map((l) => l.repo));
@@ -104,9 +109,11 @@ export function laneActions(item: QueueItem, stack: StackModel, opts: LaneOption
     const go = lanes.filter((l) => now.targets.some((t) => t.number === l.runId));
     const k = go.length;
     const full =
-      k === 0 && opts.load?.cap
-        ? `${opts.load.inflight.length} of ${opts.load.cap} lanes in flight; ${plural(n, "lane")} ${n === 1 ? "waits" : "wait"} for the next press`
-        : undefined;
+      k === 0 && opts.load?.cap && opts.load.unread
+        ? `lanes unknown until ${opts.load.unread} are read`
+        : k === 0 && opts.load?.cap
+          ? `${opts.load.inflight.length} of ${opts.load.cap} lanes in flight; ${plural(n, "lane")} ${n === 1 ? "waits" : "wait"} for the next press`
+          : undefined;
     return [
       verbAction(
         RERUN_LANES,

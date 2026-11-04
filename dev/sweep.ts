@@ -14,7 +14,7 @@ import { inspectBoard } from "../src/boards/inspect.ts";
 import { STEP_PREFIX } from "../src/boards/template.ts";
 import { buildBriefing } from "../src/brief/index.ts";
 import { checkable, entryAcrossForks } from "../src/collect/filters.ts";
-import { resolveFleet, resolveRollout } from "../src/collect/fleet.ts";
+import { activeFleetView } from "../src/collect/fleet.ts";
 import { Gh, Glab } from "../src/forge.ts";
 import { INSPECT_KEY } from "../src/keys.ts";
 import { attemptText, overdue, usualText } from "../src/model/stack.ts";
@@ -50,7 +50,9 @@ for (const [area, v] of Object.entries(sweeper.facts)) {
   console.log(`  ${area.padEnd(10)} ${mv.at ? "ok" : "--"} ${mv.error ? `ERROR ${mv.error}` : ""}`);
 }
 const fleetData = sweeper.facts.fleet.data;
-const fleet = resolveFleet(fleetData);
+const view = activeFleetView();
+if (!view) throw new Error("the sweeper applies a fleet view");
+const fleet = view.fleet;
 console.log(`\nFLEET · ${fleet.services.length} forks from ${fleet.source}`);
 for (const f of fleet.services) {
   const v = f.repo ? fleetData?.vars[f.repo] : undefined;
@@ -59,9 +61,9 @@ for (const f of fleet.services) {
   );
 }
 for (const u of fleet.unresolved) console.log(`  not followed: ${u.service} (${u.why})`);
-const parsedRollout = resolveRollout(fleetData);
+const parsedRollout = view.rollout;
 console.log(
-  `\nROLLOUT · ${fleetData?.rollout === null ? `none at ${fleetData.rolloutFrom}; unpaced` : `${fleetData?.rolloutFrom} · lanes ${parsedRollout.rollout?.lanes ?? "-"}`}`,
+  `\nROLLOUT · ${view.rolloutMissing ? `none at ${view.rolloutFrom}; unpaced` : `${view.rolloutFrom} · lanes ${parsedRollout.rollout?.lanes ?? "-"}`}`,
 );
 for (const w of parsedRollout.warnings) console.log(`  warning: ${w}`);
 for (const [id, n] of Object.entries(m.noise)) console.log(`  noise ${id}: ${n} ignored now`);

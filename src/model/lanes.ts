@@ -26,6 +26,8 @@ export interface LaneLoad {
   cap: number | null;
   capFrom?: "RIB_SPI_LANES" | "rollout";
   inflight: LaneInFlight[];
+  // What the rib has not read yet, so it cannot count lanes; a paced press starts nothing.
+  unread?: string;
 }
 
 export function laneCap(): Pick<LaneLoad, "cap" | "capFrom"> {
@@ -40,6 +42,7 @@ export function laneCap(): Pick<LaneLoad, "cap" | "capFrom"> {
 export function laneLoad(input: {
   repos: Record<string, RepoFact>;
   runs: Record<string, ForkRuns> | undefined;
+  prsRead: boolean;
   dispatched?: Record<string, string>;
   pressed?: Record<string, string>;
 }): LaneLoad {
@@ -62,12 +65,12 @@ export function laneLoad(input: {
               : undefined;
     if (what) inflight.push({ repo: fork.repo, service: fork.id, what });
   }
-  return { ...laneCap(), inflight };
+  const unread = !input.runs ? "fork workflow runs" : !input.prsRead ? "PR checks" : undefined;
+  return { ...laneCap(), inflight, ...(unread ? { unread } : {}) };
 }
 
 // How many more forks a press may start.
 export function laneRoom(load: LaneLoad): number {
-  return load.cap === null
-    ? Number.POSITIVE_INFINITY
-    : Math.max(0, load.cap - load.inflight.length);
+  if (load.cap === null) return Number.POSITIVE_INFINITY;
+  return load.unread ? 0 : Math.max(0, load.cap - load.inflight.length);
 }

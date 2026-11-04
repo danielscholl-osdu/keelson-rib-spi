@@ -14,8 +14,8 @@ import {
   type Readiness,
   WORKFLOW_GRANTS,
 } from "../act/readiness.ts";
-import { resolveFleet, resolveRollout } from "../collect/fleet.ts";
-import { FORKS, GITLAB_EVERY_MS, PLANNED, SERVICES_FILE, SWEEP_MS, shortRepo } from "../config.ts";
+import { activeFleetView, type FleetView, fleetView } from "../collect/fleet.ts";
+import { FORKS, GITLAB_EVERY_MS, PLANNED, SWEEP_MS, shortRepo } from "../config.ts";
 import { AREAS, type AreaName, type Facts } from "../facts.ts";
 import { laneCap } from "../model/lanes.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
@@ -70,10 +70,11 @@ const FLEET_SOURCE = {
 export function fleetChecks(
   facts: Facts,
   now: Date,
-  servicesFile: string | null = SERVICES_FILE ?? null,
+  view: FleetView = activeFleetView() ??
+    fleetView(facts.fleet.data, { services: null, rollout: null }),
 ): Check[] {
   const m = facts.fleet;
-  const fleet = resolveFleet(m.data, servicesFile);
+  const fleet = view.fleet;
   const stale = m.error && m.at ? ` · last read ${stamp(m.at, now)}` : "";
   const mirrors = fleet.services.filter((s) => s.mirror).map((s) => s.id);
   const unread = fleet.services.filter((s) => s.mirror === null).map((s) => s.id);
@@ -93,22 +94,20 @@ export function fleetChecks(
       ...(lost.length ? { problem: `Fleet: not following ${lost.join(", ")}` } : {}),
     },
   ];
-  const parsed = resolveRollout(m.data);
+  const parsed = view.rollout;
   const cap = laneCap();
-  const from = m.data?.rolloutFrom;
+  const from = view.rolloutFrom;
   out.push({
     health: parsed.warnings.length ? "warn" : parsed.rollout ? "ok" : "neutral",
     label: "Rollout",
     value: [
-      !m.data
-        ? "not read yet"
-        : m.data.rollout === null
-          ? `none at ${from}`
-          : parsed.rollout
-            ? `${from}: ${parsed.rollout.lanes ? plural(parsed.rollout.lanes, "lane") : "no lanes"}`
-            : from
-              ? `${from} unread`
-              : "not read yet",
+      view.rolloutMissing
+        ? `none at ${from}`
+        : parsed.rollout
+          ? `${from}: ${parsed.rollout.lanes ? plural(parsed.rollout.lanes, "lane") : "no lanes"}`
+          : from
+            ? `${from} unread`
+            : "not read yet",
       ...parsed.warnings,
       cap.cap === null
         ? "fleet buttons unpaced"

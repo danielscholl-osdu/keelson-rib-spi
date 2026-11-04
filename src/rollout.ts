@@ -71,13 +71,11 @@ export interface Judgement {
 }
 
 // A run is environment-class when any failed job carries a failure-level annotation titled
-// Environment; undefined while a failed job's annotations are unread.
+// Environment; undefined until every failed job's annotations are read.
 export function judgeRun(jobs: readonly (JobDetail | undefined)[]): Judgement | undefined {
+  if (jobs.length === 0 || jobs.some((j) => j?.environment === undefined)) return undefined;
   const messages = jobs.flatMap((j) => j?.environment ?? []);
-  if (messages.length === 0) {
-    if (jobs.length === 0 || jobs.some((j) => j?.environment === undefined)) return undefined;
-    return { class: "real", response: "stop" };
-  }
+  if (messages.length === 0) return { class: "real", response: "stop" };
   const cause = messages[0];
   const attempt = Math.max(...jobs.map((j) => j?.attempt ?? 1));
   if (attempt > 1) return { class: "real", response: "stop", cause, note: "already rerun once" };

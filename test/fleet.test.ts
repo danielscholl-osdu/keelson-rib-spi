@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { RibExec } from "@keelson/shared";
 import { ActionLog } from "../src/act/log";
 import { act, paceTargets } from "../src/act/path";
@@ -8,7 +10,14 @@ import { rolloutTargets, SYNC_FORKS, syncTargets } from "../src/act/rollout";
 import { registerVerb, type Target, verbOf } from "../src/act/verbs";
 import { doctorBoard, doctorStatus, fleetChecks } from "../src/boards/doctor";
 import { inspectBoard } from "../src/boards/inspect";
-import { readFleet, resolveFleet, resolveRollout, upstreamProject } from "../src/collect/fleet";
+import {
+  fleetView,
+  readFleet,
+  resolveFleet,
+  resolveRollout,
+  upstreamProject,
+  useFleetView,
+} from "../src/collect/fleet";
 import { DetailCache, readJob } from "../src/collect/runs";
 import { builtInFleet, FORKS, KNOWN_SERVICES, REPOS, setFleet } from "../src/config";
 import { Dismissals } from "../src/dismiss";
@@ -91,6 +100,7 @@ function fleetGh(
 afterEach(() => {
   setFleet(builtInFleet());
   useRollout(undefined);
+  useFleetView(undefined);
 });
 
 describe("the fleet list comes from the stack's forks: list", () => {
@@ -136,7 +146,11 @@ describe("the fleet list comes from the stack's forks: list", () => {
       { service: NEW_FORK.service, why: "it has no UPSTREAM_REPO_URL variable" },
     ]);
     const facts: Facts = { ...fixtureFacts(), fleet: { at: FIXTURE_NOW.toISOString(), data } };
-    const fleetCheck = fleetChecks(facts, FIXTURE_NOW, null)[0];
+    const fleetCheck = fleetChecks(
+      facts,
+      FIXTURE_NOW,
+      fleetView(data, { services: null, rollout: null }),
+    )[0];
     expect(fleetCheck?.problem).toContain("not following wellbore");
   });
 
@@ -233,9 +247,9 @@ describe("the rollout file", () => {
     expect(sync.waiting).toEqual([]);
     expect(sync.targets).toEqual(syncTargets(before.template).targets);
     const facts: Facts = { ...fixtureFacts(), fleet: { at: FIXTURE_NOW.toISOString(), data } };
-    expect(fleetChecks(facts, FIXTURE_NOW, null)[1]?.value).toBe(
-      "none at Azure/osdu-spi:.github/fleet/rollout.json · fleet buttons unpaced",
-    );
+    expect(
+      fleetChecks(facts, FIXTURE_NOW, fleetView(data, { services: null, rollout: null }))[1]?.value,
+    ).toBe("none at Azure/osdu-spi:.github/fleet/rollout.json · fleet buttons unpaced");
   });
 
   test("lanes sets the cap; ordering and unknown fields are ignored", async () => {
@@ -257,8 +271,11 @@ describe("the rollout file", () => {
       rollout: "/nowhere/rollout.json",
     });
     expect(calls).toEqual([]);
-    expect(data).toMatchObject({ rollout: null, rolloutFrom: "/nowhere/rollout.json" });
     expect(data.forks).toBeUndefined();
+    expect(data.rollout).toBeUndefined();
+    const view = fleetView(data, { services: null, rollout: "/nowhere/rollout.json" });
+    expect(view).toMatchObject({ rolloutMissing: true, rolloutFrom: "/nowhere/rollout.json" });
+    expect(view.rollout).toEqual({ warnings: [] });
   });
 
   test("an unknown schema leaves the buttons unpaced, with a warning", () => {
@@ -749,5 +766,116 @@ describe("review fixes", () => {
     const stop = { class: "real" as const, response: "stop" as const };
     expect(governing([retry, stop])).toBe(stop);
     expect(governing([retry, undefined])).toBe(retry);
+  });
+
+  test("a fleet read GitHub answers with errors fails, so the last good rollout stays", async () => {
+    const exec: RibExec = {
+      runText: async () => ({
+        ok: true as const,
+        exitCode: 0,
+        data: JSON.stringify({
+          data: { stack: { object: { text: sharedYaml() } }, template: { object: null } },
+          errors: [{ message: "Something went wrong while executing your query" }],
+        }),
+      }),
+      runJSON: async <T>() => ({ ok: true as const, data: [] as T }),
+    };
+    await expect(readFleet(new Gh(exec), undefined, FIXTURE_NOW, {})).rejects.toThrow(
+      "Something went wrong",
+    );
+  });
+
+  test("before fork runs are read, a paced press starts nothing", () => {
+    useRollout(ROLLOUT);
+    const facts = fixtureFacts();
+    facts.runs = {};
+    const m = buildModel(facts, FIXTURE_NOW);
+    expect(m.lanes).toMatchObject({ cap: 5, unread: "fork workflow runs" });
+    const pace = paceTargets(SEVEN, m.lanes);
+    expect(pace.go).toEqual([]);
+    expect(pace.held[0]?.detail).toBe("lanes unknown until fork workflow runs are read");
+    expect(paceTargets(SEVEN, { ...m.lanes, cap: null }).go).toHaveLength(7);
+  });
+
+  test("a local rollout file sets the cap even when the remote fleet read fails", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "rib-spi-rollout-"));
+    const file = join(dir, "rollout.json");
+    writeFileSync(file, JSON.stringify({ schema: 1, lanes: 1 }));
+    const { gh } = fleetGh({ stack: sharedYaml(), rollout: ROLLOUT_TEXT });
+    const cached = await readFleet(gh, undefined, FIXTURE_NOW, {});
+    const store = new Store(undefined);
+    store.write("facts.json", { fleet: { at: "2026-10-12T20:00:00Z", data: cached } });
+    const down: RibExec = {
+      runText: async () => ({ ok: false as const, error: "gh: network down", code: 1 }),
+      runJSON: async () => ({ ok: false as const, error: "gh: network down", code: 1 }),
+    };
+    const sweeper = new Sweeper({
+      exec: down,
+      store,
+      onChange: () => {},
+      now: () => FIXTURE_NOW,
+      fleetFiles: { rollout: file },
+    });
+    expect(sweeper.model.lanes).toMatchObject({ cap: 1, capFrom: "rollout" });
+    writeFileSync(file, JSON.stringify({ schema: 1, lanes: 2 }));
+    await sweeper.sweep({ force: true });
+    expect(sweeper.facts.fleet.error).toContain("network down");
+    expect(sweeper.model.lanes.cap).toBe(2);
+    expect(fleetChecks(sweeper.facts, FIXTURE_NOW)[1]?.value).toContain(`${file}: 2 lanes`);
+  });
+
+  test("a stop judgement draws no re-run, now or when deployable", () => {
+    const m = buildModel(laneFacts(), FIXTURE_NOW);
+    const item = m.queue.items.find((i) => i.kind === "lanes");
+    if (!item) throw new Error("fixture has failed lanes");
+    const judgement = {
+      class: "real" as const,
+      response: "stop" as const,
+      note: "already rerun once",
+    };
+    const opts = { swept: "s", now: FIXTURE_NOW, ops: true };
+    const [now] = laneActions({ ...item, judgement }, m.stack, opts);
+    expect(now).toMatchObject({ disabled: true });
+    expect(now?.reason).toContain("stop the line (already rerun once)");
+    const notDeployable = {
+      ...m.stack,
+      deployable: { ...m.stack.deployable, state: "no" as const },
+    };
+    const [later] = laneActions({ ...item, judgement }, notDeployable, opts);
+    expect(later).toMatchObject({ disabled: true });
+    expect(later?.reason).toContain("stop the line");
+    const [retry] = laneActions(
+      { ...item, judgement: { class: "environment", response: "rerun-failed" } },
+      m.stack,
+      opts,
+    );
+    expect(retry?.disabled).toBeUndefined();
+  });
+
+  test("a new head on a release PR changes the release item's fingerprint", () => {
+    const facts = fixtureFacts();
+    const before = buildModel(facts, FIXTURE_NOW).queue.items.find((i) => i.id === "releases");
+    const pr = Object.values(facts.github.data?.repos ?? {})
+      .flatMap((r) => r.prs)
+      .find((p) => before?.url === p.url);
+    if (!before || !pr) throw new Error("fixture has a release PR");
+    pr.headSha = "d".repeat(40);
+    const after = buildModel(facts, FIXTURE_NOW).queue.items.find((i) => i.id === "releases");
+    expect(after?.fingerprint).not.toBe(before.fingerprint);
+  });
+
+  test("a run with an Environment job and an unread failed job is not judged yet", () => {
+    const job = (environment?: string[]): JobDetail => ({
+      id: 1,
+      name: "x",
+      status: "completed",
+      conclusion: "failure",
+      url: "",
+      steps: [],
+      ...(environment ? { environment } : {}),
+    });
+    expect(
+      judgeRun([job(["environment is not deployable after 10 minutes"]), job()]),
+    ).toBeUndefined();
   });
 });

@@ -172,6 +172,11 @@ export function heldText(held: readonly { row: TemplateRow; why: string }[]): st
 // What the cap means for this press, or nothing when the buttons are not paced.
 export function paceText(load: LaneLoad | undefined, waiting: readonly Target[]): string[] {
   if (!load || load.cap === null) return [];
+  if (load.unread) {
+    return [
+      `Paced to ${plural(load.cap, "lane")}, but ${load.unread} are not read yet, so nothing starts until a sweep reads them.`,
+    ];
+  }
   const busy = load.inflight.map((l) => l.service);
   const lines = [
     `Paced to ${plural(load.cap, "lane")} on the shared environment: ${busy.length} in flight now${busy.length ? ` (${names(busy)})` : ""}, and a press only tops up to ${load.cap}.`,
@@ -186,6 +191,7 @@ export function paceText(load: LaneLoad | undefined, waiting: readonly Target[])
 
 function fullText(load: LaneLoad | undefined, waiting: readonly Target[]): string | undefined {
   if (!load || load.cap === null || waiting.length === 0) return undefined;
+  if (load.unread) return `lanes unknown until ${load.unread} are read`;
   return `${load.inflight.length} of ${load.cap} lanes in flight; ${plural(waiting.length, "fork")} ${waiting.length === 1 ? "waits" : "wait"} for the next press`;
 }
 

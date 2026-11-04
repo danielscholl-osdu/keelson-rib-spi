@@ -149,8 +149,10 @@ only its `lanes`.
   holding a lane up to the cap and leaves the rest for the next press. A lane is
   a Sync Template run, an open PR whose head Validation run has not concluded, a
   main Validation run, or a fork the rib wrote to in the last three minutes.
-  `RIB_SPI_LANES` overrides the cap. With no file, or a schema the rib does not
-  read, the buttons are unpaced.
+  `RIB_SPI_LANES` overrides the cap, and a local `RIB_SPI_ROLLOUT_FILE` applies
+  even when GitHub cannot be read. With no file, or a schema the rib does not
+  read, the buttons are unpaced. Until fork runs and PR checks have been read
+  once, a paced press starts nothing.
 - A failed run is an environment failure when any of its failed jobs carries a
   failure-level annotation titled `Environment`, which validate.yml gives its
   shared-environment timeouts. That reads as re-run the failed jobs once, after

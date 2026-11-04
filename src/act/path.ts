@@ -76,7 +76,9 @@ export function paceTargets(
       held.push({
         target: t.label,
         outcome: "waiting",
-        detail: `${load.inflight.length + started.size} of ${load.cap} lanes in flight`,
+        detail: load.unread
+          ? `lanes unknown until ${load.unread} are read`
+          : `${load.inflight.length + started.size} of ${load.cap} lanes in flight`,
       });
     } else {
       started.add(t.repo);

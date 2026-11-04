@@ -90,6 +90,7 @@ export async function readFleet(
     const res = await gh.graphql<{ stack?: BlobRepo; template?: BlobRepo }>(
       `query { ${parts.join("\n")} }`,
     );
+    if (res.errors.length > 0) throw new Error(`fleet read: ${res.errors[0]?.message}`);
     data = res.data;
   }
 
@@ -101,15 +102,13 @@ export async function readFleet(
     forks = parseForks(text);
   }
 
-  let rollout: string | null;
-  let rolloutFrom: string;
-  if (files.rollout) {
-    rollout = existsSync(files.rollout) ? readFileSync(files.rollout, "utf8") : null;
-    rolloutFrom = files.rollout;
-  } else {
+  let remote: { rollout: string | null; rolloutFrom: string } | undefined;
+  if (!files.rollout) {
     if (!data.template) throw new Error(`${TEMPLATE_REPO} is not readable`);
-    rollout = data.template.object?.text ?? null;
-    rolloutFrom = `${TEMPLATE_REPO}:${ROLLOUT_PATH}`;
+    remote = {
+      rollout: data.template.object?.text ?? null,
+      rolloutFrom: `${TEMPLATE_REPO}:${ROLLOUT_PATH}`,
+    };
   }
 
   let vars = prev?.vars ?? {};
@@ -133,8 +132,7 @@ export async function readFleet(
     ...(forks ? { forks } : {}),
     vars,
     ...(varsAt ? { varsAt } : {}),
-    rollout,
-    rolloutFrom,
+    ...remote,
   };
 }
 
@@ -200,4 +198,46 @@ export function resolveFleet(
 export function resolveRollout(data: FleetFacts | undefined): ParsedRollout {
   if (typeof data?.rollout !== "string") return { warnings: [] };
   return parseRollout(data.rollout);
+}
+
+// The fleet and rollout file as the sweep last applied them, for the doctor to show.
+export interface FleetView {
+  fleet: ResolvedFleet;
+  rollout: ParsedRollout;
+  rolloutFrom?: string;
+  rolloutMissing: boolean;
+}
+
+// Reads the override files, so only the sweep calls it; a local rollout file wins
+// whether or not the remote read worked.
+export function fleetView(
+  data: FleetFacts | undefined,
+  files: { services: string | null; rollout: string | null },
+): FleetView {
+  const fleet = resolveFleet(data, files.services);
+  if (files.rollout) {
+    const text = existsSync(files.rollout) ? readFileSync(files.rollout, "utf8") : null;
+    return {
+      fleet,
+      rollout: text === null ? { warnings: [] } : parseRollout(text),
+      rolloutFrom: files.rollout,
+      rolloutMissing: text === null,
+    };
+  }
+  return {
+    fleet,
+    rollout: resolveRollout(data),
+    ...(data?.rolloutFrom ? { rolloutFrom: data.rolloutFrom } : {}),
+    rolloutMissing: data?.rollout === null,
+  };
+}
+
+let applied: FleetView | undefined;
+
+export function useFleetView(view: FleetView | undefined): void {
+  applied = view;
+}
+
+export function activeFleetView(): FleetView | undefined {
+  return applied;
 }

@@ -397,9 +397,9 @@ export interface FleetFacts {
   forks?: FleetEntry[];
   vars: Record<string, ForkVars | null>;
   varsAt?: string;
-  // The rollout file's text; null when the file does not exist.
-  rollout: string | null;
-  rolloutFrom: string;
+  // The rollout file's text, null when it does not exist; undefined when RIB_SPI_ROLLOUT_FILE is set.
+  rollout?: string | null;
+  rolloutFrom?: string;
 }
 
 export interface Facts {
