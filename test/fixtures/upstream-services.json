@@ -1,0 +1,105 @@
+[
+  {
+    "id": "partition",
+    "repo": "Azure/osdu-spi-partition",
+    "upstream": "osdu/platform/system/partition",
+    "prefix": "partition",
+    "seeded": "2026-08-04",
+    "mirror": false
+  },
+  {
+    "id": "entitlements",
+    "repo": "Azure/osdu-spi-entitlements",
+    "upstream": "osdu/platform/security-and-compliance/entitlements",
+    "prefix": "entitlements-v2",
+    "seeded": "2026-09-14",
+    "mirror": false
+  },
+  {
+    "id": "legal",
+    "repo": "Azure/osdu-spi-legal",
+    "upstream": "osdu/platform/security-and-compliance/legal",
+    "prefix": "legal",
+    "seeded": "2026-09-16",
+    "mirror": false
+  },
+  {
+    "id": "schema",
+    "repo": "Azure/osdu-spi-schema",
+    "upstream": "osdu/platform/system/schema-service",
+    "prefix": "schema",
+    "seeded": "2026-09-24",
+    "mirror": false
+  },
+  {
+    "id": "file",
+    "repo": "Azure/osdu-spi-file",
+    "upstream": "osdu/platform/system/file",
+    "prefix": "file",
+    "seeded": "2026-09-29",
+    "mirror": false
+  },
+  {
+    "id": "storage",
+    "repo": "Azure/osdu-spi-storage",
+    "upstream": "osdu/platform/system/storage",
+    "prefix": "storage",
+    "seeded": "2026-10-13",
+    "mirror": false
+  },
+  {
+    "id": "indexer",
+    "repo": "Azure/osdu-spi-indexer",
+    "upstream": "osdu/platform/system/indexer-service",
+    "prefix": "indexer",
+    "seeded": "2026-10-13",
+    "mirror": false
+  },
+  {
+    "id": "search",
+    "repo": "Azure/osdu-spi-search",
+    "upstream": "osdu/platform/system/search-service",
+    "prefix": "search",
+    "seeded": "2026-10-13",
+    "mirror": false
+  },
+  {
+    "id": "workflow",
+    "repo": "Azure/osdu-spi-workflow",
+    "upstream": "osdu/platform/data-flow/ingestion/ingestion-workflow",
+    "prefix": "workflow",
+    "seeded": "2026-10-13",
+    "mirror": false
+  },
+  {
+    "id": "indexer-queue",
+    "repo": "Azure/osdu-spi-indexer-queue",
+    "upstream": "osdu/platform/system/indexer-queue",
+    "seeded": "2026-10-13",
+    "mirror": false
+  },
+  {
+    "id": "unit",
+    "repo": "Azure/osdu-spi-unit",
+    "upstream": "osdu/platform/system/reference/unit-service",
+    "prefix": "unit",
+    "seeded": "2026-10-13",
+    "mirror": false
+  },
+  {
+    "id": "crs-catalog",
+    "repo": "Azure/osdu-spi-crs-catalog",
+    "upstream": "osdu/platform/system/reference/crs-catalog-service",
+    "prefix": "crs-catalog",
+    "seeded": "2026-10-13",
+    "mirror": false
+  },
+  {
+    "id": "crs-conversion",
+    "repo": "Azure/osdu-spi-crs-conversion",
+    "upstream": "osdu/platform/system/reference/crs-conversion-service",
+    "prefix": "crs-converter",
+    "seeded": "2026-10-13",
+    "mirror": false
+  }
+]

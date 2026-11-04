@@ -13,9 +13,6 @@ import type {
   EnvEvent,
   EnvLane,
   EnvState,
-  Flow,
-  FlowCell,
-  FlowRow,
   FocusItem,
   ReadyLine,
   Theme,
@@ -23,6 +20,14 @@ import type {
 } from "../brief/index.ts";
 import type { ReleaseLine } from "../brief/release.ts";
 import type { RepoCell, RepoEntry, RepoLine, RepoSection } from "../brief/repos.ts";
+import {
+  LINE_COLUMNS,
+  type UpRow,
+  type UpstreamView,
+  type UpText,
+  type UpTile,
+  type UpTone,
+} from "../brief/upstream.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
 import { span, stamp, zoned } from "../util.ts";
 import { DOCTOR_ID } from "./doctor.ts";
@@ -131,72 +136,101 @@ function horizonHtml(b: Briefing): string {
 ${b.themes.length > 0 ? `<div class="split"><div class="focus">${rows}</div><div class="pane">${details}</div></div>` : ""}`;
 }
 
-function cellKey(row: FlowRow, c: FlowCell): string {
-  return `${row.fork}:${c.id}`;
+const UP_TONE: Record<UpTone, string> = {
+  bad: "t-bad",
+  warn: "t-warn",
+  ok: "t-ok",
+  run: "t-run",
+  neutral: "",
+};
+
+function pill(t: UpText, extra = ""): string {
+  return t.text === "·"
+    ? `<span class="udot">·</span>`
+    : `<span class="pill ${UP_TONE[t.tone]}${extra}">${esc(t.text)}</span>`;
 }
 
-function flowCell(row: FlowRow, c: FlowCell, selected: boolean): string {
-  return `<td><button type="button" class="cell s-${c.state}${selected ? " on" : ""}" data-cell="${esc(cellKey(row, c))}" aria-pressed="${selected}">${esc(c.text)}</button></td>`;
+function upTile(t: UpTile): string {
+  const meter = t.meter
+    ? `<div class="meter" aria-hidden="true">${Array.from({ length: t.meter.cap }, (_, i) => `<span${i < t.meter!.busy ? ' class="on"' : ""}></span>`).join("")}</div>`
+    : "";
+  return `<div class="fact ${UP_TONE[t.tone] === "t-run" ? "" : UP_TONE[t.tone]}"><div class="k">${esc(t.label)}</div><div class="v">${esc(t.value)}</div>${meter}<div class="s">${keepPairs(t.sub)}</div></div>`;
 }
 
-function cellDetail(f: Flow, row: FlowRow, c: FlowCell, i: number, selected: boolean): string {
-  const items = row.items.map((t) => `<li>${esc(t)}</li>`).join("");
-  return `<section class="detail" data-cell-detail="${esc(cellKey(row, c))}"${selected ? "" : " hidden"}>
-<p class="eyebrow">${esc(row.fork)} · ${esc(f.columns[i] ?? c.id)}</p>
-<h3 class="${TONE_CLASS[c.tone]}">${esc(c.full ?? c.text)}</h3>
-<div class="dbody"><p class="dl">In the queue</p>${items ? `<ul class="items">${items}</ul>` : `<p>Nothing for ${esc(row.fork)}.</p>`}</div>
-${row.inspect ? `<button type="button" class="open" data-inspect="${esc(row.inspect)}">Open in inspector</button>` : ""}
+function upRow(v: UpstreamView, r: UpRow): string {
+  const fork = `<th scope="row"><button type="button" class="ufork" data-up="${esc(r.fork)}" aria-pressed="false">${esc(r.fork)}</button>${v.mode === "flight" && r.tag ? ` <span class="utag">${esc(r.tag)}</span>` : ""}</th>`;
+  if (v.mode === "flight") {
+    const next = `<td class="unext${r.next.strong ? " strong" : ""} ${UP_TONE[r.next.tone]}">${esc(r.next.text)}</td>`;
+    return `<tr data-up="${esc(r.fork)}">${fork}${r.line.map((c) => `<td>${pill(c)}</td>`).join("")}${next}</tr>`;
+  }
+  const dots = r.line
+    .map((c) => `<span class="ld ${c.text === "·" ? "" : UP_TONE[c.tone] || "t-idle"}"></span>`)
+    .join("");
+  const label = LINE_COLUMNS.map(
+    (c, i) => `${c} ${r.line[i]?.text === "·" ? "idle" : r.line[i]?.text}`,
+  ).join(", ");
+  const prepared =
+    r.line[0]?.text && r.line[0].text !== "·"
+      ? ` <span class="ss">${esc(r.line[0].text)}</span>`
+      : "";
+  return `<tr data-up="${esc(r.fork)}">${fork}<td class="carries"><b>${esc(r.behind)}</b> <span class="ss">${esc(r.carries)}</span></td><td>${pill(r.ready)}</td><td class="line" aria-label="${esc(label)}">${dots}${prepared}</td><td>${pill(r.plan, ` p-${r.plan.kind}`)}</td></tr>`;
+}
+
+function upDetail(r: UpRow): string {
+  return `<section class="detail" data-up-detail="${esc(r.fork)}" hidden>
+<p class="eyebrow"><button type="button" class="link quiet" data-up="plan">Plan</button> › ${esc(r.fork)}</p>
+<h3 class="${UP_TONE[r.next.tone] === "t-run" ? "" : UP_TONE[r.next.tone]}">${esc(r.detail.title)}</h3>
+<p>${esc(r.next.text)}</p>
+<ul class="items">${r.detail.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>
+<button type="button" class="open" data-inspect="${esc(r.inspect)}">Open in inspector · ${esc(r.fork)}</button>
 </section>`;
 }
 
-// The first stopped cell of the first fork, else its first cell that is not quiet.
-function firstCell(f: Flow): string | undefined {
-  const row = f.rows[0];
-  if (!row) return undefined;
-  const c =
-    row.cells.find((x) => x.state === "stopped") ??
-    row.cells.find((x) => x.state === "waiting") ??
-    row.cells[0];
-  return c ? cellKey(row, c) : undefined;
+function planDetail(v: UpstreamView): string {
+  if (v.mode === "flight") {
+    const also = v.also
+      .map((a) =>
+        a.inspect
+          ? `<li><button type="button" class="link" data-inspect="${esc(a.inspect)}">${esc(a.text)}</button></li>`
+          : `<li class="ss">${esc(a.text)}</li>`,
+      )
+      .join("");
+    return `<section class="detail uplan" data-up-detail="plan">
+<p class="eyebrow">Next step</p>
+<h3>${esc(v.next.title)}</h3>
+${v.next.text ? `<p>${esc(v.next.text)}</p>` : ""}
+<button type="button" class="open" data-inspect="${esc(v.inspect)}">${esc(v.next.button)}</button>
+${also ? `<p class="dl">Also waiting</p><ul class="items">${also}</ul>` : ""}
+</section>`;
+  }
+  const lines = v.plan.lines.map((l) => `<dt>${esc(l.label)}</dt><dd>${esc(l.text)}</dd>`).join("");
+  const sched = v.schedule
+    ? `<p class="dl">${esc(v.schedule.title)}</p><p>${esc(v.schedule.text)}</p>`
+    : "";
+  return `<section class="detail uplan" data-up-detail="plan">
+<p class="eyebrow">Proposed plan</p>
+<h3>${esc(v.plan.title)}</h3>
+${lines ? `<dl class="kv">${lines}</dl>` : ""}
+${v.plan.note ? `<p class="note">${esc(v.plan.note)}</p>` : ""}
+<button type="button" class="open" data-inspect="${esc(v.inspect)}">${esc(v.plan.button)}</button>
+${sched}
+</section>`;
 }
 
 function flowHtml(b: Briefing): string {
-  const f = b.flow;
-  const env = f.environment;
-  const envBand = env.inspect
-    ? `<button type="button" class="envband ${TONE_CLASS[env.tone]}" data-inspect="${esc(env.inspect)}">${esc(env.text)}</button>`
-    : `<div class="envband ${TONE_CLASS[env.tone]}">${esc(env.text)}</div>`;
-  const first = firstCell(f);
-  const span = f.columns.length;
-  const head = `<thead><tr><th>Fork</th>${f.columns.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead>`;
-  const rows = f.rows
-    .map(
-      (r) =>
-        `<tr><th scope="row">${esc(r.fork)}</th>${r.cells.map((c) => flowCell(r, c, cellKey(r, c) === first)).join("")}</tr>`,
-    )
-    .join("");
-  const bands = f.bands
-    .map((band) => {
-      const text = band.inspect
-        ? `<button type="button" class="link" data-inspect="${esc(band.inspect)}">${esc(band.text)}</button>`
-        : esc(band.text);
-      return `<tr class="band ${TONE_CLASS[band.tone]}"><th scope="row">${esc(band.column)}</th><td colspan="${Math.max(span, 1)}">${text}</td></tr>`;
-    })
-    .join("");
-  const matrix =
-    rows || bands
-      ? `<div class="matrix"><table class="flow">${head}<tbody>${rows}${bands}</tbody></table></div>`
-      : "";
-  const fold = f.fold
-    ? `<p class="fold"><span class="k">${f.fold.forks.length} quiet</span> ${f.fold.forks.map(esc).join(", ")} <span class="ss">${esc(f.fold.text)}</span></p>`
+  const v = b.flow;
+  const head =
+    v.mode === "flight"
+      ? `<tr><th>Fork</th>${LINE_COLUMNS.map((c) => `<th>${esc(c)}</th>`).join("")}<th>Next</th></tr>`
+      : "<tr><th>Fork</th><th>Next sync carries</th><th>Before it can start</th><th>Line</th><th>Plan</th></tr>";
+  const rows = v.rows.map((r) => upRow(v, r)).join("");
+  const table = rows
+    ? `<div class="utable"><table class="up"><thead>${head}</thead><tbody>${rows}</tbody></table><p class="note">Line: ${LINE_COLUMNS.join(" · ")}. Select a row, then open it in the inspector.</p></div>`
     : "";
-  const details = f.rows
-    .flatMap((r) => r.cells.map((c, i) => cellDetail(f, r, c, i, cellKey(r, c) === first)))
-    .join("");
-  return `<h2>${esc(f.headline)}</h2>
-${envBand}
-${matrix}${fold}
-${details ? `<div class="pane cells">${details}</div>` : ""}`;
+  return `<h2>${esc(v.headline)}</h2>
+${v.sub ? `<p class="summary">${esc(v.sub)}</p>` : ""}
+<div class="facts up4">${v.tiles.map(upTile).join("")}</div>
+<div class="split usplit">${table}<div class="pane">${planDetail(v)}${v.rows.map(upDetail).join("")}</div></div>`;
 }
 
 // The timeline's narrowest width; past it the box scrolls, so label room is planned against it.
@@ -441,11 +475,11 @@ const STYLE = `
 }
 [hidden] { display: none !important; }
 body { background: var(--card); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
-.t-bad { --tone: var(--crit); } .t-warn { --tone: var(--warn); } .t-ok { --tone: var(--good); }
+.t-bad { --tone: var(--crit); } .t-warn { --tone: var(--warn); } .t-ok { --tone: var(--good); } .t-run { --tone: var(--accent); }
 .wrap { padding: 2px 4px 16px; }
 h2 { margin: 18px 0 4px; font-size: 21px; line-height: 1.3; font-weight: 650; letter-spacing: -.01em; color: var(--fg-strong); text-wrap: balance; max-width: 70ch; }
 .summary { margin: 0; color: var(--muted); font-size: 14px; max-width: 80ch; }
-.eyebrow, .dl, .fact .k, .rgrp, .rhead, .flow thead th, .tl-lab, .fold .k { font-family: var(--sans); font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--label); margin: 0; }
+.eyebrow, .dl, .fact .k, .rgrp, .rhead, .up thead th, .tl-lab { font-family: var(--sans); font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--label); margin: 0; }
 
 .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
 .facts.four { grid-template-columns: repeat(5, minmax(0, 1fr)); }
@@ -524,34 +558,36 @@ h2 { margin: 18px 0 4px; font-size: 21px; line-height: 1.3; font-weight: 650; le
 .pairs .maybe { color: var(--muted); }
 .pairs + .kv { margin-top: 12px; }
 
-.envband { display: inline-flex; align-items: center; gap: 9px; box-sizing: border-box; max-width: 100%; text-align: left; font: inherit; font-size: 13.5px; font-weight: 550; color: var(--fg-strong); padding: 9px 14px; margin: 14px 0 0; background: var(--sunk); border: 1px solid var(--line); border-radius: 7px; }
-.envband::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--tone); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 18%, transparent); }
-button.envband { cursor: pointer; }
-button.envband:hover { background: var(--hover); }
-.matrix { overflow-x: auto; margin-top: 12px; }
-.flow { width: 100%; border-collapse: collapse; font-size: 13px; }
-.flow thead th { text-align: left; padding: 6px 8px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
-.flow thead th + th { padding-left: 20px; }
-.flow :is(thead th:first-child, tbody th) { width: 1%; padding-right: 32px; }
-.flow tbody th { text-align: left; font-weight: 600; font-size: 13.5px; color: var(--fg-strong); padding: 4px 12px 4px 0; white-space: nowrap; }
-.flow tbody tr { border-bottom: 1px solid var(--line); }
-.flow td { padding: 4px 6px 4px 0; vertical-align: middle; }
-.flow tbody tr:first-child > * { padding-top: 8px; }
-.cell { position: relative; display: inline-flex; align-items: center; max-width: 100%; text-align: left; font: inherit; font-size: 13px; padding: 6px 10px 6px 20px; border: none; border-radius: 7px; background: none; color: var(--soft); cursor: pointer; }
-.cell::before { content: ""; position: absolute; left: 7px; top: calc(50% - 3.5px); width: 7px; height: 7px; border-radius: 50%; background: transparent; }
-.cell:hover { background: var(--hover); }
-.cell.on { background: color-mix(in srgb, var(--accent) 15%, var(--card)); color: var(--fg-strong); }
-.cell.s-stopped { color: var(--crit); font-weight: 600; }
-.cell.s-stopped::before { background: var(--crit); }
-.cell.s-waiting { color: var(--fg); }
-.cell.s-waiting::before { background: color-mix(in srgb, var(--warn) 80%, transparent); }
-.flow tbody .band th { font-weight: 550; color: var(--soft); }
-.band td { color: var(--muted); font-size: 13px; padding: 9px 0 9px 20px; }
-.band.t-bad td { color: var(--crit); } .band.t-warn td { color: var(--warn); }
-.band .link { color: inherit; }
-.fold { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 12px; align-items: baseline; margin: 12px 0 0; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--sunk); font-size: 13px; color: var(--fg); }
-.fold .ss { grid-column: 2; margin-top: 2px; font-size: 12.5px; color: var(--muted); }
-.cells { margin-top: 14px; }
+
+.facts.up4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.meter { display: flex; gap: 4px; margin-top: 6px; }
+.meter span { width: 18px; height: 8px; border-radius: 3px; background: var(--line); }
+.meter span.on { background: var(--accent); }
+.split.usplit { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+.utable { min-width: 0; overflow-x: auto; }
+.up { width: 100%; border-collapse: collapse; font-size: 13px; }
+.up thead th { text-align: left; padding: 6px 10px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.up tbody tr { border-bottom: 1px solid var(--line); cursor: pointer; }
+.up tbody tr:hover { background: var(--hover); }
+.up tbody tr.on { background: var(--pick); }
+.up td, .up tbody th { padding: 7px 10px 7px 0; vertical-align: middle; text-align: left; }
+.up tbody th, .up td.carries { white-space: nowrap; }
+.ufork { background: none; border: none; padding: 0 0 0 6px; font: inherit; font-weight: 650; color: var(--fg-strong); cursor: pointer; }
+.utag { font-size: 12px; color: var(--muted); }
+.ss { color: var(--soft); }
+.pill { display: inline-block; white-space: nowrap; font-size: 12px; line-height: 1.5; padding: 1px 9px; border-radius: 999px; color: var(--fg); background: var(--sunk); border: 1px solid var(--line); }
+.pill.t-bad, .pill.t-warn, .pill.t-ok, .pill.t-run { color: var(--tone); border-color: color-mix(in srgb, var(--tone) 45%, transparent); background: color-mix(in srgb, var(--tone) 12%, var(--card)); }
+.pill.p-pilot { color: var(--card); background: var(--accent); border-color: var(--accent); font-weight: 650; }
+.pill.p-held { background: none; border-style: dashed; color: var(--muted); }
+.udot { color: var(--muted); }
+.line { white-space: nowrap; }
+.ld { display: inline-block; width: 9px; height: 9px; margin-right: 4px; border-radius: 50%; border: 1.5px solid var(--muted); vertical-align: -1px; }
+.ld.t-ok, .ld.t-bad, .ld.t-warn, .ld.t-run, .ld.t-idle { background: var(--tone); border-color: var(--tone); }
+.ld.t-idle { --tone: var(--muted); }
+.unext { color: var(--soft); }
+.unext.strong { font-weight: 650; color: var(--fg-strong); }
+.unext.strong.t-bad, .unext.strong.t-warn { color: var(--tone); }
+.uplan .kv dt { color: var(--fg-strong); }
 
 .tl-box { overflow-x: auto; margin-top: 16px; padding: 4px 0 2px; direction: rtl; }
 .tl { direction: ltr; position: relative; min-width: ${TRACK_MIN_PX + 84}px; }
@@ -577,12 +613,9 @@ button.envband:hover { background: var(--hover); }
 .ev.s-failed.on .evl { color: var(--crit); }
 .none { position: absolute; left: 6px; top: 7px; font-size: 12px; color: var(--muted); }
 .events { margin-top: 14px; }
-.events .detail, .cells .detail { padding-bottom: 16px; display: grid; grid-template-columns: minmax(200px, 280px) minmax(0, 1fr); grid-template-rows: auto auto auto; column-gap: 28px; align-items: start; align-content: start; }
-.events .detail > *, .cells .detail > * { grid-column: 1; }
-.events .detail > .kv, .cells .detail > .dbody { grid-column: 2; grid-row: 1 / span 3; margin: 0; padding: 5px 0 0 28px; border-top: none; border-left: 1px solid var(--line); align-self: stretch; }
-.cells .detail > .dbody { padding-top: 2px; }
-.cells .dbody > .dl { margin-top: 0; }
-.cells .items { list-style: none; padding-left: 0; }
+.events .detail { padding-bottom: 16px; display: grid; grid-template-columns: minmax(200px, 280px) minmax(0, 1fr); grid-template-rows: auto auto auto; column-gap: 28px; align-items: start; align-content: start; }
+.events .detail > * { grid-column: 1; }
+.events .detail > .kv { grid-column: 2; grid-row: 1 / span 3; margin: 0; padding: 5px 0 0 28px; border-top: none; border-left: 1px solid var(--line); align-self: stretch; }
 
 .facts.relfacts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
 .relfacts .fact { background: var(--card); border-color: var(--line); padding: 12px 14px; }
@@ -628,15 +661,16 @@ button.envband:hover { background: var(--hover); }
 
 button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (prefers-reduced-motion: no-preference) {
-  .row, .rrow, .cell, .tab, .link, .open { transition: background-color .12s ease, color .12s ease, box-shadow .12s ease; }
+  .row, .rrow, .up tbody tr, .tab, .link, .open { transition: background-color .12s ease, color .12s ease, box-shadow .12s ease; }
 }
 @media (max-width: 1100px) {
-  .facts.four { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .facts.four, .facts.up4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .split.usplit { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 720px) {
-  .split, .split.rsplit, .facts, .facts.four { grid-template-columns: minmax(0, 1fr); }
-  .events .detail, .cells .detail { display: block; }
-  .events .detail > .kv, .cells .detail > .dbody { padding: 14px 0 0; margin-top: 14px; border-left: none; border-top: 1px solid var(--line); }
+  .split, .split.rsplit, .split.usplit, .facts, .facts.four, .facts.up4 { grid-template-columns: minmax(0, 1fr); }
+  .events .detail { display: block; }
+  .events .detail > .kv { padding: 14px 0 0; margin-top: 14px; border-left: none; border-top: 1px solid var(--line); }
 }`;
 
 const SCRIPT = `(function () {
@@ -662,7 +696,7 @@ const SCRIPT = `(function () {
     ["view", "data-view", "data-view-pane", "aria-selected"],
     ["sel", "data-sel", "data-detail", "aria-pressed"],
     ["theme", "data-theme-sel", "data-theme-detail", "aria-pressed"],
-    ["cell", "data-cell", "data-cell-detail", "aria-pressed"],
+    ["up", "data-up", "data-up-detail", "aria-pressed"],
     ["event", "data-event", "data-event-detail", "aria-pressed"],
     ["repo", "data-repo", "data-repo-detail", "aria-pressed"],
     ["rel", "data-rel", "data-rel-detail", "aria-pressed"],
@@ -677,7 +711,7 @@ const SCRIPT = `(function () {
     });
   });
   document.addEventListener("click", function (e) {
-    var t = e.target && e.target.closest ? e.target.closest("[data-view],[data-sel],[data-theme-sel],[data-cell],[data-event],[data-repo],[data-rel],[data-inspect]") : null;
+    var t = e.target && e.target.closest ? e.target.closest("[data-view],[data-sel],[data-theme-sel],[data-up],[data-event],[data-repo],[data-rel],[data-inspect]") : null;
     if (!t) return;
     for (var i = 0; i < KINDS.length; i++) {
       var c = KINDS[i];
@@ -685,7 +719,7 @@ const SCRIPT = `(function () {
       if (id === null) continue;
       if (show(c[1], c[2], id, c[3])) {
         state[c[0]] = id;
-        if (k.saveState) k.saveState({ view: state.view, sel: state.sel, theme: state.theme, cell: state.cell, event: state.event, repo: state.repo, rel: state.rel });
+        if (k.saveState) k.saveState({ view: state.view, sel: state.sel, theme: state.theme, up: state.up, event: state.event, repo: state.repo, rel: state.rel });
       }
       return;
     }

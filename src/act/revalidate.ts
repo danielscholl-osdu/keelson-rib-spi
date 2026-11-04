@@ -7,10 +7,12 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import {
+  CASCADE_WORKFLOW,
   FLEET_RELEASE_WORKFLOW,
   LIFECYCLE_WORKFLOWS,
   STACK_REPO,
   SYNC_TEMPLATE_WORKFLOW,
+  SYNC_UPSTREAM_WORKFLOW,
   TEMPLATE_REPO,
 } from "../config.ts";
 import type { Gh } from "../forge.ts";
@@ -24,6 +26,15 @@ export interface Seen {
 
 // The state a target is in on GitHub now, in the same terms the board stamps.
 export async function readTarget(gh: Gh, t: Target): Promise<Seen> {
+  if (t.kind === "workflow" && t.workflow === SYNC_UPSTREAM_WORKFLOW)
+    return readSyncUpstream(gh, t);
+  if (t.kind === "workflow" && t.workflow === CASCADE_WORKFLOW) {
+    const statuses = await gh.rest<string[]>(
+      `repos/${t.repo}/actions/workflows/${CASCADE_WORKFLOW}/runs?per_page=5`,
+      "[.workflow_runs[].status]",
+    );
+    return { state: statuses.some((st) => st !== "completed") ? "running" : "idle" };
+  }
   if (t.kind === "workflow") {
     // The stack's lifecycle workflows share concurrency group env-shared, so either one busy counts.
     const files =
@@ -72,6 +83,23 @@ export async function readTarget(gh: Gh, t: Target): Promise<Seen> {
     "{state: .state}",
   );
   return { state: issue.state };
+}
+
+// A Sync Upstream dispatch is stale once a run is in flight or a sync PR is already open.
+async function readSyncUpstream(gh: Gh, t: Target): Promise<Seen> {
+  const [statuses, heads] = await Promise.all([
+    gh.rest<string[]>(
+      `repos/${t.repo}/actions/workflows/${SYNC_UPSTREAM_WORKFLOW}/runs?per_page=5`,
+      "[.workflow_runs[].status]",
+    ),
+    gh.rest<string[]>(
+      `repos/${t.repo}/pulls?state=open&base=fork_upstream&per_page=20`,
+      "[.[].head.ref]",
+    ),
+  ]);
+  if (statuses.some((st) => st !== "completed")) return { state: "running" };
+  if (heads.some((h) => h.startsWith("sync/upstream-"))) return { state: "prepared" };
+  return { state: "idle" };
 }
 
 export function runState(status: string, conclusion: string | null | undefined): string {

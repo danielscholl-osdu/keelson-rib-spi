@@ -20,6 +20,7 @@ import { buildRepos, type ReposModel } from "./repos.ts";
 import { buildRollout, type RolloutModel } from "./rollout.ts";
 import { buildStack, heldText, type StackModel } from "./stack.ts";
 import { buildTemplate, type TemplateModel } from "./template.ts";
+import { buildUpstream, type UpstreamModel } from "./upstream.ts";
 import { buildWork, type WorkModel } from "./work.ts";
 
 export interface Model {
@@ -43,6 +44,8 @@ export interface Model {
   lanes: LaneLoad;
   // osdu-spi main on its way to the fleet, while main carries what a fork lacks.
   rollout?: RolloutModel;
+  // Each fork's way from upstream to main, and the plan that drives the syncs.
+  upstream: UpstreamModel;
   // Checks the built-in noise rules took out of PR state, by rule id.
   noise: Record<string, number>;
 }
@@ -116,6 +119,15 @@ export function buildModel(
     radar,
     now,
   });
+  const upstream = buildUpstream({
+    lines,
+    radar,
+    runs: facts.runs.data,
+    lanes,
+    ordering: activeRollout()?.ordering,
+    held: heldText(stack),
+    now,
+  });
   const queue = buildQueue({
     stack,
     lines,
@@ -147,6 +159,7 @@ export function buildModel(
     repositories,
     lanes,
     ...(rollout ? { rollout } : {}),
+    upstream,
     noise: ignored,
   };
 }

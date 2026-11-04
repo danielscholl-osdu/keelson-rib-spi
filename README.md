@@ -23,7 +23,7 @@ briefing (`src/brief/`), which `spi_brief` returns to chat as well.
 | Today | What needs me now? | A headline naming at most two causes, three facts (environment version, forks with sync stopped, template adoption), up to five focus items with cause, effect and next step, and one line of ready work. |
 | Repositories | What is open on each repository, and which of it is ours? | One row per repository (the template, the stack, then each fork) with its issues (human · other: an issue labeled `human-required` waits on a person and shows in red), pull requests and Dependabot bumps, and two security columns read ours · upstream, with the upstream figure faded: **Vulnerabilities** (Dependabot alerts on the libraries a service uses) and **Code scanning** (CodeQL and Scorecard findings in the source itself). Both count critical and high alerts in shipped code only. Selecting a row shows its issues and PRs first, then its alerts at a lower weight, beside the table. |
 | Environment | Is the environment dependable? | The running version, the 21-day deployable share and the last proof, over a 24-hour timeline of upgrades, refreshes, smoke runs and maintenance holds. |
-| Flow | Where is change stuck? | One row per fork that needs a person, one column per station (upstream, sync, cascade, main, release, lane, template). A column every fork agrees on becomes one band, the environment is one row above the table, and quiet forks fold into one row. |
+| Flow | Where is the upstream sync? | Before a sync starts: what each fork's next sync carries, what it waits on, and a proposed plan (a pilot, waves sized to the lanes, forks held for a SNAPSHOT move or a coming halt). Once it starts: each fork across Sync PR, Cascade, Sync to Main and Main run, with the next step. A row only selects; the plan and each fork open in the inspector. |
 | Horizon | What will affect us next? | One row per upstream cause across forks (a halt entry, a Java move, ports owed, the template rollout, the Azure removal deadline), queued commits kept apart from open MRs. |
 | Releases | What shipped this month? | One row per calendar month with its headline, numbers and whether its notes are approved. Opening a month gives the release notes and a PDF. |
 
@@ -91,6 +91,20 @@ merged and every main run is green, the item offers **Run Fleet Release** with
 publish off for a day. When main carries only changes no fork syncs, open
 template-sync PRs show as the template-sync set, with **Sync all forks** and
 **Roll out**. Review stays on GitHub: the rib never approves a PR.
+
+The upstream sync runs from the same inspector. The plan's Next step card
+offers one press for the line's next gate: **Prepare** dispatches Sync Upstream
+(a sync PR into `fork_upstream`, no lane, not held by the environment), and
+**Start** merges a green sync PR, then dispatches Cascade with its tracking
+issue instead of waiting for the six-hourly monitor. Start waits while the
+environment is held, while the fork's template rollout PR is open, for lane
+room shared with the rollout, and for the pilot (the reference fork and every
+fork with no toolchain move) to cascade green. A stopped cascade offers
+**Re-run cascade** only once a commit lands on `fork_integration`; two forks
+stopped on the same first error pause the wave. Each fork's board offers the
+same verbs for that fork alone, and a SNAPSHOT move offers **Take it anyway**.
+Nothing about the plan is stored: every sweep derives it from GitHub, so a sync
+PR the 18:00 schedule opened shows as prepared.
 
 The console's read line (`every source read`) opens the doctor: the sign-in
 probes, the GitHub budget, each source's last read, and what the verbs need
