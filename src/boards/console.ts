@@ -193,7 +193,7 @@ ${details ? `<div class="pane cells">${details}</div>` : ""}`;
 // The timeline's narrowest width; past it the box scrolls, so label room is planned against it.
 const TRACK_MIN_PX = 960;
 const CHAR_PX = 6.6;
-const BAR_MIN_PX = 5;
+const BAR_MIN_PX = 8;
 const TIER_PX = 24;
 const MAX_TIERS = 6;
 
@@ -337,7 +337,7 @@ function environmentHtml(b: Briefing, now: Date): string {
     .join("");
   const axis = ticks
     .map((t) => ({ ...t, left: pctOf(t.at, from, to) }))
-    .filter((t) => t.left > 2 && t.left < 98)
+    .filter((t) => t.left > 2 && t.left < 98 && new Date(t.at).getHours() % 2 === 0)
     .map((t) => `<span class="tl-hour" style="left:${fixed(t.left)}%">${esc(t.text)}</span>`)
     .join("");
   const rows = env.lanes.map((l) => laneRow(l, from, to, first, now)).join("");
@@ -506,16 +506,16 @@ button.envband:hover { background: var(--hover); }
 .flow tbody th { text-align: left; font-weight: 600; font-size: 13.5px; color: var(--fg-strong); padding: 4px 12px 4px 0; white-space: nowrap; }
 .flow tbody tr { border-bottom: 1px solid var(--line); }
 .flow td { padding: 4px 6px 4px 0; vertical-align: middle; }
-.cell { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; text-align: left; font: inherit; font-size: 13px; padding: 6px 8px; border: none; border-radius: 7px; background: none; color: var(--muted); cursor: pointer; }
-.cell::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: color-mix(in srgb, var(--muted) 50%, transparent); }
+.cell { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; text-align: left; font: inherit; font-size: 13px; padding: 6px 8px; border: none; border-radius: 7px; background: none; color: var(--soft); cursor: pointer; }
+.cell::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: transparent; }
 .cell:hover { background: var(--hover); }
-.cell.on { background: var(--pick); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
+.cell.on { background: var(--pick); color: var(--fg-strong); box-shadow: inset 3px 0 0 var(--accent); }
 .cell.s-stopped { color: var(--crit); font-weight: 600; }
 .cell.s-stopped::before { background: var(--crit); }
 .cell.s-waiting { color: var(--fg); }
 .cell.s-waiting::before { background: var(--warn); }
 .band th { font-weight: 600; }
-.band td { color: var(--muted); font-size: 13px; padding: 9px 0; }
+.band td { color: var(--muted); font-size: 13px; padding: 9px 0 9px 8px; }
 .band.t-bad td { color: var(--crit); } .band.t-warn td { color: var(--warn); }
 .band .link { color: inherit; }
 .fold { margin: 12px 0 0; padding: 10px 14px; border-radius: 10px; background: var(--sunk); font-size: 13px; color: var(--fg); }
@@ -537,9 +537,9 @@ button.envband:hover { background: var(--hover); }
 .ev { position: absolute; height: 12px; min-width: ${BAR_MIN_PX}px; padding: 0; border: none; border-radius: 6px; background: var(--muted); cursor: pointer; font: inherit; }
 .ev.s-ok { background: var(--good); } .ev.s-failed { background: var(--crit); } .ev.s-running, .ev.s-held { background: var(--warn); }
 .ev.s-held { background: color-mix(in srgb, var(--warn) 45%, transparent); }
-.ev.on { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--accent); }
-.evl { position: absolute; left: calc(100% + 6px); top: -3px; font-size: 12px; line-height: 18px; color: var(--fg); white-space: nowrap; }
-.evl.flip { left: auto; right: calc(100% + 6px); }
+.ev.on { box-shadow: 0 0 0 1.5px var(--card), 0 0 0 3px var(--accent); }
+.evl { position: absolute; left: calc(100% + 9px); top: -3px; font-size: 12px; line-height: 18px; color: var(--fg); white-space: nowrap; }
+.evl.flip { left: auto; right: calc(100% + 9px); }
 .ev.s-failed .evl { color: var(--crit); font-weight: 600; }
 .ev.s-held .evl { color: var(--muted); }
 .ev.on .evl { color: var(--fg-strong); font-weight: 600; }
@@ -553,6 +553,7 @@ button.envband:hover { background: var(--hover); }
 .facts.relfacts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
 .relfacts .fact { background: var(--card); border-color: transparent; padding: 10px 12px; }
 .relfacts .v { margin-top: 0; font-size: 20px; }
+.relfacts .unread .v { color: var(--muted); font-weight: 500; }
 
 .split.rsplit { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); }
 .rtable { min-width: 0; overflow-x: auto; }

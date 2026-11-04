@@ -488,7 +488,7 @@ export function releasesPaneHtml(lines: readonly ReleaseLine[], reading: boolean
       const facts = l.stats
         .map(
           (s) =>
-            `<div class="fact${s.tone === "bad" ? " t-bad" : ""}"><div class="v">${esc(s.figure)}</div><div class="s">${esc(s.label)}</div></div>`,
+            `<div class="fact${s.tone === "bad" ? " t-bad" : ""}${s.figure === "?" ? " unread" : ""}"><div class="v">${esc(s.figure)}</div><div class="s">${esc(s.label)}</div></div>`,
         )
         .join("");
       const keys =
