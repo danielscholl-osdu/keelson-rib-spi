@@ -85,9 +85,9 @@ A change needs `bun run check`, `bun run typecheck` and `bun test` green.
   repository, never by a package, rule or service named in code.
 - **Identity is configuration.** Fleet membership is the stack's `forks:` list
   (`src/collect/fleet.ts`); each fork's identity comes from `src/config.ts` or
-  the fork's own `UPSTREAM_REPO_URL`, never from derived names. The lessons file
-  in osdu-spi is a contract shared with the spi-fleet script: field names change
-  only with it.
+  the fork's own `UPSTREAM_REPO_URL`, never from derived names. The rollout
+  file in osdu-spi is read for `lanes` only; a failure's class comes from its
+  annotation title `Environment`, never from matching message text.
 - **Paced writes top up.** A paced verb starts at most the lane cap less the
   lanes in flight, checked again in `act()`; the rest wait for the next press.
 - **Local time.** Stamps print in the machine's local zone, the zone the host

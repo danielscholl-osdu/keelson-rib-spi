@@ -8,7 +8,7 @@
 
 import { FORKS, LANES_OVERRIDE } from "../config.ts";
 import type { ForkRuns, RepoFact } from "../facts.ts";
-import { activeLessons } from "../lessons.ts";
+import { activeRollout } from "../rollout.ts";
 import { latestChecks } from "./checks.ts";
 
 // The workflow whose PR and main runs borrow the shared environment.
@@ -24,14 +24,14 @@ export interface LaneInFlight {
 export interface LaneLoad {
   // Null when no cap is set: the fleet buttons act on every eligible fork, as before pacing.
   cap: number | null;
-  capFrom?: "RIB_SPI_LANES" | "lessons";
+  capFrom?: "RIB_SPI_LANES" | "rollout";
   inflight: LaneInFlight[];
 }
 
 export function laneCap(): Pick<LaneLoad, "cap" | "capFrom"> {
   if (LANES_OVERRIDE) return { cap: LANES_OVERRIDE, capFrom: "RIB_SPI_LANES" };
-  const lanes = activeLessons()?.lanes;
-  return lanes ? { cap: lanes, capFrom: "lessons" } : { cap: null };
+  const lanes = activeRollout()?.lanes;
+  return lanes ? { cap: lanes, capFrom: "rollout" } : { cap: null };
 }
 
 // One entry per fork: a Sync Template run in flight or dispatched, an open PR whose

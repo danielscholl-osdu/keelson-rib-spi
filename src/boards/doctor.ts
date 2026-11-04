@@ -14,10 +14,9 @@ import {
   type Readiness,
   WORKFLOW_GRANTS,
 } from "../act/readiness.ts";
-import { resolveFleet, resolveLessons } from "../collect/fleet.ts";
+import { resolveFleet, resolveRollout } from "../collect/fleet.ts";
 import { FORKS, GITLAB_EVERY_MS, PLANNED, SERVICES_FILE, SWEEP_MS, shortRepo } from "../config.ts";
 import { AREAS, type AreaName, type Facts } from "../facts.ts";
-import { withoutNoise } from "../lessons.ts";
 import { laneCap } from "../model/lanes.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
 import { clip, plural, stamp } from "../util.ts";
@@ -26,7 +25,7 @@ type Section = CanvasBoardView["sections"][number];
 type Health = "ok" | "warn" | "error" | "neutral";
 
 const AREA_LABEL: Record<AreaName, string> = {
-  fleet: "fleet list and lessons",
+  fleet: "fleet list and rollout file",
   github: "GitHub PRs, checks and issues",
   runs: "fork workflow runs",
   approvals: "runs waiting for approval",
@@ -94,32 +93,28 @@ export function fleetChecks(
       ...(lost.length ? { problem: `Fleet: not following ${lost.join(", ")}` } : {}),
     },
   ];
-  const parsed = resolveLessons(m.data);
-  const lessons = parsed.lessons;
+  const parsed = resolveRollout(m.data);
   const cap = laneCap();
-  const ignored = lessons
-    ? Object.values(withoutNoise(facts.github.data?.repos ?? {}, lessons).ignored).reduce(
-        (a, b) => a + b,
-        0,
-      )
-    : 0;
+  const from = m.data?.rolloutFrom;
   out.push({
-    health: parsed.warnings.length ? "warn" : lessons ? "ok" : "neutral",
-    label: "Lessons",
+    health: parsed.warnings.length ? "warn" : parsed.rollout ? "ok" : "neutral",
+    label: "Rollout",
     value: [
       !m.data
         ? "not read yet"
-        : m.data.lessons === null
-          ? `none at ${m.data.lessonsFrom}; built-in behavior`
-          : lessons
-            ? `${m.data.lessonsFrom}: ${plural(lessons.noise.length, "noise rule")} (${plural(ignored, "check")} ignored now), ${plural(lessons.failures.length, "failure class", "failure classes")}`
-            : `${m.data.lessonsFrom} unread`,
+        : m.data.rollout === null
+          ? `none at ${from}`
+          : parsed.rollout
+            ? `${from}: ${parsed.rollout.lanes ? plural(parsed.rollout.lanes, "lane") : "no lanes"}`
+            : from
+              ? `${from} unread`
+              : "not read yet",
       ...parsed.warnings,
       cap.cap === null
         ? "fleet buttons unpaced"
-        : `fleet buttons paced to ${cap.cap} lanes (${cap.capFrom})`,
+        : `fleet buttons paced to ${cap.cap} lanes (${cap.capFrom === "rollout" ? "rollout file" : cap.capFrom})`,
     ].join(" · "),
-    ...(parsed.warnings.length ? { problem: `Lessons: ${parsed.warnings[0]}` } : {}),
+    ...(parsed.warnings.length ? { problem: `Rollout: ${parsed.warnings[0]}` } : {}),
   });
   return out;
 }

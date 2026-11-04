@@ -115,13 +115,13 @@ export const KNOWN_SERVICES: readonly ServiceDef[] = [
 ];
 
 export const SERVICES_FILE = process.env.RIB_SPI_SERVICES_FILE || undefined;
-export const LESSONS_FILE = process.env.RIB_SPI_LESSONS_FILE || undefined;
+export const ROLLOUT_FILE = process.env.RIB_SPI_ROLLOUT_FILE || undefined;
 
 function lanesOverride(): number | undefined {
   const n = Number(process.env.RIB_SPI_LANES);
   return Number.isInteger(n) && n > 0 ? n : undefined;
 }
-// Overrides the lessons file's `lanes` for the paced fleet buttons.
+// Overrides the rollout file's `lanes` for the paced fleet buttons.
 export const LANES_OVERRIDE = lanesOverride();
 
 export type ForkDef = ServiceDef & { repo: string };

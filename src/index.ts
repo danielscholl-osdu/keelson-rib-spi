@@ -29,7 +29,6 @@ import {
   DISPATCH_REFRESH,
   DISPATCH_UPGRADE,
   NO_OPS,
-  RERUN_ALL,
   RERUN_LANES,
   WAIT_ACTION,
 } from "./act/rerun.ts";
@@ -462,7 +461,6 @@ function bind(ctx: RibContext): Sweeper {
     registerVerb(SYNC_FORKS),
     registerVerb(ROLL_OUT),
     registerVerb(RERUN_LANES),
-    registerVerb(RERUN_ALL),
     registerVerb(DISPATCH_REFRESH),
     registerVerb(DISPATCH_UPGRADE),
   );
@@ -601,7 +599,7 @@ function startWait(s: Sweeper, payload: unknown): RibActionResult {
   if (!ctx || !run) return { ok: false, error: "spi is not bound yet" };
   if (!ctx.registerOp) return { ok: false, error: NO_OPS };
   const binding = parseBinding(payload);
-  if (!binding || (binding.verb !== RERUN_LANES.id && binding.verb !== RERUN_ALL.id)) {
+  if (!binding || binding.verb !== RERUN_LANES.id) {
     return { ok: false, error: "the wait needs the Re-run lanes binding the board stamped" };
   }
   if (s.model.stack.deployable.state === "yes") {

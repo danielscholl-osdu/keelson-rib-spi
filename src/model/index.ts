@@ -8,11 +8,11 @@
 
 import { FORKS, PLANNED, type ServiceDef, STACK_REPO, TEMPLATE_REPO } from "../config.ts";
 import type { Facts } from "../facts.ts";
-import { withoutNoise } from "../lessons.ts";
 import type { DismissEntry } from "./dismiss.ts";
 import { buildGates, type Gates } from "./gates.ts";
 import { type LaneLoad, laneLoad } from "./lanes.ts";
 import { buildLine, type LineModel } from "./lines.ts";
+import { withoutNoise } from "./noise.ts";
 import { buildQueue, type Queue } from "./queue.ts";
 import { buildRadar, predictAll, type RadarModel } from "./radar.ts";
 import { buildRepos, type ReposModel } from "./repos.ts";
@@ -39,7 +39,7 @@ export interface Model {
   repositories: ReposModel;
   // Forks holding a lane on the shared environment, against the paced buttons' cap.
   lanes: LaneLoad;
-  // Checks the lessons file's noise rules took out of PR state, by rule id.
+  // Checks the built-in noise rules took out of PR state, by rule id.
   noise: Record<string, number>;
 }
 

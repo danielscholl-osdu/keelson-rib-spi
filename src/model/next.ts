@@ -6,7 +6,7 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-import type { LessonMatch } from "../lessons.ts";
+import type { Judgement } from "../rollout.ts";
 import type { FailureClass } from "./attribution.ts";
 import type { ItemKind, QueueItem } from "./queue.ts";
 import { pullFailure } from "./reason.ts";
@@ -135,39 +135,25 @@ function lowerFirst(text: string): string {
   return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
-function lessonName(l: LessonMatch): string {
-  return l.id ? `lesson ${l.id}` : "no lesson matches";
-}
+const RERUN_ONCE = "re-run the failed jobs once, after the other lanes drain";
 
-function rerunText(l: LessonMatch): string {
-  const what = l.response === "rerun-all" ? "all jobs" : "the failed jobs";
-  const times = l.rerunLimit <= 1 ? "once" : `at most ${l.rerunLimit} times`;
-  return `re-run ${what} ${times}${l.drainFirst ? ", after the other lanes drain" : ""}`;
-}
-
-// The fleet lessons file's framing: an environment failure is re-run once, a real one stops the line.
-function lessonNext(item: QueueItem, l: LessonMatch): string | undefined {
-  const rule = lessonName(l);
-  if (l.class === "real" || l.response === "stop") {
+// An environment failure is re-run once; anything else stops the line and is fixed in the template.
+function judgedNext(item: QueueItem, j: Judgement): string {
+  if (j.response === "stop") {
     const first =
       item.kind === "lanes" ? "read why the lanes failed" : lowerFirst(failureNext(item));
-    const why = l.note ? `${rule}, ${l.note}` : rule;
-    return `Stop the line (${why}): ${first}, then fix it forward in the template; no re-run`;
-  }
-  if (l.response === "wait") {
-    return `Wait for the environment (${rule}); no re-run yet`;
+    return `Stop the line${j.note ? ` (${j.note})` : ""}: ${first}, then fix it forward in the template; no re-run`;
   }
   if (item.kind === "lanes" && !item.note) {
-    return `Wait for the stack to read deployable, then ${rerunText(l)} (${rule})`;
+    return `Wait for the stack to read deployable, then ${RERUN_ONCE}`;
   }
-  return `${rerunText(l).replace(/^r/, "R")} (${rule})`;
+  return `${RERUN_ONCE.replace(/^r/, "R")}`;
 }
 
 // What a person does to clear the item, in the words of its verb.
 export function nextText(item: QueueItem, listed: readonly ListedEntry[] = []): string {
-  if (item.lesson && (item.kind === "lanes" || item.kind === "template-red")) {
-    const framed = lessonNext(item, item.lesson);
-    if (framed) return framed;
+  if (item.judgement && (item.kind === "lanes" || item.kind === "template-red")) {
+    return judgedNext(item, item.judgement);
   }
   switch (item.kind) {
     case "halt":

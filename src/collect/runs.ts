@@ -26,8 +26,8 @@ import type {
   WaitingRun,
 } from "../facts.ts";
 import type { Gh } from "../forge.ts";
-import { activeLessons, lessonsSignature, logHits, needsLogScan } from "../lessons.ts";
 import { type Annotation, reasonFromAnnotations, reasonFromLog } from "../model/reason.ts";
+import { ENVIRONMENT_TITLE } from "../rollout.ts";
 import { clip, pool } from "../util.ts";
 import { parseDeclaration } from "./github.ts";
 
@@ -247,46 +247,22 @@ async function explain(gh: Gh, repo: string, job: JobDetail, readLog: boolean): 
   try {
     const annotations = await gh.rest<Annotation[]>(
       `repos/${repo}/check-runs/${job.id}/annotations`,
-      "[.[] | {level: .annotation_level, message}]",
+      "[.[] | {level: .annotation_level, title, message}]",
     );
     job.reason = reasonFromAnnotations(annotations);
-    const errors = annotations
-      .filter((a) => a.level === "failure")
+    job.environment = annotations
+      .filter((a) => a.level === "failure" && a.title === ENVIRONMENT_TITLE)
       .map((a) => clip(a.message.trim(), 500))
-      .filter(Boolean)
-      .slice(0, 10);
-    if (errors.length > 0) job.annotations = errors;
+      .slice(0, 5);
   } catch {
     job.reason = undefined;
   }
-  const lessons = activeLessons();
-  const scan = needsLogScan(job, lessons);
-  const forReason = !job.reason || readLog;
-  if (!forReason && !scan) return;
+  if (job.reason && !readLog) return;
   try {
-    const log = await gh.text(`repos/${repo}/actions/jobs/${job.id}/logs`);
-    const fromLog = forReason ? reasonFromLog(log) : undefined;
+    const fromLog = reasonFromLog(await gh.text(`repos/${repo}/actions/jobs/${job.id}/logs`));
     if (fromLog) job.reason = fromLog;
-    if (scan && lessons) {
-      job.logScan = { signature: lessonsSignature(lessons), hits: logHits(log, lessons) };
-    }
   } catch {
     // An expired or missing log leaves the annotation reason, if any.
-  }
-}
-
-// A cached failed job is read again only for a log scan a new lessons file asks for.
-async function rescan(gh: Gh, repo: string, job: JobDetail): Promise<JobDetail> {
-  const lessons = activeLessons();
-  if (!lessons || !FAILED.has(job.conclusion ?? "") || !needsLogScan(job, lessons)) return job;
-  try {
-    const log = await gh.text(`repos/${repo}/actions/jobs/${job.id}/logs`);
-    return {
-      ...job,
-      logScan: { signature: lessonsSignature(lessons), hits: logHits(log, lessons) },
-    };
-  } catch {
-    return job;
   }
 }
 
@@ -300,11 +276,7 @@ export async function readJob(
   name: string,
 ): Promise<JobDetail> {
   const cached = cache.get(repo, id);
-  if (cached) {
-    const scanned = await rescan(gh, repo, cached);
-    if (scanned !== cached) cache.put(repo, scanned);
-    return scanned;
-  }
+  if (cached) return cached;
   const job = toJob(await gh.rest<RawJob>(`repos/${repo}/actions/jobs/${id}`, JOB_JQ));
   await explain(gh, repo, job, /java build/i.test(name));
   cache.put(repo, job);

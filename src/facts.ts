@@ -192,10 +192,8 @@ export interface JobDetail {
   steps: StepFact[];
   failedStep?: string;
   reason?: string;
-  // Failure-level annotation messages, which the lessons file's failure patterns match first.
-  annotations?: string[];
-  // The stretches of the cleaned job log a lessons pattern matched, and which patterns were tried.
-  logScan?: { signature: string; hits: string[] };
+  // Messages of failure-level annotations titled Environment; undefined while annotations are unread.
+  environment?: string[];
   attempt?: number;
 }
 
@@ -399,9 +397,9 @@ export interface FleetFacts {
   forks?: FleetEntry[];
   vars: Record<string, ForkVars | null>;
   varsAt?: string;
-  // The lessons file's text; null when the file does not exist.
-  lessons: string | null;
-  lessonsFrom: string;
+  // The rollout file's text; null when the file does not exist.
+  rollout: string | null;
+  rolloutFrom: string;
 }
 
 export interface Facts {

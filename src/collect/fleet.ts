@@ -13,7 +13,7 @@ import {
   GITLAB_EVERY_MS,
   GITLAB_HOST,
   KNOWN_SERVICES,
-  LESSONS_FILE,
+  ROLLOUT_FILE,
   SERVICES_FILE,
   type ServiceDef,
   STACK_REPO,
@@ -21,10 +21,10 @@ import {
 } from "../config.ts";
 import type { FleetEntry, FleetFacts, ForkVars } from "../facts.ts";
 import type { Gh } from "../forge.ts";
-import { type Lessons, parseLessons } from "../lessons.ts";
+import { type ParsedRollout, parseRollout } from "../rollout.ts";
 import { pool } from "../util.ts";
 
-export const LESSONS_PATH = ".github/fleet/lessons.json";
+export const ROLLOUT_PATH = ".github/fleet/rollout.json";
 
 function repoArgs(repo: string): string {
   const [owner, name] = repo.split("/");
@@ -70,20 +70,20 @@ async function readVars(gh: Gh, repo: string): Promise<ForkVars | null> {
   }
 }
 
-// The stack's forks list and the lessons file in one query; each fork's variables
+// The stack's forks list and the rollout file in one query; each fork's variables
 // are read again on GitLab's cadence, or as soon as a new fork appears.
 export async function readFleet(
   gh: Gh,
   prev: FleetFacts | undefined,
   now: Date,
-  files: { services?: string; lessons?: string } = {
+  files: { services?: string; rollout?: string } = {
     services: SERVICES_FILE,
-    lessons: LESSONS_FILE,
+    rollout: ROLLOUT_FILE,
   },
 ): Promise<FleetFacts> {
   const parts = [
     ...(files.services ? [] : [blob("stack", STACK_REPO, DECLARATION_PATH)]),
-    ...(files.lessons ? [] : [blob("template", TEMPLATE_REPO, LESSONS_PATH)]),
+    ...(files.rollout ? [] : [blob("template", TEMPLATE_REPO, ROLLOUT_PATH)]),
   ];
   let data: { stack?: BlobRepo; template?: BlobRepo } = {};
   if (parts.length > 0) {
@@ -101,15 +101,15 @@ export async function readFleet(
     forks = parseForks(text);
   }
 
-  let lessons: string | null;
-  let lessonsFrom: string;
-  if (files.lessons) {
-    lessons = existsSync(files.lessons) ? readFileSync(files.lessons, "utf8") : null;
-    lessonsFrom = files.lessons;
+  let rollout: string | null;
+  let rolloutFrom: string;
+  if (files.rollout) {
+    rollout = existsSync(files.rollout) ? readFileSync(files.rollout, "utf8") : null;
+    rolloutFrom = files.rollout;
   } else {
     if (!data.template) throw new Error(`${TEMPLATE_REPO} is not readable`);
-    lessons = data.template.object?.text ?? null;
-    lessonsFrom = `${TEMPLATE_REPO}:${LESSONS_PATH}`;
+    rollout = data.template.object?.text ?? null;
+    rolloutFrom = `${TEMPLATE_REPO}:${ROLLOUT_PATH}`;
   }
 
   let vars = prev?.vars ?? {};
@@ -133,8 +133,8 @@ export async function readFleet(
     ...(forks ? { forks } : {}),
     vars,
     ...(varsAt ? { varsAt } : {}),
-    lessons,
-    lessonsFrom,
+    rollout,
+    rolloutFrom,
   };
 }
 
@@ -196,10 +196,8 @@ export function resolveFleet(
   return { services, source: "stack", unresolved };
 }
 
-export function resolveLessons(data: FleetFacts | undefined): {
-  lessons?: Lessons;
-  warnings: string[];
-} {
-  if (!data || data.lessons === null) return { warnings: [] };
-  return parseLessons(data.lessons);
+// No file, or facts read before the rib knew the rollout file, leave the fleet buttons unpaced.
+export function resolveRollout(data: FleetFacts | undefined): ParsedRollout {
+  if (typeof data?.rollout !== "string") return { warnings: [] };
+  return parseRollout(data.rollout);
 }

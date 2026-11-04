@@ -8,7 +8,7 @@
 
 import type { RibExec } from "@keelson/shared";
 import { z } from "@keelson/shared";
-import { readFleet, resolveFleet, resolveLessons } from "./collect/fleet.ts";
+import { readFleet, resolveFleet, resolveRollout } from "./collect/fleet.ts";
 import { readGithub } from "./collect/github.ts";
 import { emptyLedgerState } from "./collect/ledgers.ts";
 import { emptyRadarState, pruneRadar, type RadarState, readRadar } from "./collect/radar.ts";
@@ -31,9 +31,9 @@ import { readUpstream, type UpstreamCompares } from "./collect/upstream.ts";
 import {
   FORKS,
   GITLAB_EVERY_MS,
-  LESSONS_FILE,
   type LifecycleKind,
   REPOS,
+  ROLLOUT_FILE,
   SECURITY_EVERY_MS,
   SERVICES_FILE,
   setFleet,
@@ -49,10 +49,10 @@ import {
   type RepoFact,
 } from "./facts.ts";
 import { type CallCounter, Gh, Glab } from "./forge.ts";
-import { useLessons } from "./lessons.ts";
 import { failedChecks, javaBuilt } from "./model/checks.ts";
 import type { DismissEntry } from "./model/dismiss.ts";
 import { buildModel, type Model } from "./model/index.ts";
+import { useRollout } from "./rollout.ts";
 import type { Store } from "./store.ts";
 import { errorText, pool } from "./util.ts";
 
@@ -163,8 +163,8 @@ export interface SweeperOptions {
   onChange: () => void;
   now?: () => Date;
   dismissed?: () => readonly DismissEntry[];
-  // The offline overrides; RIB_SPI_SERVICES_FILE and RIB_SPI_LESSONS_FILE by default.
-  fleetFiles?: { services?: string; lessons?: string };
+  // The offline overrides; RIB_SPI_SERVICES_FILE and RIB_SPI_ROLLOUT_FILE by default.
+  fleetFiles?: { services?: string; rollout?: string };
 }
 
 // One in-process sweep feeds every region and tool, so they all count the same
@@ -173,7 +173,7 @@ export class Sweeper {
   facts: Facts;
   model: Model;
   readonly now: () => Date;
-  private readonly fleetFiles: { services?: string; lessons?: string };
+  private readonly fleetFiles: { services?: string; rollout?: string };
   private readonly cache: CacheFile;
   private readonly detailCache: DetailCache;
   private running: Promise<void> | undefined;
@@ -186,7 +186,7 @@ export class Sweeper {
 
   constructor(private readonly opts: SweeperOptions) {
     this.now = opts.now ?? (() => new Date());
-    this.fleetFiles = opts.fleetFiles ?? { services: SERVICES_FILE, lessons: LESSONS_FILE };
+    this.fleetFiles = opts.fleetFiles ?? { services: SERVICES_FILE, rollout: ROLLOUT_FILE };
     const stored = opts.store.read(FACTS_FILE, factsFileSchema);
     this.facts = { ...emptyFacts(), ...(stored as Partial<Facts> | undefined) };
     const cache = opts.store.read(CACHE_FILE, cacheFileSchema) as Partial<CacheFile> | undefined;
@@ -200,10 +200,10 @@ export class Sweeper {
     this.model = buildModel(this.facts, this.now(), { dismissed: opts.dismissed?.() ?? [] });
   }
 
-  // The fleet and lessons every collector and the model read, from the last good read.
+  // The fleet and rollout file every collector and the model read, from the last good read.
   private applyFleet(): void {
     setFleet(resolveFleet(this.facts.fleet.data, this.fleetFiles.services ?? null).services);
-    useLessons(resolveLessons(this.facts.fleet.data).lessons);
+    useRollout(resolveRollout(this.facts.fleet.data).rollout);
   }
 
   get sweeping(): boolean {

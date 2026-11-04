@@ -139,24 +139,26 @@ able to read. If the stack cannot be read, the last good list stays in use
 and the doctor shows its age. `RIB_SPI_SERVICES_FILE` pins the fleet to a JSON
 list instead, offline.
 
-## Fleet lessons and pacing
+## Pacing and failure classes
 
-`.github/fleet/lessons.json` in `Azure/osdu-spi` (schema 1) is read with the
-stack file; `RIB_SPI_LESSONS_FILE` reads a local copy instead. Without it, the
-rib behaves as it did before the file existed.
+`.github/fleet/rollout.json` in `Azure/osdu-spi` (schema 1) is read with the
+stack file; `RIB_SPI_ROLLOUT_FILE` reads a local copy instead. The rib reads
+only its `lanes`.
 
-- `noise[]` checks are taken out of PR state before anything counts them, so
-  `license/cla` on an app's PR neither pends nor fails it. The doctor counts them.
-- `failures[]` frame a failed lane: the failure-level annotations are matched
-  first, then the failed job's log without its echoed script lines. An
-  environment failure reads as one re-run (after the lanes drain, when the
-  lesson says so); a real one, an unmatched one, or one past its `rerunLimit`
-  reads as stop the line. Nothing is re-run on its own.
 - `lanes` caps Sync all forks, Roll out and Re-run lanes: a press tops the forks
   holding a lane up to the cap and leaves the rest for the next press. A lane is
   a Sync Template run, an open PR whose head Validation run has not concluded, a
   main Validation run, or a fork the rib wrote to in the last three minutes.
-  `RIB_SPI_LANES` overrides the cap.
+  `RIB_SPI_LANES` overrides the cap. With no file, or a schema the rib does not
+  read, the buttons are unpaced.
+- A failed run is an environment failure when any of its failed jobs carries a
+  failure-level annotation titled `Environment`, which validate.yml gives its
+  shared-environment timeouts. That reads as re-run the failed jobs once, after
+  the other lanes drain; on attempt 2 or later, and for every other failure, it
+  reads as stop the line and fix it forward in the template. Nothing is re-run
+  on its own.
+- `license/cla` on a PR an app opened and a skipped `Docker Build` are taken out
+  of PR state before anything counts them.
 
 **Dismiss** in any item's inspector writes `dismissed.json` in the rib's data
 directory. The item leaves the queue and the badge until its inputs (heads,

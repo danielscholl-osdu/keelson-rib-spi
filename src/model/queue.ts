@@ -8,7 +8,7 @@
 
 import { forkOf, githubUrl, shortRepo, TEMPLATE_REPO } from "../config.ts";
 import type { OutsidePr, PrFact, RepoFact, WaitingRun } from "../facts.ts";
-import { governing, type LessonMatch } from "../lessons.ts";
+import { governing, type Judgement } from "../rollout.ts";
 import { clip, plural, releaseTag, short, stamp } from "../util.ts";
 import {
   CLASS_LABEL,
@@ -124,8 +124,8 @@ export interface QueueItem {
   // An incident is a cause that broke or blocks; gates and ready work are not.
   incident: boolean;
   blocks: number;
-  // What the fleet lessons file says to do, for the failures the item folds.
-  lesson?: LessonMatch;
+  // What to do about the runs the item folds: re-run once for the environment, or stop the line.
+  judgement?: Judgement;
   // Inputs the item's words do not show, such as PR heads, for its fingerprint.
   inputs?: string[];
   // Its inputs, so a dismissal holds only until they change.
@@ -335,7 +335,7 @@ function stackItems(
       ],
       cls: "ENV",
       lanes: laneRuns(loose),
-      ...lessonOf(governing(loose.map(({ f }) => f.lesson))),
+      ...judged(governing(loose.map(({ f }) => f.judgement))),
       incident: true,
       blocks: loose.length,
     });
@@ -589,7 +589,7 @@ function lineItems(line: LineModel, now: Date): QueueItem[] {
             : []),
         ],
         cls: real[0]?.cls,
-        ...lessonOf(governing(real.map((f) => f.lesson))),
+        ...judged(governing(real.map((f) => f.judgement))),
         incident: true,
         blocks: 1,
       });
@@ -1259,6 +1259,6 @@ function finish(items: QueueItem[], dismissed: Queue["dismissed"], stack: StackM
   };
 }
 
-function lessonOf(lesson: LessonMatch | undefined): { lesson?: LessonMatch } {
-  return lesson ? { lesson } : {};
+function judged(judgement: Judgement | undefined): { judgement?: Judgement } {
+  return judgement ? { judgement } : {};
 }
