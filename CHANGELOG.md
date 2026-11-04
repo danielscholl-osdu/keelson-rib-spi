@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/danielscholl-osdu/keelson-rib-spi/compare/v1.3.1...v1.4.0) (2026-11-04)
+
+
+### Added
+
+* **console:** UI polish overhaul ([#24](https://github.com/danielscholl-osdu/keelson-rib-spi/issues/24)) ([ab853dc](https://github.com/danielscholl-osdu/keelson-rib-spi/commit/ab853dcaf2310dd611447ba043d74bc8e117c879))
+
 ## [1.3.1](https://github.com/danielscholl-osdu/keelson-rib-spi/compare/v1.3.0...v1.3.1) (2026-11-03)
 
 
