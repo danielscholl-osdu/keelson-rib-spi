@@ -472,14 +472,14 @@ export function releasesPaneHtml(lines: readonly ReleaseLine[], reading: boolean
     return `<h2>${reading ? "Reading releases…" : "No releases read yet."}</h2>`;
   }
   const first = lines[0]?.id;
-  const notesTone = (n: NotesState) =>
-    n === "approved" ? "t-ok" : n === "invalid" ? "t-bad" : "t-warn";
+  const notesTone = (n: NotesState, open: boolean) =>
+    n === "approved" ? "t-ok" : n === "invalid" ? "t-bad" : n === "none" && !open ? "" : "t-warn";
   const rows = lines
     .map(
       (
         l,
       ) => `<button type="button" class="row trow${l.id === first ? " on" : ""}" data-rel="${esc(l.id)}" aria-pressed="${l.id === first}">
-<span class="body"><span class="tt">SPI ${esc(l.name)}</span> <span class="chip ${notesTone(l.notes)}">${esc(NOTES_LABEL[l.notes].toUpperCase())}</span>
+<span class="body"><span class="tt">SPI ${esc(l.name)}</span> <span class="chip ${notesTone(l.notes, l.open)}">${esc(NOTES_LABEL[l.notes].toUpperCase())}</span>
 <span class="ss">${esc(l.headline)}</span></span><span class="when">${esc(l.open ? "in progress" : "closed")}</span></button>`,
     )
     .join("");

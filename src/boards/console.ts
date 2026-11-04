@@ -60,7 +60,7 @@ function focusRow(f: FocusItem, selected: boolean): string {
 function detail(f: FocusItem, selected: boolean): string {
   const evidence = f.evidence.map((e) => esc(e.label)).join(" · ");
   return `<section class="detail" data-detail="${esc(f.id)}"${selected ? "" : " hidden"}>
-<p class="eyebrow"><span class="rung ${rungClass(f)}">P${f.rung}</span> ${esc(f.scope)} · ${esc(f.cls)}</p>
+<p class="eyebrow"><span class="rung ${rungClass(f)}">P${f.rung}</span> ${esc(f.scope)} <span class="chip ${rungClass(f)}">${esc(f.cls)}</span></p>
 <h3>${esc(f.title)}</h3>
 <dl class="kv"><dt>Cause</dt><dd>${esc(f.cause)}</dd><dt>Effect</dt><dd>${esc(f.effect)}</dd><dt>Next</dt><dd class="next">${esc(f.next)}</dd>${evidence ? `<dt>Evidence</dt><dd class="evidence">${evidence}</dd>` : ""}</dl>
 <button type="button" class="open" data-inspect="${esc(f.id)}">Open in inspector · ${esc(f.verb)}</button>
@@ -99,16 +99,18 @@ function themeRow(t: Theme, selected: boolean): string {
 
 function themeDetail(t: Theme, selected: boolean): string {
   const rows = [
-    ...t.certain.map((f) => `<tr><td>${esc(f.fork)}</td><td>${esc(f.state)}</td></tr>`),
+    ...t.certain.map(
+      (f) => `<li><span>${esc(f.fork)}</span><span class="ps">${esc(f.state)}</span></li>`,
+    ),
     ...t.possible.map(
       (f) =>
-        `<tr class="maybe"><td>${esc(f.fork)}</td><td>${f.inspect ? `<button type="button" class="link" data-inspect="${esc(f.inspect)}">possible · ${esc(f.state)}</button>` : `possible · ${esc(f.state)}`}</td></tr>`,
+        `<li class="maybe"><span>${esc(f.fork)}</span><span class="ps">${f.inspect ? `<button type="button" class="link" data-inspect="${esc(f.inspect)}">possible · ${esc(f.state)}</button>` : `possible · ${esc(f.state)}`}</span></li>`,
     ),
   ].join("");
   return `<section class="detail" data-theme-detail="${esc(t.id)}"${selected ? "" : " hidden"}>
 <p class="eyebrow">${esc(t.kind)}${t.when ? ` · ${esc(t.when)}` : ""}</p>
 <h3>${esc(t.title)}</h3>
-${rows ? `<table class="forks"><thead><tr><th>Fork</th><th>Exposure</th></tr></thead><tbody>${rows}</tbody></table>` : ""}
+${rows ? `<p class="dl">Exposure by fork</p><ul class="pairs">${rows}</ul>` : ""}
 <dl class="kv">${t.exposed.length > 0 ? `<dt>Exposed</dt><dd>${t.exposed.map(esc).join(", ")}</dd>` : ""}<dt>Next</dt><dd class="next">${esc(t.next)}</dd></dl>
 ${t.inspect ? `<button type="button" class="open" data-inspect="${esc(t.inspect)}">Open in inspector</button>` : ""}
 </section>`;
@@ -194,7 +196,7 @@ ${details ? `<div class="pane cells">${details}</div>` : ""}`;
 const TRACK_MIN_PX = 960;
 const CHAR_PX = 6.6;
 const BAR_MIN_PX = 10;
-const TIER_PX = 24;
+const TIER_PX = 22;
 const MAX_TIERS = 6;
 
 const EVENT_GLYPH: Record<EnvState, string> = {
@@ -302,11 +304,11 @@ function laneRow(
       const key = eventKey(lane, p.e);
       const on = key === selected;
       const name = `${lane.label} ${p.e.label}, ${EVENT_WORD[p.e.state]}, ${eventWhen(p.e, now)}`;
-      return `<button type="button" class="ev s-${p.e.state}${on ? " on" : ""}" data-event="${esc(key)}" aria-pressed="${on}" title="${esc(name)}" aria-label="${esc(name)}" style="left:${fixed(p.left)}%;width:${fixed(p.width)}%;top:${p.tier * TIER_PX + 11}px"><span class="evl${p.flip ? " flip" : ""}">${esc(eventText(p.e))}</span></button>`;
+      return `<button type="button" class="ev s-${p.e.state}${on ? " on" : ""}" data-event="${esc(key)}" aria-pressed="${on}" title="${esc(name)}" aria-label="${esc(name)}" style="left:${fixed(p.left)}%;width:${fixed(p.width)}%;top:${p.tier * TIER_PX + 10}px"><span class="evl${p.flip ? " flip" : ""}">${esc(eventText(p.e))}</span></button>`;
     })
     .join("");
   const empty = placed.length === 0 ? `<span class="none">none in the last day</span>` : "";
-  return `<div class="tl-row"><div class="tl-lab">${esc(lane.label)}</div><div class="tl-track" style="height:${tiers * TIER_PX + 12}px">${bars}${empty}</div></div>`;
+  return `<div class="tl-row"><div class="tl-lab">${esc(lane.label)}</div><div class="tl-track" style="height:${tiers * TIER_PX + 10}px">${bars}${empty}</div></div>`;
 }
 
 function eventDetail(lane: EnvLane, e: EnvEvent, selected: boolean, now: Date): string {
@@ -421,6 +423,11 @@ const STYLE = `
   --pick: color-mix(in srgb, var(--accent) 9%, var(--card));
   --tone: var(--muted);
   --soft: color-mix(in srgb, var(--fg) 70%, var(--muted));
+  --label: var(--muted);
+}
+:root:not([data-theme="light"]) {
+  --line: color-mix(in srgb, var(--border) 90%, var(--card));
+  --label: color-mix(in srgb, var(--fg) 40%, var(--muted));
 }
 [hidden] { display: none !important; }
 body { background: var(--card); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
@@ -428,13 +435,13 @@ body { background: var(--card); font-size: 14px; line-height: 1.5; -webkit-font-
 .wrap { padding: 2px 4px 16px; }
 h2 { margin: 18px 0 4px; font-size: 20px; line-height: 1.3; font-weight: 650; letter-spacing: -.01em; color: var(--fg-strong); text-wrap: balance; max-width: 70ch; }
 .summary { margin: 0; color: var(--muted); font-size: 14px; max-width: 80ch; }
-.eyebrow, .dl, .fact .k, .rgrp, .rhead, .forks th, .flow thead th, .tl-lab, .fold .k { font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.eyebrow, .dl, .fact .k, .rgrp, .rhead, .flow thead th, .tl-lab, .fold .k { font-family: var(--sans); font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--label); margin: 0; }
 
 .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
 .facts.four { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-.fact { padding: 12px 14px 13px; background: var(--sunk); border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
-.fact .k { display: flex; align-items: center; gap: 7px; }
-.fact .k::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: transparent; }
+.fact { position: relative; padding: 12px 14px 13px 26px; background: var(--sunk); border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
+.fact .k { position: relative; }
+.fact .k::before { content: ""; position: absolute; left: -14px; top: calc(50% - 3.5px); width: 7px; height: 7px; border-radius: 50%; background: transparent; }
 .fact.t-bad .k::before, .fact.t-warn .k::before, .fact.t-ok .k::before { background: var(--tone); }
 .fact .v { margin-top: 4px; font-size: 26px; font-weight: 650; letter-spacing: -.015em; line-height: 1.2; color: var(--fg-strong); font-variant-numeric: tabular-nums; }
 .fact.t-bad .v, .fact.t-warn .v { color: var(--tone); }
@@ -478,29 +485,28 @@ h2 { margin: 18px 0 4px; font-size: 20px; line-height: 1.3; font-weight: 650; le
 .detail h3 { margin: 6px 0 0; font-size: 18px; line-height: 1.35; font-weight: 650; letter-spacing: -.005em; color: var(--fg-strong); text-wrap: balance; }
 .detail h3.t-bad, .detail h3.t-warn, .detail h3.t-ok { color: var(--tone); }
 .detail > p { margin: 6px 0 0; font-size: 13.5px; color: var(--fg); }
-.detail .dl, .detail > p.dl { margin-top: 18px; font-size: 11px; color: var(--muted); }
+.detail .dl, .detail > p.dl { margin-top: 18px; font-size: 11.5px; color: var(--label); }
 .kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 10px 18px; margin: 14px 0 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 13.5px; }
 .kv dt { font-size: 12px; font-weight: 600; color: var(--muted); padding-top: 1px; }
-.kv dd { margin: 0; color: var(--fg); }
+.kv dd { margin: 0; color: var(--fg); text-wrap: pretty; }
 .kv dd.next { color: var(--fg-strong); font-weight: 550; }
 .evidence { font-family: var(--mono); font-size: 12px; color: var(--muted); }
 .open { justify-self: start; margin-top: 16px; font: inherit; font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 8px; border: 1px solid var(--accent); color: var(--card); background: var(--accent); cursor: pointer; }
 .open:hover { filter: brightness(1.08); }
-:root:not([data-theme="light"]) .open { background: color-mix(in srgb, var(--accent) 18%, var(--card)); color: color-mix(in srgb, var(--accent) 65%, var(--fg-strong)); border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
-:root:not([data-theme="light"]) .open:hover { filter: none; background: color-mix(in srgb, var(--accent) 26%, var(--card)); }
+:root:not([data-theme="light"]) .open { background: color-mix(in srgb, var(--accent) 26%, var(--card)); color: color-mix(in srgb, var(--accent) 65%, var(--fg-strong)); border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+:root:not([data-theme="light"]) .open:hover { filter: none; background: color-mix(in srgb, var(--accent) 34%, var(--card)); }
 .items { margin: 6px 0 0; padding-left: 18px; font-size: 13.5px; }
 .items li + li { margin-top: 3px; }
 .note { margin: 10px 0 0; font-size: 12.5px; color: var(--muted); max-width: 90ch; }
 .detail > .note { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
 
-.forks { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
-.forks th { text-align: left; padding: 0 8px 6px 0; border-bottom: 1px solid var(--line); }
-.forks td { padding: 6px 8px 6px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.forks tr:last-child td { border-bottom: none; }
-.forks th:first-child, .forks td:first-child { width: 1%; white-space: nowrap; padding-right: 40px; }
-.forks .maybe td { color: var(--muted); }
+.pairs { list-style: none; margin: 8px 0 0; padding: 0; columns: 2; column-gap: 28px; font-size: 13px; }
+.pairs li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); break-inside: avoid; }
+.pairs .ps { text-align: right; font-variant-numeric: tabular-nums; }
+.pairs .maybe { color: var(--muted); }
+.pairs + .kv { border-top: none; padding-top: 4px; }
 
-.envband { display: flex; align-items: center; gap: 9px; box-sizing: border-box; width: 100%; text-align: left; font: inherit; font-size: 13.5px; font-weight: 550; color: var(--fg-strong); padding: 9px 14px; margin: 14px 0 0; background: var(--sunk); border: 1px solid var(--line); border-radius: 10px; }
+.envband { display: inline-flex; align-items: center; gap: 9px; box-sizing: border-box; max-width: 100%; text-align: left; font: inherit; font-size: 13.5px; font-weight: 550; color: var(--fg-strong); padding: 9px 14px; margin: 14px 0 0; background: var(--sunk); border: 1px solid var(--line); border-radius: 10px; }
 .envband::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--tone); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 18%, transparent); }
 button.envband { cursor: pointer; }
 button.envband:hover { background: var(--hover); }
@@ -511,7 +517,7 @@ button.envband:hover { background: var(--hover); }
 .flow tbody th { text-align: left; font-weight: 600; font-size: 13.5px; color: var(--fg-strong); padding: 4px 12px 4px 0; white-space: nowrap; }
 .flow tbody tr { border-bottom: 1px solid var(--line); }
 .flow td { padding: 4px 6px 4px 0; vertical-align: middle; }
-.cell { position: relative; display: inline-flex; align-items: center; max-width: 100%; text-align: left; font: inherit; font-size: 13px; padding: 6px 10px 6px 20px; border: none; border-radius: 7px; background: none; color: var(--soft); cursor: pointer; }
+.cell { position: relative; display: flex; align-items: center; width: 100%; text-align: left; font: inherit; font-size: 13px; padding: 6px 10px 6px 20px; border: none; border-radius: 7px; background: none; color: var(--soft); cursor: pointer; }
 .cell::before { content: ""; position: absolute; left: 7px; top: calc(50% - 3.5px); width: 7px; height: 7px; border-radius: 50%; background: transparent; }
 .cell:hover { background: var(--hover); }
 .cell.on { background: var(--pick); color: var(--fg-strong); box-shadow: inset 3px 0 0 var(--accent); }
@@ -531,7 +537,7 @@ button.envband:hover { background: var(--hover); }
 .tl { direction: ltr; position: relative; min-width: ${TRACK_MIN_PX + 84}px; }
 .tl-row { display: grid; grid-template-columns: 84px minmax(0, 1fr); border-bottom: 1px solid var(--line); }
 .tl-row:last-child { border-bottom: none; }
-.tl-lab { position: sticky; left: 0; z-index: 2; background: var(--card); padding: 10px 8px 0 0; }
+.tl-lab { position: sticky; left: 0; z-index: 2; background: var(--card); padding: 8px 8px 0 0; }
 .tl-track { position: relative; min-height: 26px; }
 .tl-axis { border-bottom-color: var(--line); }
 .tl-axis .tl-track { height: 20px; min-height: 0; }
@@ -549,18 +555,18 @@ button.envband:hover { background: var(--hover); }
 .ev.s-failed .evl { color: var(--crit); font-weight: 600; }
 .ev.s-held .evl { color: var(--muted); }
 .ev.on .evl { color: var(--fg-strong); font-weight: 600; }
-.none { position: absolute; left: 6px; top: 9px; font-size: 12px; color: var(--muted); }
+.none { position: absolute; left: 6px; top: 7px; font-size: 12px; color: var(--muted); }
 .events { margin-top: 14px; }
-.events .detail, .cells .detail { display: grid; grid-template-columns: minmax(200px, 280px) minmax(0, 1fr); grid-template-rows: auto auto auto; column-gap: 28px; align-items: start; }
+.events .detail, .cells .detail { padding-bottom: 14px; display: grid; grid-template-columns: minmax(200px, 280px) minmax(0, 1fr); grid-template-rows: auto auto auto; column-gap: 28px; align-items: start; }
 .events .detail > *, .cells .detail > * { grid-column: 1; }
-.events .detail > .kv, .cells .detail > .dbody { grid-column: 2; grid-row: 1 / span 3; margin: 0; padding: 0 0 0 28px; border-top: none; border-left: 1px solid var(--line); align-self: stretch; }
+.events .detail > .kv, .cells .detail > .dbody { grid-column: 2; grid-row: 1 / span 3; margin: 0; padding: 0 0 0 28px; border-top: none; border-left: 1px solid var(--line); align-self: start; }
 .cells .dbody > .dl { margin-top: 0; }
 .cells .items { list-style: none; padding-left: 0; }
 
 .facts.relfacts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
-.relfacts .fact { background: color-mix(in srgb, var(--card) 55%, var(--sunk)); border-color: transparent; padding: 10px 12px; }
+.relfacts .fact { background: color-mix(in srgb, var(--card) 55%, var(--sunk)); border-color: var(--line); padding: 10px 12px; }
 .relfacts .v { margin-top: 0; font-size: 20px; }
-.relfacts .unread .v { color: var(--muted); font-weight: 500; font-size: 16px; line-height: 24px; }
+.relfacts .unread .v { color: var(--muted); font-weight: 500; }
 
 .split.rsplit { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); }
 .rtable { min-width: 0; overflow-x: auto; }
