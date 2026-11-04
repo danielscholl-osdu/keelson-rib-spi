@@ -6,7 +6,7 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-import { upstreamPrs } from "../brief/rollout.ts";
+import { upstreamPrs, upstreamSays } from "../brief/rollout.ts";
 import { FLEET_RELEASE_WORKFLOW, TEMPLATE_REPO } from "../config.ts";
 import type { LaneLoad } from "../model/lanes.ts";
 import type { EnvRerun, RolloutFork, RolloutModel } from "../model/rollout.ts";
@@ -77,8 +77,10 @@ function rerunTarget(e: EnvRerun): Target {
 function scheduleLines(r: RolloutModel, now: Date): string[] {
   const out: string[] = [];
   const up = stamp(r.schedule.upstream, now);
-  if (up && r.schedule.upstreamForks > 0) {
-    out.push(`Upstream sync at ${up} opens ${upstreamPrs(r)} that share the lanes.`);
+  if (up && upstreamSays(r)) {
+    out.push(
+      `Upstream sync at ${up} opens ${upstreamPrs(r)}${r.schedule.upstreamForks > 0 ? " that share the lanes" : ""}.`,
+    );
   }
   const tmpl = stamp(r.schedule.template, now);
   if (tmpl) out.push(`The ${tmpl} template sync opens every fork still without a PR at once.`);

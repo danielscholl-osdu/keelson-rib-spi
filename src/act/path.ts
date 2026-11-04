@@ -28,6 +28,8 @@ export interface ActDeps {
   lanes?: () => LaneLoad;
   // Counts the forks a paced verb just wrote to as in flight until a sweep sees their runs.
   hold?: (repos: string[], at: string) => void;
+  // Why the shared environment takes no new lane as of the latest sweep, or undefined.
+  held?: () => string | undefined;
 }
 
 function summary(label: string, results: readonly ActionResult[]): string {
@@ -110,8 +112,17 @@ export async function act(payload: unknown, deps: ActDeps): Promise<RibActionRes
 
 async function write(binding: Binding, verb: Verb, deps: ActDeps): Promise<RibActionResult> {
   const gh = new Gh(deps.exec);
-  const paced =
-    verb.paced && deps.lanes
+  const hold = verb.paced ? deps.held?.() : undefined;
+  const paced = hold
+    ? {
+        go: [],
+        held: binding.targets.map((t) => ({
+          target: t.label,
+          outcome: "refused" as const,
+          detail: `the environment is held: ${hold}`,
+        })),
+      }
+    : verb.paced && deps.lanes
       ? paceTargets(binding.targets, deps.lanes())
       : { go: binding.targets, held: [] };
   // Targets are independent, so one slow or failing write does not hold the others.

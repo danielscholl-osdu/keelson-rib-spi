@@ -58,10 +58,18 @@ export function planText(r: RolloutModel): string {
   return parts.join(" · ");
 }
 
-// "12 PRs" or "up to 12 PRs", and the forks that halt instead.
+// Whether the next upstream sync does anything a rollout should know about.
+export function upstreamSays(r: RolloutModel): boolean {
+  return r.schedule.upstreamForks > 0 || r.schedule.upstreamHalts.length > 0;
+}
+
+// "12 PRs", "up to 12 PRs" or "no PR", and the forks that halt instead.
 export function upstreamPrs(r: RolloutModel): string {
   const s = r.schedule;
-  const prs = `${s.upstreamMaybe > 0 ? "up to " : ""}${plural(s.upstreamForks, "PR")}`;
+  const prs =
+    s.upstreamForks === 0
+      ? "no PR"
+      : `${s.upstreamMaybe > 0 ? "up to " : ""}${plural(s.upstreamForks, "PR")}`;
   return s.upstreamHalts.length > 0
     ? `${prs} (${names(s.upstreamHalts)} ${s.upstreamHalts.length === 1 ? "halts" : "halt"} instead)`
     : prs;
@@ -70,9 +78,9 @@ export function upstreamPrs(r: RolloutModel): string {
 export function watchText(r: RolloutModel, now: Date): string {
   const out: string[] = [];
   const up = stamp(r.schedule.upstream, now);
-  if (up && r.schedule.upstreamForks > 0) {
+  if (up && upstreamSays(r)) {
     out.push(
-      `Upstream sync at ${up} opens ${upstreamPrs(r)}${r.borrows ? " that share these lanes" : ""}.`,
+      `Upstream sync at ${up} opens ${upstreamPrs(r)}${r.borrows && r.schedule.upstreamForks > 0 ? " that share these lanes" : ""}.`,
     );
   }
   const tmpl = stamp(r.schedule.template, now);

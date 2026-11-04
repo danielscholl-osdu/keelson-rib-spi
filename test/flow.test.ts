@@ -13,10 +13,11 @@ import { consoleHtml } from "../src/boards/console";
 import { doctorStatus } from "../src/boards/doctor";
 import { inspectBoard } from "../src/boards/inspect";
 import { buildBriefing } from "../src/brief/index";
-import { nextWhy, upstreamPrs } from "../src/brief/rollout";
+import { nextWhy, upstreamPrs, watchText } from "../src/brief/rollout";
 import type { Facts } from "../src/facts";
 import { INSPECT_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
+import { upstreamOpens } from "../src/model/rollout";
 import { parseRollout, useRollout } from "../src/rollout";
 import { Store } from "../src/store";
 import { Sweeper } from "../src/sweep";
@@ -375,6 +376,44 @@ describe("a press against a stale board", () => {
     });
   });
 
+  test("is refused when the environment went on hold after the board drew the merge", async () => {
+    unregister.push(registerVerb(ROLL_OUT));
+    const { exec, writes, reads } = github(NEW_HEAD);
+    const log = new ActionLog(undefined);
+    const res = await act(
+      {
+        verb: ROLL_OUT.id,
+        item: ROLLOUT_ITEM,
+        swept: "s",
+        targets: [
+          {
+            repo: "Azure/osdu-spi-legal",
+            kind: "pr",
+            number: 33,
+            sha: "a".repeat(40),
+            state: "open",
+            label: "legal #33",
+          },
+        ],
+      },
+      {
+        exec,
+        log,
+        resweep: () => undefined,
+        now: () => FIXTURE_NOW,
+        held: () => "env-upgrade in verify",
+      },
+    );
+    expect(res.ok).toBe(false);
+    expect(reads).toEqual([]);
+    expect(writes).toEqual([]);
+    expect(log.lastFor(ROLLOUT_ITEM)?.results[0]).toEqual({
+      target: "legal #33",
+      outcome: "refused",
+      detail: "the environment is held: env-upgrade in verify",
+    });
+  });
+
   test("Fleet Release reads the fleet-release runs before it dispatches", async () => {
     unregister.push(registerVerb(FLEET_RELEASE));
     const { exec, writes, reads } = github(NEW_HEAD);
@@ -473,6 +512,53 @@ describe("a held environment", () => {
 });
 
 describe("the words around a rollout", () => {
+  test("an upstream sync that only halts says so instead of nothing queued", () => {
+    const r = buildModel(readyFacts(), FIXTURE_NOW).rollout as NonNullable<
+      ReturnType<typeof buildModel>["rollout"]
+    >;
+    const only = {
+      ...r,
+      schedule: {
+        ...r.schedule,
+        upstreamForks: 0,
+        upstreamMaybe: 0,
+        upstreamHalts: ["entitlements"],
+      },
+    };
+    expect(upstreamPrs(only)).toBe("no PR (entitlements halts instead)");
+    expect(watchText(only, FIXTURE_NOW)).toStartWith(
+      "Upstream sync at 10-13 00:00 opens no PR (entitlements halts instead). ",
+    );
+  });
+
+  test("a sync is filtered-only by its queued commits, not by open upstream MRs", () => {
+    const m = buildModel(readyFacts(), FIXTURE_NOW);
+    const line = m.lines.find((l) => l.fork.id === "legal");
+    if (!line) throw new Error("legal line");
+    const filtered = { bucket: "Filtered" as const, paths: ["docs/a.md"] };
+    const shared = { bucket: "Shared" as const, paths: ["pom.xml"] };
+    const radar = (certain: (typeof filtered)[], possible: (typeof shared)[]) => ({
+      services: {
+        legal: { state: "clean" as const, queued: 1, mrs: 1, certain, possible },
+      },
+    });
+    expect(upstreamOpens([line], radar([filtered], [shared]))).toEqual({
+      upstreamForks: 1,
+      upstreamMaybe: 1,
+      upstreamHalts: [],
+    });
+  });
+
+  test("the rollout's fingerprint tells an owed re-run from an unjudged environment failure", () => {
+    const inputs = (f: Facts) =>
+      buildModel(f, FIXTURE_NOW).queue.items.find((i) => i.id === "rollout")?.inputs ?? [];
+    const owed = inputs(environmentFacts()).find((x) => x.startsWith("partition:"));
+    const unjudged = inputs(heldFacts()).find((x) => x.startsWith("entitlements:"));
+    expect(owed).toContain(":rerun");
+    expect(unjudged).not.toContain(":rerun");
+    expect(unjudged).toContain("Validation failed on the environment's own hold");
+  });
+
   test("the upstream sync counts only the forks it opens a PR on", () => {
     const r = buildModel(readyFacts(), FIXTURE_NOW).rollout;
     expect(r?.schedule).toMatchObject({ upstreamHalts: ["entitlements"] });

@@ -9,7 +9,14 @@
 import type { CanvasBoardView, CanvasTone } from "@keelson/shared";
 import { flowActions } from "../act/flow.ts";
 import type { ActionItem } from "../act/verbs.ts";
-import { nextSentence, nextWhy, pathName, rolloutWords, upstreamPrs } from "../brief/rollout.ts";
+import {
+  nextSentence,
+  nextWhy,
+  pathName,
+  rolloutWords,
+  upstreamPrs,
+  upstreamSays,
+} from "../brief/rollout.ts";
 import type { Model } from "../model/index.ts";
 import type { QueueItem } from "../model/queue.ts";
 import type { Cell, CellTone, RolloutFork, RolloutModel } from "../model/rollout.ts";
@@ -108,10 +115,9 @@ function scheduleSection(r: RolloutModel, now: Date): Section | undefined {
       : undefined;
     items.push({
       chip: { label: up, tone: "neutral" },
-      text:
-        r.schedule.upstreamForks > 0
-          ? `Upstream sync opens ${upstreamPrs(r)}${until ? ` in ${until}` : ""}.${r.borrows && r.phase !== "done" ? " They share these lanes; dispatch waits while they validate." : ""}`
-          : "Upstream sync has nothing queued.",
+      text: upstreamSays(r)
+        ? `Upstream sync opens ${upstreamPrs(r)}${until ? ` in ${until}` : ""}.${r.borrows && r.phase !== "done" && r.schedule.upstreamForks > 0 ? " They share these lanes; dispatch waits while they validate." : ""}`
+        : "Upstream sync has nothing queued.",
     });
   }
   const tmpl = stamp(r.schedule.template, now);

@@ -270,7 +270,7 @@ function reviewCell(row: TemplateRow): Cell {
   return cell("not needed", "idle");
 }
 
-function upstreamOpens(
+export function upstreamOpens(
   queued: readonly LineModel[],
   radar: RadarModel | undefined,
 ): { upstreamForks: number; upstreamMaybe: number; upstreamHalts: string[] } {
@@ -284,8 +284,8 @@ function upstreamOpens(
       continue;
     }
     forks++;
-    const verdicts = [...(svc?.certain ?? []), ...(svc?.possible ?? [])];
-    if (verdicts.length > 0 && verdicts.every((v) => v.bucket === "Filtered")) maybe++;
+    const queuedOnly = svc?.certain ?? [];
+    if (queuedOnly.length > 0 && queuedOnly.every((v) => v.bucket === "Filtered")) maybe++;
   }
   return { upstreamForks: forks, upstreamMaybe: maybe, upstreamHalts: halts };
 }

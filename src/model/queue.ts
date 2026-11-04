@@ -777,7 +777,7 @@ function rolloutItem(r: RolloutModel, template: TemplateModel): QueueItem {
       r.phase,
       ...r.forks.map(
         (f) =>
-          `${f.service}:${f.onTarget ? "on" : ""}:${f.pr ? `pr${f.pr.number}@${f.pr.headSha}` : ""}:${f.validation.text}:${f.mainRun?.id ?? ""}${f.mainRun?.conclusion ?? ""}`,
+          `${f.service}:${f.onTarget ? "on" : ""}:${f.pr ? `pr${f.pr.number}@${f.pr.headSha}` : ""}:${f.validation.text}:${f.env ? "rerun" : ""}${f.validation.note ?? ""}:${f.mainRun?.id ?? ""}${f.mainRun?.conclusion ?? ""}`,
       ),
     ],
     incident: r.phase === "stopped",
