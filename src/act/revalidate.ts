@@ -6,7 +6,13 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-import { LIFECYCLE_WORKFLOWS, STACK_REPO, SYNC_TEMPLATE_WORKFLOW } from "../config.ts";
+import {
+  FLEET_RELEASE_WORKFLOW,
+  LIFECYCLE_WORKFLOWS,
+  STACK_REPO,
+  SYNC_TEMPLATE_WORKFLOW,
+  TEMPLATE_REPO,
+} from "../config.ts";
 import type { Gh } from "../forge.ts";
 import { short } from "../util.ts";
 import type { Target } from "./verbs.ts";
@@ -23,7 +29,9 @@ export async function readTarget(gh: Gh, t: Target): Promise<Seen> {
     const files =
       t.repo === STACK_REPO
         ? [LIFECYCLE_WORKFLOWS.refresh, LIFECYCLE_WORKFLOWS.upgrade]
-        : [SYNC_TEMPLATE_WORKFLOW];
+        : t.repo === TEMPLATE_REPO
+          ? [FLEET_RELEASE_WORKFLOW]
+          : [SYNC_TEMPLATE_WORKFLOW];
     const statuses = await Promise.all(
       files.map((file) =>
         gh.rest<string[]>(
@@ -32,7 +40,14 @@ export async function readTarget(gh: Gh, t: Target): Promise<Seen> {
         ),
       ),
     );
-    return { state: statuses.flat().some((st) => st !== "completed") ? "running" : "idle" };
+    const state = statuses.flat().some((st) => st !== "completed") ? "running" : "idle";
+    // A workflow target's sha is the osdu-spi main it was drawn for.
+    if (!t.sha) return { state };
+    const main = await gh.rest<{ sha: string }>(
+      `repos/${TEMPLATE_REPO}/commits/main`,
+      "{sha: .sha}",
+    );
+    return { state, sha: main.sha };
   }
   if (t.kind === "repo" || t.number === undefined) return {};
   if (t.kind === "pr") {
@@ -66,7 +81,8 @@ export function runState(status: string, conclusion: string | null | undefined):
 // Why a target no longer matches what was drawn, or undefined when it still does.
 export function changed(t: Target, now: Seen): string | undefined {
   if (t.sha && now.sha && t.sha !== now.sha) {
-    return `head moved ${short(t.sha)} → ${short(now.sha)}`;
+    const what = t.kind === "workflow" ? "osdu-spi main" : "head";
+    return `${what} moved ${short(t.sha)} → ${short(now.sha)}`;
   }
   if (t.state && now.state && t.state !== now.state) return `now ${now.state}, was ${t.state}`;
   return undefined;

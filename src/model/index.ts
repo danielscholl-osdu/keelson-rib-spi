@@ -8,6 +8,7 @@
 
 import { FORKS, PLANNED, type ServiceDef, STACK_REPO, TEMPLATE_REPO } from "../config.ts";
 import type { Facts } from "../facts.ts";
+import { activeRollout } from "../rollout.ts";
 import type { DismissEntry } from "./dismiss.ts";
 import { buildGates, type Gates } from "./gates.ts";
 import { type LaneLoad, laneLoad } from "./lanes.ts";
@@ -16,6 +17,7 @@ import { withoutNoise } from "./noise.ts";
 import { buildQueue, type Queue } from "./queue.ts";
 import { buildRadar, predictAll, type RadarModel } from "./radar.ts";
 import { buildRepos, type ReposModel } from "./repos.ts";
+import { buildRollout, type RolloutModel } from "./rollout.ts";
 import { buildStack, type StackModel } from "./stack.ts";
 import { buildTemplate, type TemplateModel } from "./template.ts";
 import { buildWork, type WorkModel } from "./work.ts";
@@ -39,6 +41,8 @@ export interface Model {
   repositories: ReposModel;
   // Forks holding a lane on the shared environment, against the paced buttons' cap.
   lanes: LaneLoad;
+  // osdu-spi main on its way to the fleet, while main carries what a fork lacks.
+  rollout?: RolloutModel;
   // Checks the built-in noise rules took out of PR state, by rule id.
   noise: Record<string, number>;
 }
@@ -95,10 +99,26 @@ export function buildModel(
     filters: facts.radar.data?.filters,
     synced: facts.template.data?.synced,
   });
+  const lanes = laneLoad({
+    repos,
+    runs: facts.runs.data,
+    prsRead: !!facts.github.data,
+    dispatched: opts.dispatched,
+    pressed: opts.pressed,
+  });
+  const rollout = buildRollout({
+    template,
+    lines,
+    runs: facts.runs.data,
+    lanes,
+    ordering: activeRollout()?.ordering,
+    now,
+  });
   const queue = buildQueue({
     stack,
     lines,
     template,
+    rollout,
     repos,
     details,
     approvals: facts.approvals.data,
@@ -123,13 +143,8 @@ export function buildModel(
     radar,
     work: buildWork(repos),
     repositories,
-    lanes: laneLoad({
-      repos,
-      runs: facts.runs.data,
-      prsRead: !!facts.github.data,
-      dispatched: opts.dispatched,
-      pressed: opts.pressed,
-    }),
+    lanes,
+    ...(rollout ? { rollout } : {}),
     noise: ignored,
   };
 }

@@ -77,6 +77,8 @@ export interface TemplateStep {
   consequences: Consequence[];
   templateOnly: number;
   unread: number;
+  // Per change sha: what it reaches and the synced paths it touches; null while its files are unread.
+  reach: Record<string, { consequences: Consequence[]; paths: string[] } | null>;
   adopted: string[];
   waiting: string[];
   failing: string[];
@@ -176,18 +178,20 @@ export function templateSteps(
     const found = new Set<Consequence>();
     let templateOnly = 0;
     let unread = 0;
+    const reach: TemplateStep["reach"] = {};
     const synced = facts?.synced;
     for (const change of changes) {
       const files = facts?.files?.[change.sha];
       if (!files || !synced) {
         unread++;
+        reach[change.sha] = null;
         continue;
       }
-      const hits = files
-        .map((f) => consequenceOf(f, synced))
-        .filter((c): c is Consequence => c !== null);
-      if (hits.length === 0) templateOnly++;
+      const paths = files.filter((f) => consequenceOf(f, synced) !== null);
+      const hits = new Set(paths.map((f) => consequenceOf(f, synced) as Consequence));
+      if (hits.size === 0) templateOnly++;
       for (const hit of hits) found.add(hit);
+      reach[change.sha] = { consequences: CONSEQUENCE_ORDER.filter((c) => hits.has(c)), paths };
     }
     const step: TemplateStep = {
       label: pos.label,
@@ -198,6 +202,7 @@ export function templateSteps(
       consequences: CONSEQUENCE_ORDER.filter((c) => found.has(c)),
       templateOnly,
       unread,
+      reach,
       adopted: [],
       waiting: [],
       failing: [],
@@ -358,4 +363,21 @@ export function buildTemplate(
     ...(merged ? { merged } : {}),
     ...(fire !== undefined ? { nextSync: new Date(fire).toISOString() } : {}),
   };
+}
+
+// Why Roll out leaves a fork's PR alone, or undefined when it is ready to merge.
+export function heldBecause(row: TemplateRow): string | undefined {
+  const pr = row.pr;
+  if (!pr) return undefined;
+  if (pr.draft) return "is a draft";
+  const own = ownFailure(row);
+  if (own) return `fails ${own.cls} ${own.check}`;
+  if (row.failures.some((f) => !f.hidden && f.cls === "ENV")) return "is red on the stack";
+  if (row.verdict === "pending") return "has checks running";
+  if (row.verdict === "red") return "is red";
+  if (pr.reviewDecision === "CHANGES_REQUESTED") return "has changes requested";
+  if (pr.reviewDecision === "REVIEW_REQUIRED") return "needs review";
+  if (pr.mergeState === "DIRTY") return "has conflicts";
+  if (pr.mergeState === "BEHIND") return "is behind main";
+  return undefined;
 }

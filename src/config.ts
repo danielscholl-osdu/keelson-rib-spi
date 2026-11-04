@@ -116,6 +116,10 @@ export const KNOWN_SERVICES: readonly ServiceDef[] = [
 
 export const SERVICES_FILE = process.env.RIB_SPI_SERVICES_FILE || undefined;
 export const ROLLOUT_FILE = process.env.RIB_SPI_ROLLOUT_FILE || undefined;
+// Recorded facts to draw instead of sweeping; nothing writes while it is set.
+export function replayFile(): string | undefined {
+  return process.env.RIB_SPI_FACTS_FILE || undefined;
+}
 
 function lanesOverride(): number | undefined {
   const n = Number(process.env.RIB_SPI_LANES);
@@ -148,6 +152,7 @@ export const GITLAB_HOST = "community.opengroup.org";
 export const DECLARATION_PATH = "ops/environments/shared.yaml";
 export const MARKER_PATH = ".github/.template-sync-commit";
 export const SYNC_TEMPLATE_WORKFLOW = "sync-template.yml";
+export const FLEET_RELEASE_WORKFLOW = "fleet-release.yml";
 // Sync Upstream runs daily at 00:00 UTC on every fork; the sweep does not read its cron.
 export const SYNC_UPSTREAM_CRON = "0 0 * * *";
 // M28: the upstream Azure provider removal.

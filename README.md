@@ -69,14 +69,28 @@ button for its waiting runs; the confirmation names the author, the files and
 the size, and asks for the PR number when the PR changes anything under
 `.github/`. A push to the PR after the inspector drew it refuses the approval.
 
-The template-sync set's inspector carries the rollout. **Sync all forks** runs
-`gh workflow run sync-template.yml` on each fork behind `osdu-spi` main whose PR
-does not already carry it; a fork with Sync Template already running is
-skipped. **Roll out** merges every template-sync PR that is approved, green and
-unchanged since the draw, with a merge commit, and names each PR held back and
-why. Below the buttons, the release ladder has one step per fork position,
-newest first, and each step opens its own inspector. Review stays on GitHub:
-the rib never approves a PR.
+A template change on `osdu-spi` main that reaches the forks (it touches a
+path the forks sync) raises one **Rollout** item, from the first dispatch to
+the last green main run. The console card only opens the inspector; every verb
+lives there. The Next step card has one primary button, labelled with exactly
+what the next press does: **Start rollout** dispatches Sync Template into the
+free lanes, **Merge** merges the approved, green PRs in the rollout file's
+order, and **Re-run once** re-runs an environment failure after the other lanes
+drain. The other verbs sit under it, each saying why it waits. Every press is
+confirmed with the forks it touches, each target is read again, and a dispatch
+is refused if `osdu-spi` main moved since the board drew it. Below the card are
+a lane meter, one row per fork across PR, Validation, Review, Merge and Main
+run, the schedule (the next upstream and template syncs), the last green main
+run each merge replaced, what reaches the forks, and the release ladder.
+
+A main run that fails after its merge without an `Environment` annotation title
+stops the line: merges and dispatches pause, the failing job is linked, and
+**Retarget the rollout to main** is offered once a template fix merges. A
+failure that carries the title is re-run once instead. When every fork has
+merged and every main run is green, the item offers **Run Fleet Release** with
+publish off for a day. When main carries only changes no fork syncs, open
+template-sync PRs show as the template-sync set, with **Sync all forks** and
+**Roll out**. Review stays on GitHub: the rib never approves a PR.
 
 The console's read line (`every source read`) opens the doctor: the sign-in
 probes, the GitHub budget, each source's last read, and what the verbs need
@@ -123,6 +137,11 @@ cannot download, so the file is written by the rib. Chat can draft or revise a
 month with `spi_release_notes` instead; either way, review the file, then
 approve it in the inspector.
 
+`bun dev/states.ts [out-dir]` writes the rollout states a live sweep may not
+show (in flight, stopped, an environment failure, done) as facts files.
+`RIB_SPI_FACTS_FILE` replays one: the rib draws it at its own sweep time, never
+sweeps, and refuses every write.
+
 `bun dev/releases.ts [YYYY-MM] [out-dir]` reads the releases live and writes
 that month's html and PDF.
 
@@ -143,7 +162,7 @@ list instead, offline.
 
 `.github/fleet/rollout.json` in `Azure/osdu-spi` (schema 1) is read with the
 stack file; `RIB_SPI_ROLLOUT_FILE` reads a local copy instead. The rib reads
-only its `lanes`.
+its `lanes` and `ordering`.
 
 - `lanes` caps Sync all forks, Roll out and Re-run lanes: a press tops the forks
   holding a lane up to the cap and leaves the rest for the next press. A lane is

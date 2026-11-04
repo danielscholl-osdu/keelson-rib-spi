@@ -252,8 +252,17 @@ describe("the rollout file", () => {
     ).toBe("none at Azure/osdu-spi:.github/fleet/rollout.json · fleet buttons unpaced");
   });
 
-  test("lanes sets the cap; ordering and unknown fields are ignored", async () => {
-    expect(ROLLOUT).toEqual({ lanes: 5 });
+  test("lanes and ordering are read; unknown fields are ignored", async () => {
+    expect(ROLLOUT).toEqual({
+      lanes: 5,
+      ordering: [
+        {
+          service: "search",
+          after: ["storage", "indexer"],
+          reason: "the search suites read records through storage and the indexer",
+        },
+      ],
+    });
     const { gh } = fleetGh({ stack: sharedYaml(), rollout: ROLLOUT_TEXT });
     const data: FleetFacts = await readFleet(gh, undefined, FIXTURE_NOW, {});
     expect(data.rolloutFrom).toBe("Azure/osdu-spi:.github/fleet/rollout.json");
@@ -751,13 +760,11 @@ describe("review fixes", () => {
 
   test("a new head on a template-sync PR changes the rollout's fingerprint", () => {
     const facts = releasedFacts();
-    const before = buildModel(facts, FIXTURE_NOW).queue.items.find(
-      (i) => i.kind === "template-set",
-    );
+    const before = buildModel(facts, FIXTURE_NOW).queue.items.find((i) => i.kind === "rollout");
     const pr = facts.github.data?.repos["Azure/osdu-spi-legal"]?.prs.find((p) => p.number === 33);
-    if (!before || !pr) throw new Error("fixture has a template-sync set");
+    if (!before || !pr) throw new Error("fixture has a rollout");
     pr.headSha = "e".repeat(40);
-    const after = buildModel(facts, FIXTURE_NOW).queue.items.find((i) => i.kind === "template-set");
+    const after = buildModel(facts, FIXTURE_NOW).queue.items.find((i) => i.kind === "rollout");
     expect(after?.fingerprint).not.toBe(before.fingerprint);
   });
 

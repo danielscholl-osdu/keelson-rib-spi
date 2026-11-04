@@ -56,20 +56,24 @@ describe("the recorded sweep", () => {
   const b = buildBriefing(fixtureModel(), doctorStatus(facts, FIXTURE_NOW), FIXTURE_NOW);
 
   test("the headline names two causes as imperatives and counts the rest", () => {
-    expect(b.headline).toBe("Restore the environment. Unhalt entitlements. 1 more cause below.");
+    expect(b.headline).toBe("Restore the environment. Unhalt entitlements. 2 more causes below.");
   });
 
   test("the summary leaves the environment to the headline that already names it", () => {
-    expect(b.summary).toBe("2 forks have been stopped for 4 days. 6 PRs are ready for review.");
+    expect(b.summary).toBe("2 forks have been stopped for 4 days. 1 PR is ready for review.");
   });
 
   test("every fact's figure is a version or a count, never a status word", () => {
     expect(b.facts.map((f) => f.label)).toEqual([
       "Environment",
       "Upstream sync",
-      "Template v1.2.0",
+      "Template · main bb49a03",
     ]);
     for (const f of b.facts) expect(f.figure).toMatch(/^(v\d+\.\d+\.\d+|\d+ of \d+|\?)$/);
+    expect(b.facts[2]).toMatchObject({
+      figure: "0 of 5",
+      sub: "on main · 4 changes reach the forks · 5 of 5 on v1.2.0",
+    });
     expect(b.facts[0]?.sub).toBe("upgrade running · at verify · declares v0.28.2");
   });
 
@@ -77,11 +81,11 @@ describe("the recorded sweep", () => {
     expect(b.focus.map((f) => f.id)).toEqual([
       "stack:38181620856",
       "halt:entitlements",
+      "rollout",
       "gate1:legal",
       "approvals:Azure/osdu-spi-stack",
-      "port:entitlements",
     ]);
-    const port = b.focus[4]!;
+    const port = b.rest[0]!;
     expect(port.ids).toEqual(["port:entitlements", "port:legal"]);
     expect(port.title).toBe("3 upstream provider changes not ported");
     expect(port.sub).toBe("entitlements 2 · legal 1");
@@ -147,10 +151,7 @@ describe("the recorded sweep", () => {
   });
 
   test("ready work is one line per kind and never ranked into focus", () => {
-    expect(b.ready.map((r) => r.text)).toEqual([
-      "5 template-sync PRs to v1.2.0 +14",
-      "1 release PR",
-    ]);
+    expect(b.ready.map((r) => r.text)).toEqual(["1 release PR"]);
     expect(b.focus.some((f) => f.rung === 2)).toBe(false);
   });
 });

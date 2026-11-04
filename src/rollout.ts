@@ -8,11 +8,49 @@
 
 import type { JobDetail } from "./facts.ts";
 
-// The fleet rollout file in osdu-spi. The rib reads only `lanes`; other fields pass unread.
+// The fleet rollout file in osdu-spi. The rib reads `lanes` and `ordering`; other fields pass unread.
 export const ROLLOUT_SCHEMA = 1;
+
+// A fork that merges only once each fork it names has merged and its main run is green.
+export interface OrderRule {
+  service: string;
+  after: string[];
+  reason?: string;
+}
 
 export interface Rollout {
   lanes?: number;
+  ordering?: OrderRule[];
+}
+
+function orderingOf(raw: unknown): { ordering?: OrderRule[]; warnings: string[] } {
+  if (raw === undefined) return { warnings: [] };
+  const rules = Array.isArray(raw) ? raw : [];
+  const ordering: OrderRule[] = [];
+  for (const r of rules) {
+    const rule = (r ?? {}) as { service?: unknown; after?: unknown; reason?: unknown };
+    if (
+      typeof rule.service !== "string" ||
+      !Array.isArray(rule.after) ||
+      !rule.after.every((a) => typeof a === "string")
+    )
+      continue;
+    ordering.push({
+      service: rule.service,
+      after: rule.after as string[],
+      ...(typeof rule.reason === "string" ? { reason: rule.reason } : {}),
+    });
+  }
+  const dropped = Array.isArray(raw) ? rules.length - ordering.length : 1;
+  return {
+    ordering,
+    warnings:
+      dropped > 0
+        ? [
+            `rollout file has ${dropped === 1 ? "an ordering rule" : `${dropped} ordering rules`} the rib cannot read; merges ignore it`,
+          ]
+        : [],
+  };
 }
 
 export interface ParsedRollout {
@@ -27,7 +65,7 @@ export function parseRollout(text: string): ParsedRollout {
   } catch (err) {
     return { warnings: [`rollout file is not JSON: ${(err as Error).message}`] };
   }
-  const doc = (raw ?? {}) as { schema?: unknown; lanes?: unknown };
+  const doc = (raw ?? {}) as { schema?: unknown; lanes?: unknown; ordering?: unknown };
   if (doc.schema !== ROLLOUT_SCHEMA) {
     return {
       warnings: [
@@ -35,16 +73,19 @@ export function parseRollout(text: string): ParsedRollout {
       ],
     };
   }
-  if (doc.lanes === undefined) return { rollout: {}, warnings: [] };
+  const order = orderingOf(doc.ordering);
+  const ordering = order.ordering?.length ? { ordering: order.ordering } : {};
+  if (doc.lanes === undefined) return { rollout: { ...ordering }, warnings: order.warnings };
   if (typeof doc.lanes !== "number" || !Number.isInteger(doc.lanes) || doc.lanes < 1) {
     return {
-      rollout: {},
+      rollout: { ...ordering },
       warnings: [
         `rollout file has lanes ${JSON.stringify(doc.lanes)}, not a positive whole number; fleet buttons unpaced`,
+        ...order.warnings,
       ],
     };
   }
-  return { rollout: { lanes: doc.lanes }, warnings: [] };
+  return { rollout: { lanes: doc.lanes, ...ordering }, warnings: order.warnings };
 }
 
 // The rollout file the model reads, set once per sweep beside the fleet list.

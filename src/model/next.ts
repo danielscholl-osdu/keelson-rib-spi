@@ -11,7 +11,14 @@ import type { FailureClass } from "./attribution.ts";
 import type { ItemKind, QueueItem } from "./queue.ts";
 import { pullFailure } from "./reason.ts";
 
-export type ItemClass = FailureClass | "PORT" | "SECURITY" | "INCIDENT" | "GATE" | "READY";
+export type ItemClass =
+  | FailureClass
+  | "PORT"
+  | "SECURITY"
+  | "ROLLOUT"
+  | "INCIDENT"
+  | "GATE"
+  | "READY";
 
 // A fork whose upstream filter already lists a halted entry, and what its rule says.
 export interface ListedEntry {
@@ -23,7 +30,10 @@ export function itemClass(item: QueueItem): ItemClass {
   return item.cls ?? (item.incident ? "INCIDENT" : item.rung === 1 ? "GATE" : "READY");
 }
 
-export const CLASS_VERB: Record<FailureClass | "PORT" | "SECURITY" | "INCIDENT", string> = {
+export const CLASS_VERB: Record<
+  FailureClass | "PORT" | "SECURITY" | "ROLLOUT" | "INCIDENT",
+  string
+> = {
   HALT: "Classify entry",
   TOOLCHAIN: "Absorb toolchain",
   BUILD: "Investigate",
@@ -35,6 +45,7 @@ export const CLASS_VERB: Record<FailureClass | "PORT" | "SECURITY" | "INCIDENT",
   ACCESS: "Open run, Open PR",
   PORT: "Port",
   SECURITY: "Review alerts",
+  ROLLOUT: "Open the rollout",
   CONFLICT: "Investigate, then Dispatch cascade",
   INCIDENT: "Investigate",
 };
@@ -180,6 +191,8 @@ export function nextText(item: QueueItem, listed: readonly ListedEntry[] = []): 
       return "Apply the template's label changes by hand, then close the issue";
     case "template-set":
       return "Review the template-sync PRs on GitHub; Roll out merges the reviewed ones together";
+    case "rollout":
+      return "Open the rollout in the inspector; its Next step names the press";
     case "releases":
       return "Review each release PR on GitHub and merge it to cut the release";
     case "bump":

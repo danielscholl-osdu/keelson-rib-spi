@@ -21,6 +21,7 @@ bun run typecheck        # tsc --noEmit
 bun run check            # Biome lint + format
 bun dev/sweep.ts         # one live sweep with your gh and glab, console and inspectors validated
 bun dev/releases.ts      # one live release read, then a month's notes as html and PDF
+bun dev/states.ts        # the rollout states as facts files; RIB_SPI_FACTS_FILE replays one
 
 keelson rib add "$PWD"   # install into the keelson home, then `keelson restart`
 ```
@@ -86,8 +87,9 @@ A change needs `bun run check`, `bun run typecheck` and `bun test` green.
 - **Identity is configuration.** Fleet membership is the stack's `forks:` list
   (`src/collect/fleet.ts`); each fork's identity comes from `src/config.ts` or
   the fork's own `UPSTREAM_REPO_URL`, never from derived names. The rollout
-  file in osdu-spi is read for `lanes` only; a failure's class comes from its
-  annotation title `Environment`, never from matching message text.
+  file in osdu-spi is read for `lanes` and `ordering` only; a failure's class
+  comes from its annotation title `Environment`, never from matching message
+  text.
 - **Paced writes top up.** A paced verb starts at most the lane cap less the
   lanes in flight, checked again in `act()`; the rest wait for the next press.
 - **Local time.** Stamps print in the machine's local zone, the zone the host

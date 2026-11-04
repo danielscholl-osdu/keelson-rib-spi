@@ -31,7 +31,7 @@ describe("the console frame", () => {
   });
 
   test("shows the headline, the facts and every focus row", () => {
-    expect(html).toContain("Restore the environment. Unhalt entitlements. 1 more cause below.");
+    expect(html).toContain("Restore the environment. Unhalt entitlements. 2 more causes below.");
     for (const f of b.facts) expect(html).toContain(f.figure);
     for (const f of b.focus) expect(html).toContain(`data-sel="${f.id}"`);
   });
@@ -74,7 +74,7 @@ describe("the console frame", () => {
       expect(out).toContain(`data-detail="${f.id}" hidden>`);
       expect(out).toContain(`data-inspect="${f.id}"`);
     }
-    expect(html).not.toContain('<details class="more">');
+    expect(html.includes('<details class="more">')).toBe(b.rest.length > 0);
   });
 
   test("the frame carries no links, since a sandboxed frame cannot open them", () => {

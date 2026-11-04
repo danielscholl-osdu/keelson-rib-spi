@@ -7,6 +7,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import type { RibActionResult, RibExec } from "@keelson/shared";
+import { replayFile } from "../config.ts";
 import { Gh } from "../forge.ts";
 import { type LaneLoad, laneRoom } from "../model/lanes.ts";
 import { clip, plural, pool } from "../util.ts";
@@ -94,6 +95,9 @@ let pacedTurn: Promise<unknown> = Promise.resolve();
 // Every write runs this path: parse the binding the board stamped, read each target
 // again, write only to the ones that still match, log the outcome, then resweep.
 export async function act(payload: unknown, deps: ActDeps): Promise<RibActionResult> {
+  if (replayFile()) {
+    return { ok: false, error: "replaying recorded facts (RIB_SPI_FACTS_FILE); nothing writes" };
+  }
   const binding = parseBinding(payload);
   if (!binding) return { ok: false, error: "act needs the binding the board stamped" };
   const verb = verbOf(binding.verb);
