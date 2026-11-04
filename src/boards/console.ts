@@ -590,7 +590,7 @@ button.envband:hover { background: var(--hover); }
 .split.rsplit { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); }
 .rtable { min-width: 0; overflow-x: auto; }
 .rgrid { min-width: 600px; }
-.rhead, .rrow { display: grid; box-sizing: border-box; grid-template-columns: minmax(92px, 1fr) minmax(60px, 1fr) minmax(60px, 1fr) minmax(60px, 1.35fr) minmax(60px, 1fr) minmax(60px, 1fr); gap: 0 10px; align-items: baseline; }
+.rhead, .rrow { display: grid; box-sizing: border-box; grid-template-columns: minmax(120px, 1.25fr) minmax(60px, 1fr) minmax(60px, .9fr) minmax(60px, 1.35fr) minmax(60px, 1fr) minmax(60px, 1fr); gap: 0 8px; align-items: baseline; }
 .rhead { padding: 0 12px 8px; border-bottom: 1px solid var(--line); align-items: start; line-height: 1.35; font-size: 12px; letter-spacing: 0; text-transform: none; }
 .rhead > span { white-space: nowrap; min-width: 0; }
 .rhead small { display: block; white-space: nowrap; font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--muted); }
