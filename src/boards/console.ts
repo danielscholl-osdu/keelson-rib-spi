@@ -203,6 +203,7 @@ ${details ? `<div class="pane cells">${details}</div>` : ""}`;
 const TRACK_MIN_PX = 960;
 const CHAR_PX = 6.6;
 const BAR_MIN_PX = 10;
+const LABEL_GAP_PX = 9;
 const TIER_PX = 22;
 const MAX_TIERS = 6;
 
@@ -266,7 +267,7 @@ interface Placed {
 // Each bar takes the first tier where it and its label clear the one before.
 function place(events: readonly EnvEvent[], from: number, to: number): Placed[] {
   const ends: number[] = [];
-  const gap = (4 / TRACK_MIN_PX) * 100;
+  const gap = (LABEL_GAP_PX / TRACK_MIN_PX) * 100;
   return [...events]
     .sort((a, b) => Date.parse(a.start) - Date.parse(b.start))
     .map((e) => {
@@ -509,6 +510,7 @@ h2 { margin: 18px 0 4px; font-size: 21px; line-height: 1.3; font-weight: 650; le
 :root:not([data-theme="light"]) .relfacts .fact { background: color-mix(in srgb, var(--card-2) 85%, var(--card)); }
 :root:not([data-theme="light"]) .tick { border-left-color: color-mix(in srgb, var(--line) 20%, transparent); }
 :root:not([data-theme="light"]) .tick.major { border-left-color: color-mix(in srgb, var(--line) 50%, transparent); }
+:root[data-theme="light"] :is(.chip, .tag):is(.t-bad, .t-warn, .t-ok) { color: color-mix(in srgb, var(--tone) 72%, var(--fg-strong)); }
 :root[data-theme="light"] .rung { font-weight: 650; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 65%, transparent); }
 :root:not([data-theme="light"]) .tab:is(:hover, .on) { color: var(--fg-strong); }
 .items { margin: 6px 0 0; padding-left: 18px; font-size: 13.5px; }
@@ -567,8 +569,8 @@ button.envband:hover { background: var(--hover); }
 .ev { position: absolute; height: 12px; min-width: ${BAR_MIN_PX}px; padding: 0; border: none; border-radius: 6px; background: var(--muted); cursor: pointer; font: inherit; }
 .ev.s-ok { background: var(--good); } .ev.s-failed { background: var(--crit); } .ev.s-running, .ev.s-held { background: var(--warn); }
 .ev.s-held { background: color-mix(in srgb, var(--warn) 25%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 55%, transparent); }
-.evl { position: absolute; left: calc(100% + 9px); top: -3px; font-size: 12px; line-height: 18px; color: var(--fg); white-space: nowrap; }
-.evl.flip { left: auto; right: calc(100% + 9px); }
+.evl { position: absolute; left: calc(100% + ${LABEL_GAP_PX}px); top: -3px; font-size: 12px; line-height: 18px; color: var(--fg); white-space: nowrap; }
+.evl.flip { left: auto; right: calc(100% + ${LABEL_GAP_PX}px); }
 .ev.s-failed .evl { color: var(--crit); font-weight: 600; }
 .ev.s-held .evl { color: var(--muted); }
 .ev.on .evl { color: var(--fg-strong); font-weight: 600; text-decoration: underline 2px var(--accent); text-underline-offset: 3px; }
@@ -607,7 +609,7 @@ button.envband:hover { background: var(--hover); }
 .rc .rup, .rsec .rup, .rhead .rup { color: var(--muted); }
 .rsec { display: flex; justify-content: space-between; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
 .detail .dl.rsec, .detail > p.dl.rsec { margin-top: 10px; }
-.rl { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 2px 10px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.rl { display: grid; grid-template-columns: minmax(70px, max-content) minmax(0, 1fr); gap: 2px 10px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; }
 .rsec + .rl { border-top: none; padding-top: 6px; }
 .tag { justify-self: start; font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; line-height: 18px; padding: 0 7px; border-radius: 5px; color: var(--tone); background: color-mix(in srgb, var(--tone) 12%, transparent); align-self: start; margin-top: 1px; white-space: nowrap; }
 .rt { color: var(--fg-strong); overflow-wrap: anywhere; }
