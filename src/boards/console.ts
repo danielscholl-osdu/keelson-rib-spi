@@ -505,7 +505,10 @@ h2 { margin: 18px 0 4px; font-size: 21px; line-height: 1.3; font-weight: 650; le
 .open { justify-self: start; margin-top: 16px; font: inherit; font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 7px; border: 1px solid var(--accent); color: var(--card); background: var(--accent); cursor: pointer; }
 .open:hover { filter: brightness(1.08); }
 :root:not([data-theme="light"]) :is(.tab, .stamp, .when) { color: color-mix(in srgb, var(--fg) 45%, var(--muted)); }
-:root:not([data-theme="light"]) .ev.s-held { background: color-mix(in srgb, var(--warn) 40%, transparent); }
+:root:not([data-theme="light"]) .ev.s-held { background: color-mix(in srgb, var(--warn) 30%, transparent); }
+:root:not([data-theme="light"]) .relfacts .fact { background: color-mix(in srgb, var(--card-2) 85%, var(--card)); }
+:root:not([data-theme="light"]) .tick { border-left-color: color-mix(in srgb, var(--line) 20%, transparent); }
+:root:not([data-theme="light"]) .tick.major { border-left-color: color-mix(in srgb, var(--line) 50%, transparent); }
 :root[data-theme="light"] .rung { font-weight: 650; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 65%, transparent); }
 :root:not([data-theme="light"]) .tab:is(:hover, .on) { color: var(--fg-strong); }
 .items { margin: 6px 0 0; padding-left: 18px; font-size: 13.5px; }
@@ -535,7 +538,7 @@ button.envband:hover { background: var(--hover); }
 .cell { position: relative; display: inline-flex; align-items: center; max-width: 100%; text-align: left; font: inherit; font-size: 13px; padding: 6px 10px 6px 20px; border: none; border-radius: 7px; background: none; color: var(--soft); cursor: pointer; }
 .cell::before { content: ""; position: absolute; left: 7px; top: calc(50% - 3.5px); width: 7px; height: 7px; border-radius: 50%; background: transparent; }
 .cell:hover { background: var(--hover); }
-.cell.on { background: var(--pick); color: var(--fg-strong); }
+.cell.on { background: color-mix(in srgb, var(--accent) 15%, var(--card)); color: var(--fg-strong); }
 .cell.s-stopped { color: var(--crit); font-weight: 600; }
 .cell.s-stopped::before { background: var(--crit); }
 .cell.s-waiting { color: var(--fg); }
@@ -587,8 +590,9 @@ button.envband:hover { background: var(--hover); }
 .split.rsplit { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); }
 .rtable { min-width: 0; overflow-x: auto; }
 .rgrid { min-width: 600px; }
-.rhead, .rrow { display: grid; box-sizing: border-box; grid-template-columns: minmax(92px, 1.2fr) repeat(5, minmax(60px, 1fr)); gap: 0 10px; align-items: baseline; }
+.rhead, .rrow { display: grid; box-sizing: border-box; grid-template-columns: minmax(92px, 1fr) minmax(60px, 1fr) minmax(60px, 1fr) minmax(60px, 1.35fr) minmax(60px, 1fr) minmax(60px, 1fr); gap: 0 10px; align-items: baseline; }
 .rhead { padding: 0 12px 8px; border-bottom: 1px solid var(--line); align-items: start; line-height: 1.35; font-size: 12px; letter-spacing: 0; text-transform: none; }
+.rhead > span { white-space: nowrap; min-width: 0; }
 .rhead small { display: block; white-space: nowrap; font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--muted); }
 .rgrp { margin: 14px 0 2px; padding: 0 12px; }
 .rrow { position: relative; width: 100%; text-align: left; padding: 7px 12px; border: none; border-bottom: 1px solid var(--line); border-radius: 0; background: none; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
@@ -603,7 +607,7 @@ button.envband:hover { background: var(--hover); }
 .rc .rup, .rsec .rup, .rhead .rup { color: var(--muted); }
 .rsec { display: flex; justify-content: space-between; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
 .detail .dl.rsec, .detail > p.dl.rsec { margin-top: 10px; }
-.rl { display: grid; grid-template-columns: 66px minmax(0, 1fr); gap: 2px 10px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.rl { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 2px 10px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; }
 .rsec + .rl { border-top: none; padding-top: 6px; }
 .tag { justify-self: start; font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; line-height: 18px; padding: 0 7px; border-radius: 5px; color: var(--tone); background: color-mix(in srgb, var(--tone) 12%, transparent); align-self: start; margin-top: 1px; white-space: nowrap; }
 .rt { color: var(--fg-strong); overflow-wrap: anywhere; }
