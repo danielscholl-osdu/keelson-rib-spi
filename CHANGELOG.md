@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/danielscholl-osdu/keelson-rib-spi/compare/v1.4.0...v1.5.0) (2026-11-04)
+
+
+### Added
+
+* **fleet:** read fleet and rollout file from GitHub, pace sync buttons ([#26](https://github.com/danielscholl-osdu/keelson-rib-spi/issues/26)) ([6c6801f](https://github.com/danielscholl-osdu/keelson-rib-spi/commit/6c6801fa3372c96aa91099831e72ef01822d7764))
+
 ## [1.4.0](https://github.com/danielscholl-osdu/keelson-rib-spi/compare/v1.3.1...v1.4.0) (2026-11-04)
 
 
