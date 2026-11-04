@@ -203,12 +203,21 @@ export function registerSpiTools(
     tool(
       "spi_line",
       "One service line from upstream GitLab to the shared stack: the six stations, upstream lag and the commits behind it, the open gate PRs with failure classes, a sync halt, the release, the template version with the one its template-sync PR moves it to, and the 21-day lane ledger.",
-      z.object({ service: z.enum(FORKS.map((f) => f.id) as [string, ...string[]]) }),
+      z.object({
+        service: z
+          .string()
+          .min(1)
+          .describe("A service id from the fleet, as spi_watchstand names it"),
+      }),
       ({ service }) => {
         const m = sweeper.model;
         const t = now();
         const line = m.lines.find((l) => l.fork.id === service);
-        if (!line) return { error: `unknown service ${service}` };
+        if (!line) {
+          return {
+            error: `unknown service ${service}; the fleet is ${FORKS.map((f) => f.id).join(", ")}`,
+          };
+        }
         return (
           notMeasured(m) ?? {
             service,

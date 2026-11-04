@@ -14,6 +14,7 @@ import { inspectBoard } from "../src/boards/inspect.ts";
 import { STEP_PREFIX } from "../src/boards/template.ts";
 import { buildBriefing } from "../src/brief/index.ts";
 import { checkable, entryAcrossForks } from "../src/collect/filters.ts";
+import { activeFleetView } from "../src/collect/fleet.ts";
 import { Gh, Glab } from "../src/forge.ts";
 import { INSPECT_KEY } from "../src/keys.ts";
 import { attemptText, overdue, usualText } from "../src/model/stack.ts";
@@ -48,6 +49,32 @@ for (const [area, v] of Object.entries(sweeper.facts)) {
   const mv = v as { at?: string; error?: string };
   console.log(`  ${area.padEnd(10)} ${mv.at ? "ok" : "--"} ${mv.error ? `ERROR ${mv.error}` : ""}`);
 }
+const fleetData = sweeper.facts.fleet.data;
+const view = activeFleetView();
+if (!view) throw new Error("the sweeper applies a fleet view");
+const fleet = view.fleet;
+console.log(`\nFLEET · ${fleet.services.length} forks from ${fleet.source}`);
+for (const f of fleet.services) {
+  const v = f.repo ? fleetData?.vars[f.repo] : undefined;
+  console.log(
+    `  ${f.id.padEnd(15)} ${(f.repo ?? "").padEnd(32)} ${f.upstream} · mirror ${f.mirror === null ? "?" : f.mirror}${v?.syncMode ? ` · SYNC_MODE ${v.syncMode}` : ""}`,
+  );
+}
+for (const u of fleet.unresolved) console.log(`  not followed: ${u.service} (${u.why})`);
+const parsedRollout = view.rollout;
+console.log(
+  `\nROLLOUT · ${view.rolloutMissing ? `none at ${view.rolloutFrom}; unpaced` : `${view.rolloutFrom} · lanes ${parsedRollout.rollout?.lanes ?? "-"}`}`,
+);
+for (const w of parsedRollout.warnings) console.log(`  warning: ${w}`);
+for (const [id, n] of Object.entries(m.noise)) console.log(`  noise ${id}: ${n} ignored now`);
+console.log(
+  `\nLANES · cap ${m.lanes.cap ?? "none (unpaced)"}${m.lanes.capFrom ? ` from ${m.lanes.capFrom}` : ""} · ${m.lanes.inflight.length} in flight`,
+);
+for (const l of m.lanes.inflight) console.log(`  ${l.service.padEnd(15)} ${l.what}`);
+for (const i of m.queue.items.filter((x) => x.judgement))
+  console.log(
+    `  judged ${i.id}: ${i.judgement?.class} ${i.judgement?.response}${i.judgement?.note ? ` (${i.judgement.note})` : ""}${i.judgement?.cause ? ` · ${i.judgement.cause}` : ""}`,
+  );
 const radar = sweeper.facts.radar.data;
 console.log(
   `\nRADAR · ${radarCalls} calls · ${Object.keys(radar?.filters ?? {}).length} filters · port match read ${radar?.portRead?.prs ?? "?"} fork PRs, ${radar?.portRead?.commits ?? "?"} commit messages`,

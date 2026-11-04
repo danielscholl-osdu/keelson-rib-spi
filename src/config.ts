@@ -16,9 +16,12 @@ export interface ServiceDef {
   prefix?: string;
   repo?: string;
   seeded?: string;
+  // SYNC_MODE=mirror (ADR-039): the fork never runs Sync Template. Null when unread.
+  mirror?: boolean | null;
 }
 
-const DEFAULT_SERVICES: readonly ServiceDef[] = [
+// Identity for the forks the stack lists, and the fleet until a sweep reads that list.
+export const KNOWN_SERVICES: readonly ServiceDef[] = [
   {
     id: "partition",
     repo: "Azure/osdu-spi-partition",
@@ -111,15 +114,30 @@ const DEFAULT_SERVICES: readonly ServiceDef[] = [
   },
 ];
 
-const servicesFile = process.env.RIB_SPI_SERVICES_FILE;
-export const SERVICES: readonly ServiceDef[] = servicesFile
-  ? (JSON.parse(readFileSync(servicesFile, "utf8")) as ServiceDef[])
-  : DEFAULT_SERVICES;
+export const SERVICES_FILE = process.env.RIB_SPI_SERVICES_FILE || undefined;
+export const ROLLOUT_FILE = process.env.RIB_SPI_ROLLOUT_FILE || undefined;
+
+function lanesOverride(): number | undefined {
+  const n = Number(process.env.RIB_SPI_LANES);
+  return Number.isInteger(n) && n > 0 ? n : undefined;
+}
+// Overrides the rollout file's `lanes` for the paced fleet buttons.
+export const LANES_OVERRIDE = lanesOverride();
 
 export type ForkDef = ServiceDef & { repo: string };
 
-export const FORKS: readonly ForkDef[] = SERVICES.filter((s): s is ForkDef => !!s.repo);
-export const PLANNED: readonly ServiceDef[] = SERVICES.filter((s) => !s.repo);
+// The fleet lists change in place when a sweep reads the stack's `forks:`, so every
+// importer sees the same fleet without re-importing.
+const services: ServiceDef[] = [];
+const forks: ForkDef[] = [];
+const planned: ServiceDef[] = [];
+const repos: string[] = [];
+const releaseRepos: string[] = [];
+const projectRepos: string[] = [];
+
+export const SERVICES: readonly ServiceDef[] = services;
+export const FORKS: readonly ForkDef[] = forks;
+export const PLANNED: readonly ServiceDef[] = planned;
 
 export const TEMPLATE_REPO = "Azure/osdu-spi";
 export const STACK_REPO = "Azure/osdu-spi-stack";
@@ -136,7 +154,9 @@ export const SYNC_UPSTREAM_CRON = "0 0 * * *";
 export const AZURE_REMOVAL_DUE = "2026-11-13T00:00:00Z";
 export const LANE_ENVIRONMENT = "spi-stack";
 
-export const REPOS: readonly string[] = [TEMPLATE_REPO, STACK_REPO, ...FORKS.map((f) => f.repo)];
+export const REPOS: readonly string[] = repos;
+// Repositories a Keelson project can be rooted at for the agent verbs.
+export const PROJECT_REPOS: readonly string[] = projectRepos;
 
 export function plannedRepo(service: ServiceDef): string {
   return `Azure/osdu-spi-${service.id}`;
@@ -168,12 +188,37 @@ export type LifecycleKind = keyof typeof LIFECYCLE_WORKFLOWS;
 
 export const HISTORY_DAYS = 21;
 
-export const RELEASE_REPOS: readonly string[] = [
-  TEMPLATE_REPO,
-  STACK_REPO,
-  CORE_LIB_REPO,
-  ...FORKS.map((f) => f.repo),
-];
+export const RELEASE_REPOS: readonly string[] = releaseRepos;
+
+function replace<T>(list: T[], next: readonly T[]): void {
+  list.splice(0, list.length, ...next);
+}
+
+// Replaces the fleet; true when the list of forks or their identity changed.
+export function setFleet(next: readonly ServiceDef[]): boolean {
+  const before = JSON.stringify(services);
+  replace(services, next);
+  replace(
+    forks,
+    next.filter((s): s is ForkDef => !!s.repo),
+  );
+  replace(
+    planned,
+    next.filter((s) => !s.repo),
+  );
+  replace(repos, [TEMPLATE_REPO, STACK_REPO, ...forks.map((f) => f.repo)]);
+  replace(releaseRepos, [TEMPLATE_REPO, STACK_REPO, CORE_LIB_REPO, ...forks.map((f) => f.repo)]);
+  replace(projectRepos, [...forks.map((f) => f.repo), TEMPLATE_REPO]);
+  return JSON.stringify(services) !== before;
+}
+
+export function builtInFleet(file: string | null = SERVICES_FILE ?? null): ServiceDef[] {
+  return file
+    ? (JSON.parse(readFileSync(file, "utf8")) as ServiceDef[])
+    : KNOWN_SERVICES.map((s) => ({ ...s }));
+}
+
+setFleet(builtInFleet());
 
 export const SWEEP_MS = 5 * 60_000;
 export const RELEASES_EVERY_MS = 60 * 60_000;

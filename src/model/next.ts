@@ -6,6 +6,7 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
+import type { Judgement } from "../rollout.ts";
 import type { FailureClass } from "./attribution.ts";
 import type { ItemKind, QueueItem } from "./queue.ts";
 import { pullFailure } from "./reason.ts";
@@ -130,8 +131,30 @@ function radarNext(item: QueueItem): string {
     : `Absorb ${value || "the toolchain move"} on the fork before the next Sync Upstream carries it`;
 }
 
+function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
+const RERUN_ONCE = "re-run the failed jobs once, after the other lanes drain";
+
+// An environment failure is re-run once; anything else stops the line and is fixed in the template.
+function judgedNext(item: QueueItem, j: Judgement): string {
+  if (j.response === "stop") {
+    const first =
+      item.kind === "lanes" ? "read why the lanes failed" : lowerFirst(failureNext(item));
+    return `Stop the line${j.note ? ` (${j.note})` : ""}: ${first}, then fix it forward in the template; no re-run`;
+  }
+  if (item.kind === "lanes" && !item.note) {
+    return `Wait for the stack to read deployable, then ${RERUN_ONCE}`;
+  }
+  return `${RERUN_ONCE.replace(/^r/, "R")}`;
+}
+
 // What a person does to clear the item, in the words of its verb.
 export function nextText(item: QueueItem, listed: readonly ListedEntry[] = []): string {
+  if (item.judgement && (item.kind === "lanes" || item.kind === "template-red")) {
+    return judgedNext(item, item.judgement);
+  }
   switch (item.kind) {
     case "halt":
       return haltNext(item, listed);

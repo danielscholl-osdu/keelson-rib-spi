@@ -10,6 +10,7 @@ import { clip, plural } from "../util.ts";
 
 export interface Annotation {
   level: string;
+  title?: string | null;
   message: string;
 }
 

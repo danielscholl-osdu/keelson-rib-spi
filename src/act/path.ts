@@ -8,11 +8,13 @@
 
 import type { RibActionResult, RibExec } from "@keelson/shared";
 import { Gh } from "../forge.ts";
+import { type LaneLoad, laneRoom } from "../model/lanes.ts";
 import { clip, plural, pool } from "../util.ts";
 import type { ActionLog, ActionResult } from "./log.ts";
 import { changed, readTarget } from "./revalidate.ts";
-import { type Binding, bindingSchema, verbOf } from "./verbs.ts";
+import { type Binding, bindingSchema, type Target, type Verb, verbOf } from "./verbs.ts";
 
+// Write concurrency only; how many forks a press may start is the lane cap.
 const TARGETS_AT_ONCE = 5;
 
 export interface ActDeps {
@@ -21,13 +23,23 @@ export interface ActDeps {
   // Reads the area again; the item leaves the queue only when that read shows the change.
   resweep: () => void;
   now: () => Date;
+  // The lanes in flight as of the latest sweep and press, for a paced verb.
+  lanes?: () => LaneLoad;
+  // Counts the forks a paced verb just wrote to as in flight until a sweep sees their runs.
+  hold?: (repos: string[], at: string) => void;
 }
 
 function summary(label: string, results: readonly ActionResult[]): string {
   const done = results.filter((r) => r.outcome === "done").length;
+  const waiting = results.filter((r) => r.outcome === "waiting");
   const parts = [`${label}: ${done} of ${results.length} done`];
+  if (waiting.length > 0) {
+    parts.push(
+      `${plural(waiting.length, "target")} wait for the next press (${waiting[0]?.detail})`,
+    );
+  }
   for (const r of results) {
-    if (r.outcome === "done") continue;
+    if (r.outcome === "done" || r.outcome === "waiting") continue;
     parts.push(
       `${r.target} ${r.outcome === "refused" ? "skipped" : "failed"}${r.detail ? ` (${r.detail})` : ""}`,
     );
@@ -46,6 +58,39 @@ export function parseBinding(payload: unknown): Binding | undefined {
   return parsed.success ? parsed.data : undefined;
 }
 
+// A paced verb starts at most the lane cap's room, in the binding's order, and never
+// writes to a fork whose lane is already in flight; a press tops up, it does not add N.
+export function paceTargets(
+  targets: readonly Target[],
+  load: LaneLoad,
+): { go: Target[]; held: ActionResult[] } {
+  const busy = new Set(load.inflight.map((l) => l.repo));
+  const room = laneRoom(load);
+  const started = new Set<string>();
+  const go: Target[] = [];
+  const held: ActionResult[] = [];
+  for (const t of targets) {
+    if (busy.has(t.repo)) {
+      held.push({ target: t.label, outcome: "refused", detail: "its lane is already in flight" });
+    } else if (!started.has(t.repo) && started.size >= room) {
+      held.push({
+        target: t.label,
+        outcome: "waiting",
+        detail: load.unread
+          ? `lanes unknown until ${load.unread} are read`
+          : `${load.inflight.length + started.size} of ${load.cap} lanes in flight`,
+      });
+    } else {
+      started.add(t.repo);
+      go.push(t);
+    }
+  }
+  return { go, held };
+}
+
+// Paced presses run one at a time, so each reads the lanes the one before it held.
+let pacedTurn: Promise<unknown> = Promise.resolve();
+
 // Every write runs this path: parse the binding the board stamped, read each target
 // again, write only to the ones that still match, log the outcome, then resweep.
 export async function act(payload: unknown, deps: ActDeps): Promise<RibActionResult> {
@@ -53,10 +98,20 @@ export async function act(payload: unknown, deps: ActDeps): Promise<RibActionRes
   if (!binding) return { ok: false, error: "act needs the binding the board stamped" };
   const verb = verbOf(binding.verb);
   if (!verb) return { ok: false, error: `spi has no verb '${binding.verb}'` };
+  if (!verb.paced) return write(binding, verb, deps);
+  const turn = pacedTurn.then(() => write(binding, verb, deps));
+  pacedTurn = turn.catch(() => undefined);
+  return turn;
+}
 
+async function write(binding: Binding, verb: Verb, deps: ActDeps): Promise<RibActionResult> {
   const gh = new Gh(deps.exec);
+  const paced =
+    verb.paced && deps.lanes
+      ? paceTargets(binding.targets, deps.lanes())
+      : { go: binding.targets, held: [] };
   // Targets are independent, so one slow or failing write does not hold the others.
-  const results: ActionResult[] = await pool(binding.targets, TARGETS_AT_ONCE, async (target) => {
+  const written: ActionResult[] = await pool(paced.go, TARGETS_AT_ONCE, async (target) => {
     try {
       const why = changed(target, await readTarget(gh, target));
       if (why) return { target: target.label, outcome: "refused", detail: why };
@@ -72,9 +127,16 @@ export async function act(payload: unknown, deps: ActDeps): Promise<RibActionRes
       ? { target: target.label, outcome: "done" }
       : { target: target.label, outcome: "failed", detail: clip(res.error, 200) };
   });
+  const results = [...written, ...paced.held];
+  const at = deps.now().toISOString();
+  if (verb.paced) {
+    const done = new Set(written.filter((r) => r.outcome === "done").map((r) => r.target));
+    const repos = paced.go.filter((t) => done.has(t.label)).map((t) => t.repo);
+    if (repos.length > 0) deps.hold?.([...new Set(repos)], at);
+  }
 
   deps.log.append({
-    at: deps.now().toISOString(),
+    at,
     verb: verb.id,
     label: verb.label,
     item: binding.item,

@@ -12,7 +12,7 @@ import {
   resolveRibApprovalGrants,
   resolveRibWorkflowGrants,
 } from "@keelson/shared/config";
-import { FORKS, TEMPLATE_REPO } from "../config.ts";
+import { PROJECT_REPOS } from "../config.ts";
 import { RIB_ID } from "../keys.ts";
 
 export const NEEDED_SCOPES = ["repo", "workflow"] as const;
@@ -20,7 +20,7 @@ export const WORKFLOW_GRANTS = ["spi-classify-entry", "spi-absorb-toolchain", "i
 export const APPROVAL_GRANTS = ["spi-classify-entry", "spi-absorb-toolchain"];
 
 // Workflow verbs run in a Keelson project for the repository they change.
-export const PROJECT_REPOS: readonly string[] = [...FORKS.map((f) => f.repo), TEMPLATE_REPO];
+export { PROJECT_REPOS };
 
 export interface Grants {
   workflow: string[];

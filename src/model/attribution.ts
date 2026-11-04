@@ -7,6 +7,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import type { CheckFact, JobDetail, PrFact } from "../facts.ts";
+import { type Judgement, judgeRun } from "../rollout.ts";
 import { failedChecks } from "./checks.ts";
 import { pullFailure, summarizeReason } from "./reason.ts";
 
@@ -80,6 +81,8 @@ export interface Failure {
   at: string;
   url?: string;
   hidden: boolean;
+  // Its run's judgement: re-run once for the environment, or stop the line; undefined while unread.
+  judgement?: Judgement;
 }
 
 // Steps of the Deploy and Test job that belong to the shared stack, not the
@@ -157,9 +160,18 @@ export function prFailures(
   details: Record<string, JobDetail>,
 ): { prClass: PrClass; failures: Failure[] } {
   const prClass = classifyPr(pr);
-  const failures = failedChecks(pr).map((c) =>
-    attributeCheck(pr, prClass, c, details[`${pr.repo}#${c.id}`]),
-  );
+  const failed = failedChecks(pr);
+  const detail = (c: CheckFact) => details[`${pr.repo}#${c.id}`];
+  const runs = new Map<number, Judgement | undefined>();
+  for (const c of failed) {
+    if (c.runId === undefined || runs.has(c.runId)) continue;
+    runs.set(c.runId, judgeRun(failed.filter((o) => o.runId === c.runId).map(detail)));
+  }
+  const failures = failed.map((c) => {
+    const f = attributeCheck(pr, prClass, c, detail(c));
+    const judgement = f.cls === "POLICY" || c.runId === undefined ? undefined : runs.get(c.runId);
+    return judgement ? { ...f, judgement } : f;
+  });
   return { prClass, failures };
 }
 

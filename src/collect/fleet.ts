@@ -1,0 +1,243 @@
+// Copyright 2026, Daniel Scholl
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+
+import { existsSync, readFileSync } from "node:fs";
+import {
+  builtInFleet,
+  DECLARATION_PATH,
+  GITLAB_EVERY_MS,
+  GITLAB_HOST,
+  KNOWN_SERVICES,
+  ROLLOUT_FILE,
+  SERVICES_FILE,
+  type ServiceDef,
+  STACK_REPO,
+  TEMPLATE_REPO,
+} from "../config.ts";
+import type { FleetEntry, FleetFacts, ForkVars } from "../facts.ts";
+import type { Gh } from "../forge.ts";
+import { type ParsedRollout, parseRollout } from "../rollout.ts";
+import { pool } from "../util.ts";
+
+export const ROLLOUT_PATH = ".github/fleet/rollout.json";
+
+function repoArgs(repo: string): string {
+  const [owner, name] = repo.split("/");
+  return `owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(name)}`;
+}
+
+function blob(alias: string, repo: string, path: string): string {
+  return `${alias}: repository(${repoArgs(repo)}) { object(expression: ${JSON.stringify(`main:${path}`)}) { ... on Blob { text } } }`;
+}
+
+type BlobRepo = { object: { text?: string } | null } | null;
+
+export function parseForks(text: string): FleetEntry[] {
+  const doc = Bun.YAML.parse(text) as { forks?: unknown } | null;
+  if (!Array.isArray(doc?.forks)) throw new Error(`${DECLARATION_PATH} has no forks: list`);
+  const out: FleetEntry[] = [];
+  for (const raw of doc.forks as unknown[]) {
+    const e = raw as Partial<Record<keyof FleetEntry, unknown>> | null;
+    if (typeof e?.service !== "string" || typeof e.repo !== "string") continue;
+    if (!/^[\w.-]+\/[\w.-]+$/.test(e.repo)) continue;
+    out.push({
+      service: e.service,
+      repo: e.repo,
+      ...(typeof e.canonicalSource === "string" ? { canonicalSource: e.canonicalSource } : {}),
+    });
+  }
+  if (out.length === 0) throw new Error(`${DECLARATION_PATH} lists no forks the rib can read`);
+  return out;
+}
+
+async function readVars(gh: Gh, repo: string): Promise<ForkVars | null> {
+  try {
+    const vars = await gh.rest<{ name: string; value: string }[]>(
+      `repos/${repo}/actions/variables?per_page=100`,
+      '[.variables[] | select(.name == "UPSTREAM_REPO_URL" or .name == "SYNC_MODE") | {name, value}]',
+    );
+    const value = (name: string) => vars.find((v) => v.name === name)?.value;
+    const upstreamUrl = value("UPSTREAM_REPO_URL");
+    const syncMode = value("SYNC_MODE");
+    return { ...(upstreamUrl ? { upstreamUrl } : {}), ...(syncMode ? { syncMode } : {}) };
+  } catch {
+    return null;
+  }
+}
+
+// The stack's forks list and the rollout file in one query; each fork's variables
+// are read again on GitLab's cadence, or as soon as a new fork appears.
+export async function readFleet(
+  gh: Gh,
+  prev: FleetFacts | undefined,
+  now: Date,
+  files: { services?: string; rollout?: string } = {
+    services: SERVICES_FILE,
+    rollout: ROLLOUT_FILE,
+  },
+): Promise<FleetFacts> {
+  const parts = [
+    ...(files.services ? [] : [blob("stack", STACK_REPO, DECLARATION_PATH)]),
+    ...(files.rollout ? [] : [blob("template", TEMPLATE_REPO, ROLLOUT_PATH)]),
+  ];
+  let data: { stack?: BlobRepo; template?: BlobRepo } = {};
+  if (parts.length > 0) {
+    const res = await gh.graphql<{ stack?: BlobRepo; template?: BlobRepo }>(
+      `query { ${parts.join("\n")} }`,
+    );
+    if (res.errors.length > 0) throw new Error(`fleet read: ${res.errors[0]?.message}`);
+    data = res.data;
+  }
+
+  let forks: FleetEntry[] | undefined;
+  if (!files.services) {
+    const text = data.stack?.object?.text;
+    if (!data.stack) throw new Error(`${STACK_REPO} is not readable`);
+    if (text === undefined) throw new Error(`${STACK_REPO} has no ${DECLARATION_PATH} on main`);
+    forks = parseForks(text);
+  }
+
+  let remote: { rollout: string | null; rolloutFrom: string } | undefined;
+  if (!files.rollout) {
+    if (!data.template) throw new Error(`${TEMPLATE_REPO} is not readable`);
+    remote = {
+      rollout: data.template.object?.text ?? null,
+      rolloutFrom: `${TEMPLATE_REPO}:${ROLLOUT_PATH}`,
+    };
+  }
+
+  let vars = prev?.vars ?? {};
+  let varsAt = prev?.varsAt;
+  if (forks) {
+    const due =
+      !varsAt ||
+      now.getTime() - Date.parse(varsAt) >= GITLAB_EVERY_MS ||
+      forks.some((f) => !(f.repo in vars));
+    if (due) {
+      const read: Record<string, ForkVars | null> = {};
+      const last = vars;
+      await pool(forks, 4, async (f) => {
+        read[f.repo] = (await readVars(gh, f.repo)) ?? last[f.repo] ?? null;
+      });
+      vars = read;
+      varsAt = now.toISOString();
+    }
+  }
+  return {
+    ...(forks ? { forks } : {}),
+    vars,
+    ...(varsAt ? { varsAt } : {}),
+    ...remote,
+  };
+}
+
+export function upstreamProject(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  let parsed: URL;
+  try {
+    parsed = new URL(url.trim());
+  } catch {
+    return undefined;
+  }
+  if (!/^https?:$/.test(parsed.protocol) || parsed.hostname !== GITLAB_HOST) return undefined;
+  const project = parsed.pathname.replace(/^\/+|\/+$/g, "").replace(/\.git$/, "");
+  return project || undefined;
+}
+
+export interface ResolvedFleet {
+  services: ServiceDef[];
+  source: "stack" | "file" | "built-in";
+  // Forks the stack lists that the rib cannot follow, with why.
+  unresolved: { service: string; why: string }[];
+}
+
+// Membership comes from the stack; identity from the built-in map, else the fork's own
+// variables. A services file pins the fleet over any stack list read before it was set.
+export function resolveFleet(
+  data: FleetFacts | undefined,
+  servicesFile: string | null = SERVICES_FILE ?? null,
+): ResolvedFleet {
+  if (servicesFile || !data?.forks) {
+    return {
+      services: builtInFleet(servicesFile),
+      source: servicesFile ? "file" : "built-in",
+      unresolved: [],
+    };
+  }
+  const services: ServiceDef[] = [];
+  const unresolved: ResolvedFleet["unresolved"] = [];
+  const seen = new Set<string>();
+  for (const entry of data.forks) {
+    if (seen.has(entry.service)) continue;
+    seen.add(entry.service);
+    const known = KNOWN_SERVICES.find((s) => s.id === entry.service);
+    const vars = data.vars[entry.repo];
+    const upstream = known?.upstream ?? upstreamProject(vars?.upstreamUrl);
+    if (!upstream) {
+      unresolved.push({
+        service: entry.service,
+        why:
+          vars === null
+            ? "its repository variables are not readable"
+            : "it has no UPSTREAM_REPO_URL variable",
+      });
+      continue;
+    }
+    const mirror = vars ? vars.syncMode === "mirror" : null;
+    services.push({ ...known, id: entry.service, repo: entry.repo, upstream, mirror });
+  }
+  return { services, source: "stack", unresolved };
+}
+
+// No file, or facts read before the rib knew the rollout file, leave the fleet buttons unpaced.
+export function resolveRollout(data: FleetFacts | undefined): ParsedRollout {
+  if (typeof data?.rollout !== "string") return { warnings: [] };
+  return parseRollout(data.rollout);
+}
+
+// The fleet and rollout file as the sweep last applied them, for the doctor to show.
+export interface FleetView {
+  fleet: ResolvedFleet;
+  rollout: ParsedRollout;
+  rolloutFrom?: string;
+  rolloutMissing: boolean;
+}
+
+// Reads the override files, so only the sweep calls it; a local rollout file wins
+// whether or not the remote read worked.
+export function fleetView(
+  data: FleetFacts | undefined,
+  files: { services: string | null; rollout: string | null },
+): FleetView {
+  const fleet = resolveFleet(data, files.services);
+  if (files.rollout) {
+    const text = existsSync(files.rollout) ? readFileSync(files.rollout, "utf8") : null;
+    return {
+      fleet,
+      rollout: text === null ? { warnings: [] } : parseRollout(text),
+      rolloutFrom: files.rollout,
+      rolloutMissing: text === null,
+    };
+  }
+  return {
+    fleet,
+    rollout: resolveRollout(data),
+    ...(data?.rolloutFrom ? { rolloutFrom: data.rolloutFrom } : {}),
+    rolloutMissing: data?.rollout === null,
+  };
+}
+
+let applied: FleetView | undefined;
+
+export function useFleetView(view: FleetView | undefined): void {
+  applied = view;
+}
+
+export function activeFleetView(): FleetView | undefined {
+  return applied;
+}

@@ -7,7 +7,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import type { CanvasBoardView } from "@keelson/shared";
-import { rolloutActions, syncTargets } from "../act/rollout.ts";
+import { rolloutActions, syncTargets, waitSuffix } from "../act/rollout.ts";
 import type { Model } from "../model/index.ts";
 import type { TemplateStep } from "../model/template.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
@@ -71,9 +71,10 @@ export function ladderSection(model: Model): Section | undefined {
 
 // Name the forks a Sync all forks would dispatch, so the button says what it touches.
 function syncNamed(action: Action, model: Model): Action {
-  const forks = syncTargets(model.template).targets.map((t) => t.label);
+  const sync = syncTargets(model.template, model.lanes);
+  const forks = sync.targets.map((t) => t.label);
   if (forks.length === 0) return action;
-  const label = `Sync all forks · ${forks.length <= 3 ? forks.join(", ") : forks.length}`;
+  const label = `Sync all forks · ${forks.length <= 3 ? forks.join(", ") : forks.length}${waitSuffix(sync.waiting)}`;
   return {
     ...action,
     label,
@@ -82,7 +83,11 @@ function syncNamed(action: Action, model: Model): Action {
 }
 
 export function rolloutActionItems(model: Model, now: Date, blocked: string | undefined): Action[] {
-  return rolloutActions(model.template, { swept: model.sweptAt ?? "" }, now, blocked).map((a) =>
-    a.label.startsWith("Sync all forks") ? syncNamed(a, model) : a,
-  );
+  return rolloutActions(
+    model.template,
+    { swept: model.sweptAt ?? "" },
+    now,
+    blocked,
+    model.lanes,
+  ).map((a) => (a.label.startsWith("Sync all forks") ? syncNamed(a, model) : a));
 }

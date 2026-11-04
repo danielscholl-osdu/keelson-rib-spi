@@ -128,16 +128,44 @@ that month's html and PDF.
 
 ## Services
 
-| Service | Fork | Upstream project |
-|---|---|---|
-| partition | Azure/osdu-spi-partition | osdu/platform/system/partition |
-| entitlements | Azure/osdu-spi-entitlements | osdu/platform/security-and-compliance/entitlements |
-| legal | Azure/osdu-spi-legal | osdu/platform/security-and-compliance/legal |
-| schema | Azure/osdu-spi-schema | osdu/platform/system/schema-service |
-| file | Azure/osdu-spi-file | osdu/platform/system/file |
+The fleet is the `forks:` list in `Azure/osdu-spi-stack`
+`ops/environments/shared.yaml` on main, read at the start of every sweep, so a
+fork onboarded there appears without a rib change. Each fork's upstream GitLab
+project comes from the rib's identity map in `src/config.ts`, else from the
+fork's `UPSTREAM_REPO_URL` variable; a fork with neither is named in the doctor
+and not followed. A fork with `SYNC_MODE=mirror` (ADR-039) never takes Sync all
+forks or Roll out, and neither does one whose variables the rib has never been
+able to read. If the stack cannot be read, the last good list stays in use
+and the doctor shows its age. `RIB_SPI_SERVICES_FILE` pins the fleet to a JSON
+list instead, offline.
 
-storage, indexer and search are listed as planned until their forks exist. The
-map lives in `src/config.ts`.
+## Pacing and failure classes
+
+`.github/fleet/rollout.json` in `Azure/osdu-spi` (schema 1) is read with the
+stack file; `RIB_SPI_ROLLOUT_FILE` reads a local copy instead. The rib reads
+only its `lanes`.
+
+- `lanes` caps Sync all forks, Roll out and Re-run lanes: a press tops the forks
+  holding a lane up to the cap and leaves the rest for the next press. A lane is
+  a Sync Template run, an open PR whose head Validation run has not concluded, a
+  main Validation run, or a fork the rib wrote to in the last three minutes.
+  `RIB_SPI_LANES` overrides the cap, and a local `RIB_SPI_ROLLOUT_FILE` applies
+  even when GitHub cannot be read. With no file, or a schema the rib does not
+  read, the buttons are unpaced. Until fork runs and PR checks have been read
+  once, a paced press starts nothing.
+- A failed run is an environment failure when any of its failed jobs carries a
+  failure-level annotation titled `Environment`, which validate.yml gives its
+  shared-environment timeouts. That reads as re-run the failed jobs once, after
+  the other lanes drain; on attempt 2 or later, and for every other failure, it
+  reads as stop the line and fix it forward in the template. Nothing is re-run
+  on its own.
+- `license/cla` on a PR an app opened and a skipped `Docker Build` are taken out
+  of PR state before anything counts them.
+
+**Dismiss** in any item's inspector writes `dismissed.json` in the rib's data
+directory. The item leaves the queue and the badge until its inputs (heads,
+runs, failures, entries) change. The doctor lists dismissed items, and each one's
+inspector has **Bring back**.
 
 ## Tools and agent
 

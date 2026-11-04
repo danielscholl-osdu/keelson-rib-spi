@@ -27,7 +27,8 @@ import type {
 } from "../facts.ts";
 import type { Gh } from "../forge.ts";
 import { type Annotation, reasonFromAnnotations, reasonFromLog } from "../model/reason.ts";
-import { pool } from "../util.ts";
+import { ENVIRONMENT_TITLE } from "../rollout.ts";
+import { clip, pool } from "../util.ts";
 import { parseDeclaration } from "./github.ts";
 
 const RUN_JQ =
@@ -172,9 +173,9 @@ export async function readApprovals(
 }
 
 const JOBS_JQ =
-  "[.jobs[] | {id, name, status, conclusion, started_at, completed_at, html_url, steps: [(.steps // [])[] | {number, name, status, conclusion, started_at, completed_at}]}]";
+  "[.jobs[] | {id, name, status, conclusion, started_at, completed_at, html_url, run_attempt, steps: [(.steps // [])[] | {number, name, status, conclusion, started_at, completed_at}]}]";
 const JOB_JQ =
-  "{id, name, status, conclusion, started_at, completed_at, html_url, steps: [(.steps // [])[] | {number, name, status, conclusion, started_at, completed_at}]}";
+  "{id, name, status, conclusion, started_at, completed_at, html_url, run_attempt, steps: [(.steps // [])[] | {number, name, status, conclusion, started_at, completed_at}]}";
 
 interface RawJob {
   id: number;
@@ -184,6 +185,7 @@ interface RawJob {
   started_at: string | null;
   completed_at: string | null;
   html_url: string;
+  run_attempt?: number;
   steps: {
     number: number;
     name: string;
@@ -213,6 +215,7 @@ function toJob(j: RawJob): JobDetail {
     url: j.html_url,
     steps,
     failedStep: steps.find((s) => s.conclusion === "failure")?.name,
+    ...(j.run_attempt ? { attempt: j.run_attempt } : {}),
   };
 }
 
@@ -244,9 +247,13 @@ async function explain(gh: Gh, repo: string, job: JobDetail, readLog: boolean): 
   try {
     const annotations = await gh.rest<Annotation[]>(
       `repos/${repo}/check-runs/${job.id}/annotations`,
-      "[.[] | {level: .annotation_level, message}]",
+      "[.[] | {level: .annotation_level, title, message}]",
     );
     job.reason = reasonFromAnnotations(annotations);
+    job.environment = annotations
+      .filter((a) => a.level === "failure" && a.title === ENVIRONMENT_TITLE)
+      .map((a) => clip(a.message.trim(), 500))
+      .slice(0, 5);
   } catch {
     job.reason = undefined;
   }

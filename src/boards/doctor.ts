@@ -14,14 +14,18 @@ import {
   type Readiness,
   WORKFLOW_GRANTS,
 } from "../act/readiness.ts";
+import { activeFleetView, type FleetView, fleetView } from "../collect/fleet.ts";
 import { FORKS, GITLAB_EVERY_MS, PLANNED, SWEEP_MS, shortRepo } from "../config.ts";
 import { AREAS, type AreaName, type Facts } from "../facts.ts";
+import { laneCap } from "../model/lanes.ts";
+import { INSPECT_ACTION } from "../surfaces.ts";
 import { clip, plural, stamp } from "../util.ts";
 
 type Section = CanvasBoardView["sections"][number];
 type Health = "ok" | "warn" | "error" | "neutral";
 
 const AREA_LABEL: Record<AreaName, string> = {
+  fleet: "fleet list and rollout file",
   github: "GitHub PRs, checks and issues",
   runs: "fork workflow runs",
   approvals: "runs waiting for approval",
@@ -57,6 +61,63 @@ function alertsNote(facts: Facts): string {
     .join(" · ");
 }
 
+const FLEET_SOURCE = {
+  stack: "the stack's forks: list",
+  file: "RIB_SPI_SERVICES_FILE",
+  "built-in": "the built-in list",
+} as const;
+
+export function fleetChecks(
+  facts: Facts,
+  now: Date,
+  view: FleetView = activeFleetView() ??
+    fleetView(facts.fleet.data, { services: null, rollout: null }),
+): Check[] {
+  const m = facts.fleet;
+  const fleet = view.fleet;
+  const stale = m.error && m.at ? ` · last read ${stamp(m.at, now)}` : "";
+  const mirrors = fleet.services.filter((s) => s.mirror).map((s) => s.id);
+  const unread = fleet.services.filter((s) => s.mirror === null).map((s) => s.id);
+  const lost = fleet.unresolved.map((u) => `${u.service} (${u.why})`);
+  const out: Check[] = [
+    {
+      health: lost.length || unread.length ? "warn" : m.error ? "warn" : "ok",
+      label: "Fleet",
+      value: [
+        `${plural(fleet.services.length, "fork")} from ${FLEET_SOURCE[fleet.source]}${stale}`,
+        mirrors.length ? `mirror, never synced: ${mirrors.join(", ")}` : "",
+        unread.length ? `sync mode unread: ${unread.join(", ")}` : "",
+        lost.length ? `not followed: ${lost.join(", ")}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      ...(lost.length ? { problem: `Fleet: not following ${lost.join(", ")}` } : {}),
+    },
+  ];
+  const parsed = view.rollout;
+  const cap = laneCap();
+  const from = view.rolloutFrom;
+  out.push({
+    health: parsed.warnings.length ? "warn" : parsed.rollout ? "ok" : "neutral",
+    label: "Rollout",
+    value: [
+      view.rolloutMissing
+        ? `none at ${from}`
+        : parsed.rollout
+          ? `${from}: ${parsed.rollout.lanes ? plural(parsed.rollout.lanes, "lane") : "no lanes"}`
+          : from
+            ? `${from} unread`
+            : "not read yet",
+      ...parsed.warnings,
+      cap.cap === null
+        ? "fleet buttons unpaced"
+        : `fleet buttons paced to ${cap.cap} lanes (${cap.capFrom === "rollout" ? "rollout file" : cap.capFrom})`,
+    ].join(" · "),
+    ...(parsed.warnings.length ? { problem: `Rollout: ${parsed.warnings[0]}` } : {}),
+  });
+  return out;
+}
+
 function checks(facts: Facts, now: Date): Check[] {
   const auth = facts.auth.data;
   const rate = facts.github.data?.rate;
@@ -70,6 +131,7 @@ function checks(facts: Facts, now: Date): Check[] {
   return [
     signIn("gh", auth?.gh),
     signIn("glab", auth?.glab),
+    ...fleetChecks(facts, now),
     {
       health: rate ? (low ? "warn" : "ok") : "neutral",
       label: "GitHub budget",
@@ -220,7 +282,35 @@ export function doctorRow(
 export const DOCTOR_ID = "doctor";
 
 // The console's read line opens this: every source with its last read, then what the verbs need.
-export function doctorBoard(facts: Facts, now: Date, act?: Readiness): CanvasBoardView {
+// Dismissed items leave the queue, so this is where a person finds one to bring back.
+function dismissedSection(dismissed: readonly DismissedRow[], now: Date): Section | undefined {
+  if (dismissed.length === 0) return undefined;
+  return {
+    kind: "rows",
+    title: `Dismissed · ${dismissed.length}`,
+    boxed: true,
+    items: dismissed.map((d) => ({
+      glyph: "neutral" as const,
+      text: `${d.scope} · ${d.text}`,
+      ...(d.at ? { trailing: stamp(d.at, now) ?? "" } : {}),
+      action: { type: INSPECT_ACTION, payload: { id: d.id } },
+    })),
+  };
+}
+
+export interface DismissedRow {
+  id: string;
+  scope: string;
+  text: string;
+  at?: string;
+}
+
+export function doctorBoard(
+  facts: Facts,
+  now: Date,
+  act?: Readiness,
+  dismissed: readonly DismissedRow[] = [],
+): CanvasBoardView {
   const row = doctorRow(facts, now, act);
   if (!row) {
     return {
@@ -258,6 +348,7 @@ export function doctorBoard(facts: Facts, now: Date, act?: Readiness): CanvasBoa
         boxed: true,
         items: actChecks(facts, act).map(line),
       },
+      ...[dismissedSection(dismissed, now)].filter((x): x is Section => !!x),
       {
         kind: "rows",
         items: [
