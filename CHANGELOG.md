@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.0](https://github.com/danielscholl-osdu/keelson-rib-spi/compare/v1.5.0...v1.6.0) (2026-11-04)
+
+
+### Added
+
+* **rollout:** add template rollout flow to the inspector ([#28](https://github.com/danielscholl-osdu/keelson-rib-spi/issues/28)) ([6b25bf3](https://github.com/danielscholl-osdu/keelson-rib-spi/commit/6b25bf3cf8b81cdf4578d678c003d613a27f5414))
+
+
+### Fixed
+
+* **rollout:** pause the rollout while the environment is held ([#30](https://github.com/danielscholl-osdu/keelson-rib-spi/issues/30)) ([2ef377c](https://github.com/danielscholl-osdu/keelson-rib-spi/commit/2ef377c5aa7712afa123e857c335c153e54992e7))
+
 ## [1.5.0](https://github.com/danielscholl-osdu/keelson-rib-spi/compare/v1.4.0...v1.5.0) (2026-11-04)
 
 
