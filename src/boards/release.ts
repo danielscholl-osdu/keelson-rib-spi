@@ -496,7 +496,7 @@ export function releasesPaneHtml(lines: readonly ReleaseLine[], reading: boolean
           ? `<p class="dl">Key changes</p><ul class="items">${l.keyChanges.map((k) => `<li>${esc(k)}</li>`).join("")}</ul>`
           : "";
       return `<section class="detail" data-rel-detail="${esc(l.id)}"${l.id === first ? "" : " hidden"}>
-<p class="eyebrow">${esc(l.stateText)} · ${esc(NOTES_LABEL[l.notes])}</p>
+<p class="eyebrow"><span class="chip ${notesTone(l.notes, l.open)}">${esc(NOTES_LABEL[l.notes].toUpperCase())}</span> ${esc(l.stateText)}</p>
 <h3>SPI ${esc(l.name)}</h3>
 <p>${esc(l.headline)}</p>
 <div class="facts relfacts">${facts}</div>
