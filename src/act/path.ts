@@ -12,7 +12,7 @@ import { type LaneLoad, laneRoom } from "../model/lanes.ts";
 import { clip, plural, pool } from "../util.ts";
 import type { ActionLog, ActionResult } from "./log.ts";
 import { changed, readTarget } from "./revalidate.ts";
-import { type Binding, bindingSchema, type Target, verbOf } from "./verbs.ts";
+import { type Binding, bindingSchema, type Target, type Verb, verbOf } from "./verbs.ts";
 
 // Write concurrency only; how many forks a press may start is the lane cap.
 const TARGETS_AT_ONCE = 5;
@@ -86,6 +86,9 @@ export function paceTargets(
   return { go, held };
 }
 
+// Paced presses run one at a time, so each reads the lanes the one before it held.
+let pacedTurn: Promise<unknown> = Promise.resolve();
+
 // Every write runs this path: parse the binding the board stamped, read each target
 // again, write only to the ones that still match, log the outcome, then resweep.
 export async function act(payload: unknown, deps: ActDeps): Promise<RibActionResult> {
@@ -93,7 +96,13 @@ export async function act(payload: unknown, deps: ActDeps): Promise<RibActionRes
   if (!binding) return { ok: false, error: "act needs the binding the board stamped" };
   const verb = verbOf(binding.verb);
   if (!verb) return { ok: false, error: `spi has no verb '${binding.verb}'` };
+  if (!verb.paced) return write(binding, verb, deps);
+  const turn = pacedTurn.then(() => write(binding, verb, deps));
+  pacedTurn = turn.catch(() => undefined);
+  return turn;
+}
 
+async function write(binding: Binding, verb: Verb, deps: ActDeps): Promise<RibActionResult> {
   const gh = new Gh(deps.exec);
   const paced =
     verb.paced && deps.lanes

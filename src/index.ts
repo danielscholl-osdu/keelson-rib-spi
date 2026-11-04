@@ -29,6 +29,7 @@ import {
   DISPATCH_REFRESH,
   DISPATCH_UPGRADE,
   NO_OPS,
+  RERUN_ALL,
   RERUN_LANES,
   WAIT_ACTION,
 } from "./act/rerun.ts";
@@ -105,7 +106,17 @@ const waits = new Map<string, DeployableWait>();
 const COMPOSERS: Record<(typeof VIEW_KEYS)[number], Composer> = {
   [INSPECT_KEY]: (s, now) =>
     inspect.selected === DOCTOR_ID
-      ? doctorBoard(s.facts, now, readiness)
+      ? doctorBoard(
+          s.facts,
+          now,
+          readiness,
+          s.model.queue.dismissed.map(({ item, entry }) => ({
+            id: item.id,
+            scope: item.scope,
+            text: item.text,
+            ...(entry.at ? { at: entry.at } : {}),
+          })),
+        )
       : inspect.selected?.startsWith(RELEASE_PREFIX)
         ? releaseInspector(inspect.selected.slice(RELEASE_PREFIX.length), now)
         : inspectBoard(s.model, inspect, now, actionLog.lastFor(lastKey(inspect.selected)), {
@@ -451,6 +462,7 @@ function bind(ctx: RibContext): Sweeper {
     registerVerb(SYNC_FORKS),
     registerVerb(ROLL_OUT),
     registerVerb(RERUN_LANES),
+    registerVerb(RERUN_ALL),
     registerVerb(DISPATCH_REFRESH),
     registerVerb(DISPATCH_UPGRADE),
   );
@@ -589,7 +601,7 @@ function startWait(s: Sweeper, payload: unknown): RibActionResult {
   if (!ctx || !run) return { ok: false, error: "spi is not bound yet" };
   if (!ctx.registerOp) return { ok: false, error: NO_OPS };
   const binding = parseBinding(payload);
-  if (!binding || binding.verb !== RERUN_LANES.id) {
+  if (!binding || (binding.verb !== RERUN_LANES.id && binding.verb !== RERUN_ALL.id)) {
     return { ok: false, error: "the wait needs the Re-run lanes binding the board stamped" };
   }
   if (s.model.stack.deployable.state === "yes") {
@@ -810,7 +822,9 @@ const rib: Rib = {
           },
         };
       }
-      const item = s.model.queue.items.find((i) => i.id === id);
+      const item =
+        s.model.queue.items.find((i) => i.id === id) ??
+        s.model.queue.dismissed.find((d) => d.item.id === id)?.item;
       if (!item) return { ok: false, error: `${id} has left the queue; the board redraws` };
       const entries = cachedOthers(item, Date.now());
       const read = !entries && !!othersKey(item);

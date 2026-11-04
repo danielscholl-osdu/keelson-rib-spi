@@ -31,9 +31,11 @@ import { readUpstream, type UpstreamCompares } from "./collect/upstream.ts";
 import {
   FORKS,
   GITLAB_EVERY_MS,
+  LESSONS_FILE,
   type LifecycleKind,
   REPOS,
   SECURITY_EVERY_MS,
+  SERVICES_FILE,
   setFleet,
 } from "./config.ts";
 import {
@@ -161,6 +163,8 @@ export interface SweeperOptions {
   onChange: () => void;
   now?: () => Date;
   dismissed?: () => readonly DismissEntry[];
+  // The offline overrides; RIB_SPI_SERVICES_FILE and RIB_SPI_LESSONS_FILE by default.
+  fleetFiles?: { services?: string; lessons?: string };
 }
 
 // One in-process sweep feeds every region and tool, so they all count the same
@@ -169,6 +173,7 @@ export class Sweeper {
   facts: Facts;
   model: Model;
   readonly now: () => Date;
+  private readonly fleetFiles: { services?: string; lessons?: string };
   private readonly cache: CacheFile;
   private readonly detailCache: DetailCache;
   private running: Promise<void> | undefined;
@@ -181,6 +186,7 @@ export class Sweeper {
 
   constructor(private readonly opts: SweeperOptions) {
     this.now = opts.now ?? (() => new Date());
+    this.fleetFiles = opts.fleetFiles ?? { services: SERVICES_FILE, lessons: LESSONS_FILE };
     const stored = opts.store.read(FACTS_FILE, factsFileSchema);
     this.facts = { ...emptyFacts(), ...(stored as Partial<Facts> | undefined) };
     const cache = opts.store.read(CACHE_FILE, cacheFileSchema) as Partial<CacheFile> | undefined;
@@ -196,7 +202,7 @@ export class Sweeper {
 
   // The fleet and lessons every collector and the model read, from the last good read.
   private applyFleet(): void {
-    setFleet(resolveFleet(this.facts.fleet.data).services);
+    setFleet(resolveFleet(this.facts.fleet.data, this.fleetFiles.services ?? null).services);
     useLessons(resolveLessons(this.facts.fleet.data).lessons);
   }
 
@@ -335,7 +341,7 @@ export class Sweeper {
       const [ghStatus, glabStatus] = await Promise.all([gh.status(), glab.status()]);
       return { gh: ghStatus, glab: glabStatus };
     });
-    await this.area("fleet", () => readFleet(gh, this.facts.fleet.data, started));
+    await this.area("fleet", () => readFleet(gh, this.facts.fleet.data, started, this.fleetFiles));
     this.applyFleet();
     await this.area("github", () => readGithub(gh));
     const repos = this.facts.github.data?.repos ?? {};

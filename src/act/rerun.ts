@@ -22,6 +22,18 @@ export const RERUN_LANES: Verb = {
   paced: true,
 };
 
+// For a lesson whose recovery re-runs every job, as a pin refused for a moved tag needs.
+export const RERUN_ALL: Verb = {
+  id: "rerun-all",
+  label: "Re-run all jobs",
+  command: (t) => ["run", "rerun", String(t.number), "-R", t.repo],
+  paced: true,
+};
+
+export function rerunVerb(item: QueueItem): Verb {
+  return item.lesson?.response === "rerun-all" ? RERUN_ALL : RERUN_LANES;
+}
+
 export const DISPATCH_REFRESH: Verb = {
   id: "dispatch-env-refresh",
   label: "Re-dispatch env-refresh",
@@ -70,10 +82,14 @@ function laneLine(lanes: readonly LaneRun[]): string {
   return `${lanes.length === 1 ? "Lane" : "Lanes"}: ${names(list)}.`;
 }
 
-function stepText(lanes: readonly LaneRun[]): string {
+function stepText(lanes: readonly LaneRun[], verb: Verb): string {
   const found = steps(lanes);
   const who = lanes.length === 1 ? "The lane" : "Each lane";
-  return `${who} failed in ${found.length > 0 ? names(found) : "a step"}, on the shared stack rather than the code, so only the failed jobs run again.`;
+  const again =
+    verb === RERUN_ALL
+      ? "so every job runs again, as its lesson says"
+      : "so only the failed jobs run again";
+  return `${who} failed in ${found.length > 0 ? names(found) : "a step"}, on the shared stack rather than the code, ${again}.`;
 }
 
 export interface LaneOptions {
@@ -94,6 +110,8 @@ export function laneActions(item: QueueItem, stack: StackModel, opts: LaneOption
   const targets = laneTargets(lanes);
   const binding = { item: item.id, swept: opts.swept, targets };
   const n = lanes.length;
+  const verb = rerunVerb(item);
+  const all = verb === RERUN_ALL;
   if (stack.deployable.state === "yes") {
     const since = stamp(stack.lastGreen?.updatedAt, opts.now);
     const busy = new Set(opts.load?.inflight.map((l) => l.repo));
@@ -109,15 +127,15 @@ export function laneActions(item: QueueItem, stack: StackModel, opts: LaneOption
         : undefined;
     return [
       verbAction(
-        RERUN_LANES,
+        verb,
         { ...binding, targets: k > 0 ? now.targets : targets },
         {
           primary: true,
-          label: `Re-run lanes · ${k > 0 ? k : n}${waitSuffix(now.waiting)}`,
+          label: `${all ? "Re-run all jobs" : "Re-run lanes"} · ${k > 0 ? k : n}${waitSuffix(now.waiting)}`,
           pending: `Re-running ${k}…`,
           title: `Re-run ${plural(k, "failed lane")}`,
           detail: [
-            `The stack has been deployable${since ? ` since ${since}` : ""}. ${stepText(go.length ? go : lanes)}`,
+            `The stack has been deployable${since ? ` since ${since}` : ""}. ${stepText(go.length ? go : lanes, verb)}`,
             ...paceText(opts.load, now.waiting),
             laneLine(go.length ? go : lanes),
           ],
@@ -135,9 +153,9 @@ export function laneActions(item: QueueItem, stack: StackModel, opts: LaneOption
         : undefined);
   return [
     {
-      ...verbAction(RERUN_LANES, binding, {
+      ...verbAction(verb, binding, {
         primary: true,
-        label: "Re-run when deployable",
+        label: all ? "Re-run all jobs when deployable" : "Re-run when deployable",
         pending: "Setting the wait…",
         title: `Re-run ${plural(n, "failed lane")} when deployable`,
         detail: [

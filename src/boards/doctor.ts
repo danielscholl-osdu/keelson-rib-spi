@@ -15,10 +15,11 @@ import {
   WORKFLOW_GRANTS,
 } from "../act/readiness.ts";
 import { resolveFleet, resolveLessons } from "../collect/fleet.ts";
-import { FORKS, GITLAB_EVERY_MS, PLANNED, SWEEP_MS, shortRepo } from "../config.ts";
+import { FORKS, GITLAB_EVERY_MS, PLANNED, SERVICES_FILE, SWEEP_MS, shortRepo } from "../config.ts";
 import { AREAS, type AreaName, type Facts } from "../facts.ts";
 import { withoutNoise } from "../lessons.ts";
 import { laneCap } from "../model/lanes.ts";
+import { INSPECT_ACTION } from "../surfaces.ts";
 import { clip, plural, stamp } from "../util.ts";
 
 type Section = CanvasBoardView["sections"][number];
@@ -67,9 +68,13 @@ const FLEET_SOURCE = {
   "built-in": "the built-in list",
 } as const;
 
-function fleetChecks(facts: Facts, now: Date): Check[] {
+export function fleetChecks(
+  facts: Facts,
+  now: Date,
+  servicesFile: string | null = SERVICES_FILE ?? null,
+): Check[] {
   const m = facts.fleet;
-  const fleet = resolveFleet(m.data);
+  const fleet = resolveFleet(m.data, servicesFile);
   const stale = m.error && m.at ? ` · last read ${stamp(m.at, now)}` : "";
   const mirrors = fleet.services.filter((s) => s.mirror).map((s) => s.id);
   const unread = fleet.services.filter((s) => s.mirror === null).map((s) => s.id);
@@ -283,7 +288,35 @@ export function doctorRow(
 export const DOCTOR_ID = "doctor";
 
 // The console's read line opens this: every source with its last read, then what the verbs need.
-export function doctorBoard(facts: Facts, now: Date, act?: Readiness): CanvasBoardView {
+// Dismissed items leave the queue, so this is where a person finds one to bring back.
+function dismissedSection(dismissed: readonly DismissedRow[], now: Date): Section | undefined {
+  if (dismissed.length === 0) return undefined;
+  return {
+    kind: "rows",
+    title: `Dismissed · ${dismissed.length}`,
+    boxed: true,
+    items: dismissed.map((d) => ({
+      glyph: "neutral" as const,
+      text: `${d.scope} · ${d.text}`,
+      ...(d.at ? { trailing: stamp(d.at, now) ?? "" } : {}),
+      action: { type: INSPECT_ACTION, payload: { id: d.id } },
+    })),
+  };
+}
+
+export interface DismissedRow {
+  id: string;
+  scope: string;
+  text: string;
+  at?: string;
+}
+
+export function doctorBoard(
+  facts: Facts,
+  now: Date,
+  act?: Readiness,
+  dismissed: readonly DismissedRow[] = [],
+): CanvasBoardView {
   const row = doctorRow(facts, now, act);
   if (!row) {
     return {
@@ -321,6 +354,7 @@ export function doctorBoard(facts: Facts, now: Date, act?: Readiness): CanvasBoa
         boxed: true,
         items: actChecks(facts, act).map(line),
       },
+      ...[dismissedSection(dismissed, now)].filter((x): x is Section => !!x),
       {
         kind: "rows",
         items: [

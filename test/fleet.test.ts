@@ -3,10 +3,10 @@ import { readFileSync } from "node:fs";
 import type { RibExec } from "@keelson/shared";
 import { ActionLog } from "../src/act/log";
 import { act, paceTargets } from "../src/act/path";
-import { laneActions } from "../src/act/rerun";
+import { laneActions, RERUN_ALL } from "../src/act/rerun";
 import { rolloutTargets, SYNC_FORKS, syncTargets } from "../src/act/rollout";
 import { registerVerb, type Target, verbOf } from "../src/act/verbs";
-import { doctorStatus } from "../src/boards/doctor";
+import { doctorBoard, doctorStatus, fleetChecks } from "../src/boards/doctor";
 import { inspectBoard } from "../src/boards/inspect";
 import { readFleet, resolveFleet, resolveLessons, upstreamProject } from "../src/collect/fleet";
 import { builtInFleet, FORKS, KNOWN_SERVICES, REPOS, setFleet } from "../src/config";
@@ -14,6 +14,7 @@ import { Dismissals } from "../src/dismiss";
 import type { Facts, FleetFacts, JobDetail } from "../src/facts";
 import { Gh } from "../src/forge";
 import {
+  governing,
   judgeJob,
   logHits,
   needsLogScan,
@@ -114,7 +115,7 @@ describe("the fleet list comes from the stack's forks: list", () => {
     );
     const data = await readFleet(gh, undefined, FIXTURE_NOW, {});
     expect(data.forks).toHaveLength(14);
-    const fleet = resolveFleet(data);
+    const fleet = resolveFleet(data, null);
     expect(fleet.source).toBe("stack");
     expect(fleet.unresolved).toEqual([]);
     expect(fleet.services).toHaveLength(14);
@@ -136,13 +137,14 @@ describe("the fleet list comes from the stack's forks: list", () => {
   test("a fork with no upstream it can find is not followed, and the doctor names it", async () => {
     const { gh } = fleetGh({ stack: sharedYaml([NEW_FORK.service]), lessons: null });
     const data = await readFleet(gh, undefined, FIXTURE_NOW, {});
-    const fleet = resolveFleet(data);
+    const fleet = resolveFleet(data, null);
     expect(fleet.services).toHaveLength(13);
     expect(fleet.unresolved).toEqual([
       { service: NEW_FORK.service, why: "it has no UPSTREAM_REPO_URL variable" },
     ]);
     const facts: Facts = { ...fixtureFacts(), fleet: { at: FIXTURE_NOW.toISOString(), data } };
-    expect(doctorStatus(facts, FIXTURE_NOW).problems.join()).toContain("not following wellbore");
+    const fleetCheck = fleetChecks(facts, FIXTURE_NOW, null)[0];
+    expect(fleetCheck?.problem).toContain("not following wellbore");
   });
 
   test("variables are read again only on GitLab's cadence or for a new fork", async () => {
@@ -173,7 +175,13 @@ describe("the fleet list comes from the stack's forks: list", () => {
       runText: async () => ({ ok: false as const, error: "gh: network down", code: 1 }),
       runJSON: async () => ({ ok: false as const, error: "gh: network down", code: 1 }),
     };
-    const sweeper = new Sweeper({ exec: down, store, onChange: () => {}, now: () => FIXTURE_NOW });
+    const sweeper = new Sweeper({
+      exec: down,
+      store,
+      onChange: () => {},
+      now: () => FIXTURE_NOW,
+      fleetFiles: {},
+    });
     expect(FORKS).toHaveLength(14);
     await sweeper.sweep({ force: true });
     expect(sweeper.facts.fleet.error).toContain("network down");
@@ -576,4 +584,149 @@ test("a fleet read with lessons and the stack fills the facts the model reads", 
   const data: FleetFacts = await readFleet(gh, undefined, FIXTURE_NOW, {});
   expect(resolveLessons(data).lessons?.lanes).toBe(5);
   expect(data.lessonsFrom).toBe("Azure/osdu-spi:.github/fleet/lessons.json");
+});
+
+describe("review fixes", () => {
+  let unregister: (() => void) | undefined;
+  afterEach(() => {
+    unregister?.();
+    unregister = undefined;
+  });
+
+  test("overlapping presses never start more than the cap between them", async () => {
+    if (!verbOf(SYNC_FORKS.id)) unregister = registerVerb(SYNC_FORKS);
+    const { exec, writes } = idleGithub();
+    let load: LaneLoad = { cap: 1, capFrom: "lessons", inflight: [] };
+    const deps = {
+      exec,
+      log: new ActionLog(undefined),
+      resweep: () => {},
+      now: () => FIXTURE_NOW,
+      lanes: () => load,
+      hold: (repos: string[]) => {
+        load = {
+          ...load,
+          inflight: [
+            ...load.inflight,
+            ...repos.map((repo) => ({ repo, service: repo, what: "x" })),
+          ],
+        };
+      },
+    };
+    const press = (t: Target) =>
+      act({ verb: SYNC_FORKS.id, item: "engineering", swept: "s", targets: [t] }, deps);
+    await Promise.all([press(target(1)), press(target(2))]);
+    expect(writes).toHaveLength(1);
+  });
+
+  test("a failed variables read keeps the last good values; never read fails closed", async () => {
+    const url = `https://community.opengroup.org/${NEW_FORK.upstream}.git`;
+    const first = fleetGh(
+      { stack: sharedYaml([NEW_FORK.service]), lessons: null },
+      {
+        [NEW_FORK.repo]: [{ name: "UPSTREAM_REPO_URL", value: url }],
+        "Azure/osdu-spi-file": [{ name: "SYNC_MODE", value: "mirror" }],
+      },
+    );
+    const good = await readFleet(first.gh, undefined, FIXTURE_NOW, {});
+    const down = Object.fromEntries(
+      [...KNOWN.map((id) => `Azure/osdu-spi-${id}`), NEW_FORK.repo].map((r) => [
+        r,
+        new Error("HTTP 502"),
+      ]),
+    );
+    const later = new Date(FIXTURE_NOW.getTime() + 60 * 60_000);
+    const again = await readFleet(
+      fleetGh({ stack: sharedYaml([NEW_FORK.service]), lessons: null }, down).gh,
+      good,
+      later,
+      {},
+    );
+    const fleet = resolveFleet(again, null);
+    expect(fleet.services.find((s) => s.id === NEW_FORK.service)?.upstream).toBe(NEW_FORK.upstream);
+    expect(fleet.services.find((s) => s.id === "file")?.mirror).toBe(true);
+
+    const never = await readFleet(
+      fleetGh({ stack: sharedYaml(), lessons: null }, down).gh,
+      undefined,
+      FIXTURE_NOW,
+      {},
+    );
+    expect(resolveFleet(never, null).services.every((s) => s.mirror === null)).toBe(true);
+  });
+
+  test("a services file wins over a stack list read before it was set", async () => {
+    const { gh } = fleetGh({ stack: sharedYaml([NEW_FORK.service]), lessons: null });
+    const data = await readFleet(gh, undefined, FIXTURE_NOW, {});
+    const file = new URL("./fixtures/services.json", import.meta.url).pathname;
+    const pinned = resolveFleet(data, file);
+    expect(pinned.source).toBe("file");
+    expect(pinned.services.map((s) => s.id)).toEqual(builtInFleet(file).map((s) => s.id));
+  });
+
+  test("the doctor lists dismissed items, each opening its inspector", () => {
+    const board = doctorBoard(fixtureFacts(), FIXTURE_NOW, undefined, [
+      { id: "stack:lanes", scope: "Environment", text: "2 fork lanes failed", at: "x" },
+    ]);
+    const section = board.sections.find(
+      (s) => s.kind === "rows" && s.title?.startsWith("Dismissed"),
+    );
+    expect(section).toMatchObject({
+      title: "Dismissed · 1",
+      items: [{ action: { type: "inspect", payload: { id: "stack:lanes" } } }],
+    });
+  });
+
+  test("a new head on a template-sync PR changes the rollout's fingerprint", () => {
+    const facts = releasedFacts();
+    const before = buildModel(facts, FIXTURE_NOW).queue.items.find(
+      (i) => i.kind === "template-set",
+    );
+    const pr = facts.github.data?.repos["Azure/osdu-spi-legal"]?.prs.find((p) => p.number === 33);
+    if (!before || !pr) throw new Error("fixture has a template-sync set");
+    pr.headSha = "e".repeat(40);
+    const after = buildModel(facts, FIXTURE_NOW).queue.items.find((i) => i.kind === "template-set");
+    expect(after?.fingerprint).not.toBe(before.fingerprint);
+  });
+
+  test("a rerun-all lesson draws a button whose command re-runs every job", () => {
+    const m = buildModel(laneFacts(), FIXTURE_NOW);
+    const item = m.queue.items.find((i) => i.kind === "lanes");
+    if (!item) throw new Error("fixture has failed lanes");
+    const lesson = {
+      id: "pin-refused-moved-tag",
+      class: "environment" as const,
+      response: "rerun-all" as const,
+      rerunLimit: 1,
+      drainFirst: false,
+    };
+    const [button] = laneActions({ ...item, lesson }, m.stack, {
+      swept: "s",
+      now: FIXTURE_NOW,
+      ops: true,
+    });
+    const binding = button?.binding as { verb: string; targets: Target[] } | undefined;
+    expect(binding?.verb).toBe(RERUN_ALL.id);
+    const body = (button?.confirm as { body: string } | undefined)?.body ?? "";
+    expect(body).toContain("gh run rerun");
+    expect(body).not.toContain("--failed");
+  });
+
+  test("the governing lesson stops the line when any failure is real", () => {
+    const retry = {
+      id: "digest-not-live",
+      class: "environment" as const,
+      response: "rerun-failed" as const,
+      rerunLimit: 1,
+      drainFirst: true,
+    };
+    const stop = {
+      class: "real" as const,
+      response: "stop" as const,
+      rerunLimit: 0,
+      drainFirst: false,
+    };
+    expect(governing([retry, stop])?.response).toBe("stop");
+    expect(governing([retry, undefined])?.id).toBe("digest-not-live");
+  });
 });

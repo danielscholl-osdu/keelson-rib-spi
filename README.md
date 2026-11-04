@@ -134,7 +134,8 @@ fork onboarded there appears without a rib change. Each fork's upstream GitLab
 project comes from the rib's identity map in `src/config.ts`, else from the
 fork's `UPSTREAM_REPO_URL` variable; a fork with neither is named in the doctor
 and not followed. A fork with `SYNC_MODE=mirror` (ADR-039) never takes Sync all
-forks or Roll out. If the stack cannot be read, the last good list stays in use
+forks or Roll out, and neither does one whose variables the rib has never been
+able to read. If the stack cannot be read, the last good list stays in use
 and the doctor shows its age. `RIB_SPI_SERVICES_FILE` pins the fleet to a JSON
 list instead, offline.
 
@@ -159,7 +160,8 @@ rib behaves as it did before the file existed.
 
 **Dismiss** in any item's inspector writes `dismissed.json` in the rib's data
 directory. The item leaves the queue and the badge until its inputs (heads,
-runs, failures, entries) change; **Bring back** undoes it.
+runs, failures, entries) change. The doctor lists dismissed items, and each one's
+inspector has **Bring back**.
 
 ## Tools and agent
 

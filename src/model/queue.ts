@@ -126,6 +126,8 @@ export interface QueueItem {
   blocks: number;
   // What the fleet lessons file says to do, for the failures the item folds.
   lesson?: LessonMatch;
+  // Inputs the item's words do not show, such as PR heads, for its fingerprint.
+  inputs?: string[];
   // Its inputs, so a dismissal holds only until they change.
   fingerprint?: string;
 }
@@ -587,7 +589,7 @@ function lineItems(line: LineModel, now: Date): QueueItem[] {
             : []),
         ],
         cls: real[0]?.cls,
-        ...lessonOf(real[0]?.lesson),
+        ...lessonOf(governing(real.map((f) => f.lesson))),
         incident: true,
         blocks: 1,
       });
@@ -707,6 +709,9 @@ function templateSetItem(
       url: l.templatePr?.pr.url,
     })),
     cause,
+    inputs: open.map(
+      (l) => `${l.fork.repo}#${l.templatePr?.pr.number}@${l.templatePr?.pr.headSha}`,
+    ),
     incident: false,
     blocks: open.length,
   };

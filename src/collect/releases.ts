@@ -146,9 +146,12 @@ export class ReleaseReader {
   }
 
   private async readAll(): Promise<void> {
+    // A sweep can change the fleet while this read awaits, so it keeps the list it began with.
+    const repos = [...RELEASE_REPOS];
+    const forks = new Set(FORKS.map((f) => f.repo));
     const releases = { ...this.reads.releases };
     const errors: Record<string, string> = {};
-    await pool(RELEASE_REPOS, 4, async (repo) => {
+    await pool(repos, 4, async (repo) => {
       try {
         const list = await this.gh.pages<ReleaseFact>(
           `repos/${repo}/releases?per_page=100`,
@@ -161,14 +164,16 @@ export class ReleaseReader {
     });
     const created = { ...this.reads.created };
     try {
-      const fields = RELEASE_REPOS.map((r, i) => {
-        const [owner, name] = r.split("/");
-        return `r${i}: repository(owner: "${owner}", name: "${name}") { createdAt }`;
-      }).join(" ");
+      const fields = repos
+        .map((r, i) => {
+          const [owner, name] = r.split("/");
+          return `r${i}: repository(owner: "${owner}", name: "${name}") { createdAt }`;
+        })
+        .join(" ");
       const { data } = await this.gh.graphql<Record<string, { createdAt?: string } | null>>(
         `{ ${fields} }`,
       );
-      RELEASE_REPOS.forEach((r, i) => {
+      repos.forEach((r, i) => {
         const at = data[`r${i}`]?.createdAt;
         if (at) created[r] = at;
       });
@@ -176,7 +181,6 @@ export class ReleaseReader {
       errors.created = errorText(err);
     }
     const pins = { ...this.reads.pins };
-    const forks = new Set(FORKS.map((f) => f.repo));
     const missing = Object.entries(releases)
       .filter(([repo]) => forks.has(repo))
       .flatMap(([repo, list]) => list.map((r) => ({ repo, tag: r.tag })))
@@ -188,7 +192,7 @@ export class ReleaseReader {
         errors[pinKey(repo, tag)] = errorText(err);
       }
     });
-    const readAny = RELEASE_REPOS.some((r) => !errors[r]);
+    const readAny = repos.some((r) => !errors[r]);
     this.reads = {
       ...(readAny ? { at: this.now().toISOString() } : this.reads.at ? { at: this.reads.at } : {}),
       releases,

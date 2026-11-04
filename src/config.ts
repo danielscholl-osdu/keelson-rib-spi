@@ -212,9 +212,9 @@ export function setFleet(next: readonly ServiceDef[]): boolean {
   return JSON.stringify(services) !== before;
 }
 
-export function builtInFleet(): ServiceDef[] {
-  return SERVICES_FILE
-    ? (JSON.parse(readFileSync(SERVICES_FILE, "utf8")) as ServiceDef[])
+export function builtInFleet(file: string | null = SERVICES_FILE ?? null): ServiceDef[] {
+  return file
+    ? (JSON.parse(readFileSync(file, "utf8")) as ServiceDef[])
     : KNOWN_SERVICES.map((s) => ({ ...s }));
 }
 

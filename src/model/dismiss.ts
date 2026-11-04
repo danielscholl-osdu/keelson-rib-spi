@@ -34,6 +34,7 @@ export function fingerprintOf(item: Omit<QueueItem, "fingerprint">): string {
     lanes: (item.lanes ?? []).map((l) => [l.repo, l.runId, l.headSha]),
     halt: item.halt?.entries ?? null,
     approve: (item.approve ?? []).map((a) => [a.repo, a.pr.number, a.pr.headSha]),
+    inputs: item.inputs ?? [],
   };
   return createHash("sha256").update(JSON.stringify(inputs)).digest("hex").slice(0, 16);
 }

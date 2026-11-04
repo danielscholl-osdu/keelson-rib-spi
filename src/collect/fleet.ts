@@ -121,8 +121,9 @@ export async function readFleet(
       forks.some((f) => !(f.repo in vars));
     if (due) {
       const read: Record<string, ForkVars | null> = {};
+      const last = vars;
       await pool(forks, 4, async (f) => {
-        read[f.repo] = await readVars(gh, f.repo);
+        read[f.repo] = (await readVars(gh, f.repo)) ?? last[f.repo] ?? null;
       });
       vars = read;
       varsAt = now.toISOString();
@@ -157,12 +158,16 @@ export interface ResolvedFleet {
   unresolved: { service: string; why: string }[];
 }
 
-// Membership comes from the stack; identity from the built-in map, else the fork's own variables.
-export function resolveFleet(data: FleetFacts | undefined): ResolvedFleet {
-  if (!data?.forks) {
+// Membership comes from the stack; identity from the built-in map, else the fork's own
+// variables. A services file pins the fleet over any stack list read before it was set.
+export function resolveFleet(
+  data: FleetFacts | undefined,
+  servicesFile: string | null = SERVICES_FILE ?? null,
+): ResolvedFleet {
+  if (servicesFile || !data?.forks) {
     return {
-      services: builtInFleet(),
-      source: SERVICES_FILE ? "file" : "built-in",
+      services: builtInFleet(servicesFile),
+      source: servicesFile ? "file" : "built-in",
       unresolved: [],
     };
   }
@@ -185,7 +190,7 @@ export function resolveFleet(data: FleetFacts | undefined): ResolvedFleet {
       });
       continue;
     }
-    const mirror = vars ? vars.syncMode === "mirror" : known ? false : null;
+    const mirror = vars ? vars.syncMode === "mirror" : null;
     services.push({ ...known, id: entry.service, repo: entry.repo, upstream, mirror });
   }
   return { services, source: "stack", unresolved };
