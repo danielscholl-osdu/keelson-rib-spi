@@ -472,14 +472,14 @@ export function releasesPaneHtml(lines: readonly ReleaseLine[], reading: boolean
     return `<h2>${reading ? "Reading releases…" : "No releases read yet."}</h2>`;
   }
   const first = lines[0]?.id;
-  const notesTone = (n: NotesState) =>
-    n === "approved" ? "t-ok" : n === "invalid" ? "t-bad" : "t-warn";
+  const notesTone = (n: NotesState, open: boolean) =>
+    n === "approved" ? "t-ok" : n === "invalid" ? "t-bad" : n === "none" && !open ? "" : "t-warn";
   const rows = lines
     .map(
       (
         l,
       ) => `<button type="button" class="row trow${l.id === first ? " on" : ""}" data-rel="${esc(l.id)}" aria-pressed="${l.id === first}">
-<span class="body"><span class="tt">SPI ${esc(l.name)}</span> <span class="chip ${notesTone(l.notes)}">${esc(NOTES_LABEL[l.notes].toUpperCase())}</span>
+<span class="body"><span class="tt">SPI ${esc(l.name)}</span> <span class="chip ${notesTone(l.notes, l.open)}">${esc(NOTES_LABEL[l.notes].toUpperCase())}</span>
 <span class="ss">${esc(l.headline)}</span></span><span class="when">${esc(l.open ? "in progress" : "closed")}</span></button>`,
     )
     .join("");
@@ -488,7 +488,7 @@ export function releasesPaneHtml(lines: readonly ReleaseLine[], reading: boolean
       const facts = l.stats
         .map(
           (s) =>
-            `<div class="fact${s.tone === "bad" ? " t-bad" : ""}"><div class="v">${esc(s.figure)}</div><div class="s">${esc(s.label)}</div></div>`,
+            `<div class="fact${s.tone === "bad" ? " t-bad" : ""}${s.figure === "?" ? " unread" : ""}"><div class="v">${esc(s.figure)}</div><div class="s">${esc(s.label)}</div></div>`,
         )
         .join("");
       const keys =
@@ -496,7 +496,7 @@ export function releasesPaneHtml(lines: readonly ReleaseLine[], reading: boolean
           ? `<p class="dl">Key changes</p><ul class="items">${l.keyChanges.map((k) => `<li>${esc(k)}</li>`).join("")}</ul>`
           : "";
       return `<section class="detail" data-rel-detail="${esc(l.id)}"${l.id === first ? "" : " hidden"}>
-<p class="eyebrow">${esc(l.stateText)} · ${esc(NOTES_LABEL[l.notes])}</p>
+<p class="eyebrow"><span class="chip ${notesTone(l.notes, l.open)}">${esc(NOTES_LABEL[l.notes].toUpperCase())}</span> ${esc(l.stateText)}</p>
 <h3>SPI ${esc(l.name)}</h3>
 <p>${esc(l.headline)}</p>
 <div class="facts relfacts">${facts}</div>
