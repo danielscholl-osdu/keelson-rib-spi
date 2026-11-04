@@ -71,7 +71,7 @@ A change needs `bun run check`, `bun run typecheck` and `bun test` green.
   frame, so its markup is untrusted: `onAction` accepts only `inspect` from a
   `canvas-html` origin, and every verb stays a button in the inspector drawer.
 - **An item clears only when a sweep reads the change.** A verb never removes
-  a queue item itself.
+  a queue item itself. A person's Dismiss quiets it only until its inputs change.
 - **Unmeasured is not zero.** A failed read keeps the last good data and its
   age; a value the rib cannot see is `null` and draws as "?", and adds nothing
   to the queue.
@@ -83,8 +83,13 @@ A change needs `bun run check`, `bun run typecheck` and `bun test` green.
 - **Ownership comes from paths, not names.** An alert or PR is sorted by the
   fork's sync filter (`fork_owned`), the template's synced paths and the
   repository, never by a package, rule or service named in code.
-- **Identity is configuration.** Services come from `src/config.ts`, never from
-  derived names.
+- **Identity is configuration.** Fleet membership is the stack's `forks:` list
+  (`src/collect/fleet.ts`); each fork's identity comes from `src/config.ts` or
+  the fork's own `UPSTREAM_REPO_URL`, never from derived names. The lessons file
+  in osdu-spi is a contract shared with the spi-fleet script: field names change
+  only with it.
+- **Paced writes top up.** A paced verb starts at most the lane cap less the
+  lanes in flight, checked again in `act()`; the rest wait for the next press.
 - **Local time.** Stamps print in the machine's local zone, the zone the host
   draws timelines and clocks in; a header chip names the zone once.
 - **Fail closed.** Every key registers a validator (`expectView`); a bad board

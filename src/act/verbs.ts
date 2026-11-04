@@ -44,6 +44,8 @@ export interface Verb {
   label: string;
   // The gh arguments that write to one target, shown verbatim in the confirmation.
   command(target: Target): string[];
+  // Each target starts a lane on the shared environment, so a press tops up to the lane cap.
+  paced?: boolean;
 }
 
 // Why no verb can write now, before any one verb's own reason.

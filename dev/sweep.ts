@@ -14,6 +14,7 @@ import { inspectBoard } from "../src/boards/inspect.ts";
 import { STEP_PREFIX } from "../src/boards/template.ts";
 import { buildBriefing } from "../src/brief/index.ts";
 import { checkable, entryAcrossForks } from "../src/collect/filters.ts";
+import { resolveFleet, resolveLessons } from "../src/collect/fleet.ts";
 import { Gh, Glab } from "../src/forge.ts";
 import { INSPECT_KEY } from "../src/keys.ts";
 import { attemptText, overdue, usualText } from "../src/model/stack.ts";
@@ -48,6 +49,42 @@ for (const [area, v] of Object.entries(sweeper.facts)) {
   const mv = v as { at?: string; error?: string };
   console.log(`  ${area.padEnd(10)} ${mv.at ? "ok" : "--"} ${mv.error ? `ERROR ${mv.error}` : ""}`);
 }
+const fleetData = sweeper.facts.fleet.data;
+const fleet = resolveFleet(fleetData);
+console.log(`\nFLEET · ${fleet.services.length} forks from ${fleet.source}`);
+for (const f of fleet.services) {
+  const v = f.repo ? fleetData?.vars[f.repo] : undefined;
+  console.log(
+    `  ${f.id.padEnd(15)} ${(f.repo ?? "").padEnd(32)} ${f.upstream} · mirror ${f.mirror === null ? "?" : f.mirror}${v?.syncMode ? ` · SYNC_MODE ${v.syncMode}` : ""}`,
+  );
+}
+for (const u of fleet.unresolved) console.log(`  not followed: ${u.service} (${u.why})`);
+const parsedLessons = resolveLessons(fleetData);
+const lessons = parsedLessons.lessons;
+console.log(
+  `\nLESSONS · ${fleetData?.lessons === null ? `none at ${fleetData.lessonsFrom}; built-in behavior` : `${fleetData?.lessonsFrom}`}`,
+);
+for (const w of parsedLessons.warnings) console.log(`  warning: ${w}`);
+if (lessons) {
+  console.log(`  lanes ${lessons.lanes ?? "-"}`);
+  for (const n of lessons.noise)
+    console.log(
+      `  noise ${n.id}: ${n.check}${n.conclusion ? ` ${n.conclusion}` : ""}${n.author ? ` by ${n.author}` : ""} · ${m.noise[n.id] ?? 0} ignored now`,
+    );
+  for (const f of lessons.failures)
+    console.log(
+      `  failure ${f.id}: /${f.pattern}/i → ${f.class} ${f.response} (limit ${f.rerunLimit}${f.drainFirst ? ", drain first" : ""})`,
+    );
+  console.log(`  unmatched → ${lessons.unmatched.class} ${lessons.unmatched.response}`);
+}
+console.log(
+  `\nLANES · cap ${m.lanes.cap ?? "none (unpaced)"}${m.lanes.capFrom ? ` from ${m.lanes.capFrom}` : ""} · ${m.lanes.inflight.length} in flight`,
+);
+for (const l of m.lanes.inflight) console.log(`  ${l.service.padEnd(15)} ${l.what}`);
+for (const i of m.queue.items.filter((x) => x.lesson))
+  console.log(
+    `  lesson on ${i.id}: ${i.lesson?.id ?? "unmatched"} → ${i.lesson?.class} ${i.lesson?.response}${i.lesson?.note ? ` (${i.lesson.note})` : ""}`,
+  );
 const radar = sweeper.facts.radar.data;
 console.log(
   `\nRADAR · ${radarCalls} calls · ${Object.keys(radar?.filters ?? {}).length} filters · port match read ${radar?.portRead?.prs ?? "?"} fork PRs, ${radar?.portRead?.commits ?? "?"} commit messages`,

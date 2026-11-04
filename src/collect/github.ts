@@ -39,7 +39,7 @@ import type { Gh } from "../forge.ts";
 
 const PULLS = `pullRequests(states: OPEN, first: 40, orderBy: {field: CREATED_AT, direction: DESC}) { totalCount nodes {
   number title url createdAt updatedAt isDraft headRefName baseRefName headRefOid mergeStateStatus reviewDecision
-  author { login } authorAssociation
+  author { __typename login } authorAssociation
   headRef { target { ... on Commit { file(path: "${MARKER_PATH}") { object { ... on Blob { text } } } } } }
   labels(first: 15) { nodes { name } }
   commits(last: 1) { nodes { commit { statusCheckRollup { contexts(first: 80) { nodes {
@@ -180,7 +180,7 @@ interface RawPr {
   headRefOid: string;
   mergeStateStatus?: string;
   reviewDecision?: string | null;
-  author?: { login?: string } | null;
+  author?: { __typename?: string; login?: string } | null;
   authorAssociation?: string;
   headRef?: { target?: { file?: { object?: { text?: string } | null } | null } } | null;
   labels?: { nodes?: { name: string }[] };
@@ -288,6 +288,7 @@ function parsePr(repo: string, p: RawPr): PrFact {
     mergeState: p.mergeStateStatus ?? undefined,
     reviewDecision: p.reviewDecision ?? undefined,
     author: p.author?.login ?? undefined,
+    ...(p.author?.__typename ? { authorApp: p.author.__typename === "Bot" } : {}),
     association: p.authorAssociation ?? undefined,
     labels: (p.labels?.nodes ?? []).map((l) => l.name),
     checks: parseChecks(p.commits?.nodes?.[0]?.commit?.statusCheckRollup?.contexts?.nodes),

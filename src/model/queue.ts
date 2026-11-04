@@ -8,6 +8,7 @@
 
 import { forkOf, githubUrl, shortRepo, TEMPLATE_REPO } from "../config.ts";
 import type { OutsidePr, PrFact, RepoFact, WaitingRun } from "../facts.ts";
+import { governing, type LessonMatch } from "../lessons.ts";
 import { clip, plural, releaseTag, short, stamp } from "../util.ts";
 import {
   CLASS_LABEL,
@@ -17,6 +18,7 @@ import {
   toolchainText,
 } from "./attribution.ts";
 import { prReady, prVerdict } from "./checks.ts";
+import { type DismissEntry, fingerprintOf, quieted } from "./dismiss.ts";
 import type { LineModel, LinePr } from "./lines.ts";
 import type { RadarModel } from "./radar.ts";
 import { summarizeReason } from "./reason.ts";
@@ -122,6 +124,10 @@ export interface QueueItem {
   // An incident is a cause that broke or blocks; gates and ready work are not.
   incident: boolean;
   blocks: number;
+  // What the fleet lessons file says to do, for the failures the item folds.
+  lesson?: LessonMatch;
+  // Its inputs, so a dismissal holds only until they change.
+  fingerprint?: string;
 }
 
 export interface Queue {
@@ -129,6 +135,8 @@ export interface Queue {
   counts: { p0: number; p1: number; p2: number };
   verdict: Verdict;
   incidents: number;
+  // Items a person dismissed whose inputs have not changed since.
+  dismissed: { item: QueueItem; entry: DismissEntry }[];
 }
 
 function failureLine(service: string, f: Failure, now: Date): string {
@@ -325,6 +333,7 @@ function stackItems(
       ],
       cls: "ENV",
       lanes: laneRuns(loose),
+      ...lessonOf(governing(loose.map(({ f }) => f.lesson))),
       incident: true,
       blocks: loose.length,
     });
@@ -578,6 +587,7 @@ function lineItems(line: LineModel, now: Date): QueueItem[] {
             : []),
         ],
         cls: real[0]?.cls,
+        ...lessonOf(real[0]?.lesson),
         incident: true,
         blocks: 1,
       });
@@ -1186,6 +1196,7 @@ export function buildQueue(input: {
   approvals: Record<string, WaitingRun[]> | undefined;
   radar?: RadarModel;
   repositories?: ReposModel;
+  dismissed?: readonly DismissEntry[];
   now: Date;
 }): Queue {
   const { stack, lines, template, repos, details, approvals, radar, now } = input;
@@ -1209,6 +1220,18 @@ export function buildQueue(input: {
       b.blocks - a.blocks ||
       Date.parse(a.since ?? "") - Date.parse(b.since ?? ""),
   );
+  const dismissed: Queue["dismissed"] = [];
+  const live: QueueItem[] = [];
+  for (const item of items) {
+    item.fingerprint = fingerprintOf(item);
+    const entry = quieted(item, input.dismissed ?? [], now);
+    if (entry) dismissed.push({ item, entry });
+    else live.push(item);
+  }
+  return finish(live, dismissed, stack);
+}
+
+function finish(items: QueueItem[], dismissed: Queue["dismissed"], stack: StackModel): Queue {
   const counts = {
     p0: items.filter((i) => i.rung === 0).length,
     p1: items.filter((i) => i.rung === 1).length,
@@ -1227,5 +1250,10 @@ export function buildQueue(input: {
     counts,
     verdict,
     incidents: items.filter((i) => i.incident && i.rung < 2).length,
+    dismissed,
   };
+}
+
+function lessonOf(lesson: LessonMatch | undefined): { lesson?: LessonMatch } {
+  return lesson ? { lesson } : {};
 }

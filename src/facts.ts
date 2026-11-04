@@ -39,6 +39,8 @@ export interface PrFact {
   mergeState?: string;
   reviewDecision?: string;
   author?: string;
+  // True when GitHub reads the author as a Bot (an app), undefined when not read.
+  authorApp?: boolean;
   // GitHub's authorAssociation: OWNER, MEMBER, COLLABORATOR, CONTRIBUTOR, NONE...
   association?: string;
   labels: string[];
@@ -190,6 +192,11 @@ export interface JobDetail {
   steps: StepFact[];
   failedStep?: string;
   reason?: string;
+  // Failure-level annotation messages, which the lessons file's failure patterns match first.
+  annotations?: string[];
+  // The stretches of the cleaned job log a lessons pattern matched, and which patterns were tried.
+  logScan?: { signature: string; hits: string[] };
+  attempt?: number;
 }
 
 // The fork workflows the sweep follows per repository.
@@ -374,7 +381,31 @@ export interface RepoAlerts {
   code?: CodeAlertFact[];
 }
 
+// One fork as the stack declares it in `forks:`.
+export interface FleetEntry {
+  service: string;
+  repo: string;
+  canonicalSource?: string;
+}
+
+// A fork's repository variables the rib reads; null is a fork whose variables it cannot see.
+export interface ForkVars {
+  upstreamUrl?: string;
+  syncMode?: string;
+}
+
+export interface FleetFacts {
+  // Undefined when RIB_SPI_SERVICES_FILE pins the fleet.
+  forks?: FleetEntry[];
+  vars: Record<string, ForkVars | null>;
+  varsAt?: string;
+  // The lessons file's text; null when the file does not exist.
+  lessons: string | null;
+  lessonsFrom: string;
+}
+
 export interface Facts {
+  fleet: Measured<FleetFacts>;
   github: Measured<GithubFacts>;
   runs: Measured<Record<string, ForkRuns>>;
   approvals: Measured<Record<string, WaitingRun[]>>;
@@ -389,6 +420,7 @@ export interface Facts {
 }
 
 export const AREAS = [
+  "fleet",
   "github",
   "runs",
   "approvals",
@@ -404,6 +436,7 @@ export type AreaName = (typeof AREAS)[number];
 
 export function emptyFacts(): Facts {
   return {
+    fleet: {},
     github: {},
     runs: {},
     approvals: {},

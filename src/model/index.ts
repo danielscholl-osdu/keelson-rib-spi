@@ -8,7 +8,10 @@
 
 import { FORKS, PLANNED, type ServiceDef, STACK_REPO, TEMPLATE_REPO } from "../config.ts";
 import type { Facts } from "../facts.ts";
+import { withoutNoise } from "../lessons.ts";
+import type { DismissEntry } from "./dismiss.ts";
 import { buildGates, type Gates } from "./gates.ts";
+import { type LaneLoad, laneLoad } from "./lanes.ts";
 import { buildLine, type LineModel } from "./lines.ts";
 import { buildQueue, type Queue } from "./queue.ts";
 import { buildRadar, predictAll, type RadarModel } from "./radar.ts";
@@ -34,6 +37,10 @@ export interface Model {
   work: WorkModel;
   // The same, with security alerts, sorted by who can fix each item.
   repositories: ReposModel;
+  // Forks holding a lane on the shared environment, against the paced buttons' cap.
+  lanes: LaneLoad;
+  // Checks the lessons file's noise rules took out of PR state, by rule id.
+  noise: Record<string, number>;
 }
 
 // Pure: the same facts and clock always give the same model, so every region
@@ -41,9 +48,13 @@ export interface Model {
 export function buildModel(
   facts: Facts,
   now: Date,
-  opts: { dispatched?: Record<string, string> } = {},
+  opts: {
+    dispatched?: Record<string, string>;
+    pressed?: Record<string, string>;
+    dismissed?: readonly DismissEntry[];
+  } = {},
 ): Model {
-  const repos = facts.github.data?.repos ?? {};
+  const { repos, ignored } = withoutNoise(facts.github.data?.repos ?? {});
   const details = facts.details.data ?? {};
   const stack = buildStack(
     repos[STACK_REPO],
@@ -93,6 +104,7 @@ export function buildModel(
     approvals: facts.approvals.data,
     radar,
     repositories,
+    dismissed: opts.dismissed ?? [],
     now,
   });
   return {
@@ -111,5 +123,12 @@ export function buildModel(
     radar,
     work: buildWork(repos),
     repositories,
+    lanes: laneLoad({
+      repos,
+      runs: facts.runs.data,
+      dispatched: opts.dispatched,
+      pressed: opts.pressed,
+    }),
+    noise: ignored,
   };
 }

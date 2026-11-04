@@ -11,7 +11,7 @@ type Card = Extract<Section, { kind: "cards" }>["items"][number];
 type ActionItem = NonNullable<Card["actions"]>[number];
 
 // Every button a board draws, whether in an actions section or on a card.
-export function boardActions(b: CanvasBoardView): ActionItem[] {
+function allActions(b: CanvasBoardView): ActionItem[] {
   return b.sections.flatMap((s) =>
     s.kind === "actions"
       ? s.items
@@ -19,6 +19,15 @@ export function boardActions(b: CanvasBoardView): ActionItem[] {
         ? s.items.flatMap((c) => c.actions ?? [])
         : [],
   );
+}
+
+// The item's verbs; the Dismiss and Bring back buttons every item carries are left out.
+export function boardActions(b: CanvasBoardView): ActionItem[] {
+  return allActions(b).filter((a) => a.type !== "dismiss" && a.type !== "undismiss");
+}
+
+export function dismissActions(b: CanvasBoardView): ActionItem[] {
+  return allActions(b).filter((a) => a.type === "dismiss" || a.type === "undismiss");
 }
 
 export function boardCard(b: CanvasBoardView, title: string): Card | undefined {

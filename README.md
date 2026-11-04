@@ -128,16 +128,38 @@ that month's html and PDF.
 
 ## Services
 
-| Service | Fork | Upstream project |
-|---|---|---|
-| partition | Azure/osdu-spi-partition | osdu/platform/system/partition |
-| entitlements | Azure/osdu-spi-entitlements | osdu/platform/security-and-compliance/entitlements |
-| legal | Azure/osdu-spi-legal | osdu/platform/security-and-compliance/legal |
-| schema | Azure/osdu-spi-schema | osdu/platform/system/schema-service |
-| file | Azure/osdu-spi-file | osdu/platform/system/file |
+The fleet is the `forks:` list in `Azure/osdu-spi-stack`
+`ops/environments/shared.yaml` on main, read at the start of every sweep, so a
+fork onboarded there appears without a rib change. Each fork's upstream GitLab
+project comes from the rib's identity map in `src/config.ts`, else from the
+fork's `UPSTREAM_REPO_URL` variable; a fork with neither is named in the doctor
+and not followed. A fork with `SYNC_MODE=mirror` (ADR-039) never takes Sync all
+forks or Roll out. If the stack cannot be read, the last good list stays in use
+and the doctor shows its age. `RIB_SPI_SERVICES_FILE` pins the fleet to a JSON
+list instead, offline.
 
-storage, indexer and search are listed as planned until their forks exist. The
-map lives in `src/config.ts`.
+## Fleet lessons and pacing
+
+`.github/fleet/lessons.json` in `Azure/osdu-spi` (schema 1) is read with the
+stack file; `RIB_SPI_LESSONS_FILE` reads a local copy instead. Without it, the
+rib behaves as it did before the file existed.
+
+- `noise[]` checks are taken out of PR state before anything counts them, so
+  `license/cla` on an app's PR neither pends nor fails it. The doctor counts them.
+- `failures[]` frame a failed lane: the failure-level annotations are matched
+  first, then the failed job's log without its echoed script lines. An
+  environment failure reads as one re-run (after the lanes drain, when the
+  lesson says so); a real one, an unmatched one, or one past its `rerunLimit`
+  reads as stop the line. Nothing is re-run on its own.
+- `lanes` caps Sync all forks, Roll out and Re-run lanes: a press tops the forks
+  holding a lane up to the cap and leaves the rest for the next press. A lane is
+  a Sync Template run, an open PR whose head Validation run has not concluded, a
+  main Validation run, or a fork the rib wrote to in the last three minutes.
+  `RIB_SPI_LANES` overrides the cap.
+
+**Dismiss** in any item's inspector writes `dismissed.json` in the rib's data
+directory. The item leaves the queue and the badge until its inputs (heads,
+runs, failures, entries) change; **Bring back** undoes it.
 
 ## Tools and agent
 

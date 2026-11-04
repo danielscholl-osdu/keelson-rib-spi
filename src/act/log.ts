@@ -15,7 +15,7 @@ const KEEP = 500;
 
 const resultSchema = z.object({
   target: z.string(),
-  outcome: z.enum(["done", "refused", "failed"]),
+  outcome: z.enum(["done", "refused", "failed", "waiting"]),
   detail: z.string().optional(),
 });
 

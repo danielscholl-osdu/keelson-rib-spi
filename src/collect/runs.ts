@@ -26,8 +26,9 @@ import type {
   WaitingRun,
 } from "../facts.ts";
 import type { Gh } from "../forge.ts";
+import { activeLessons, lessonsSignature, logHits, needsLogScan } from "../lessons.ts";
 import { type Annotation, reasonFromAnnotations, reasonFromLog } from "../model/reason.ts";
-import { pool } from "../util.ts";
+import { clip, pool } from "../util.ts";
 import { parseDeclaration } from "./github.ts";
 
 const RUN_JQ =
@@ -172,9 +173,9 @@ export async function readApprovals(
 }
 
 const JOBS_JQ =
-  "[.jobs[] | {id, name, status, conclusion, started_at, completed_at, html_url, steps: [(.steps // [])[] | {number, name, status, conclusion, started_at, completed_at}]}]";
+  "[.jobs[] | {id, name, status, conclusion, started_at, completed_at, html_url, run_attempt, steps: [(.steps // [])[] | {number, name, status, conclusion, started_at, completed_at}]}]";
 const JOB_JQ =
-  "{id, name, status, conclusion, started_at, completed_at, html_url, steps: [(.steps // [])[] | {number, name, status, conclusion, started_at, completed_at}]}";
+  "{id, name, status, conclusion, started_at, completed_at, html_url, run_attempt, steps: [(.steps // [])[] | {number, name, status, conclusion, started_at, completed_at}]}";
 
 interface RawJob {
   id: number;
@@ -184,6 +185,7 @@ interface RawJob {
   started_at: string | null;
   completed_at: string | null;
   html_url: string;
+  run_attempt?: number;
   steps: {
     number: number;
     name: string;
@@ -213,6 +215,7 @@ function toJob(j: RawJob): JobDetail {
     url: j.html_url,
     steps,
     failedStep: steps.find((s) => s.conclusion === "failure")?.name,
+    ...(j.run_attempt ? { attempt: j.run_attempt } : {}),
   };
 }
 
@@ -247,15 +250,43 @@ async function explain(gh: Gh, repo: string, job: JobDetail, readLog: boolean): 
       "[.[] | {level: .annotation_level, message}]",
     );
     job.reason = reasonFromAnnotations(annotations);
+    const errors = annotations
+      .filter((a) => a.level === "failure")
+      .map((a) => clip(a.message.trim(), 500))
+      .filter(Boolean)
+      .slice(0, 10);
+    if (errors.length > 0) job.annotations = errors;
   } catch {
     job.reason = undefined;
   }
-  if (job.reason && !readLog) return;
+  const lessons = activeLessons();
+  const scan = needsLogScan(job, lessons);
+  const forReason = !job.reason || readLog;
+  if (!forReason && !scan) return;
   try {
-    const fromLog = reasonFromLog(await gh.text(`repos/${repo}/actions/jobs/${job.id}/logs`));
+    const log = await gh.text(`repos/${repo}/actions/jobs/${job.id}/logs`);
+    const fromLog = forReason ? reasonFromLog(log) : undefined;
     if (fromLog) job.reason = fromLog;
+    if (scan && lessons) {
+      job.logScan = { signature: lessonsSignature(lessons), hits: logHits(log, lessons) };
+    }
   } catch {
     // An expired or missing log leaves the annotation reason, if any.
+  }
+}
+
+// A cached failed job is read again only for a log scan a new lessons file asks for.
+async function rescan(gh: Gh, repo: string, job: JobDetail): Promise<JobDetail> {
+  const lessons = activeLessons();
+  if (!lessons || !FAILED.has(job.conclusion ?? "") || !needsLogScan(job, lessons)) return job;
+  try {
+    const log = await gh.text(`repos/${repo}/actions/jobs/${job.id}/logs`);
+    return {
+      ...job,
+      logScan: { signature: lessonsSignature(lessons), hits: logHits(log, lessons) },
+    };
+  } catch {
+    return job;
   }
 }
 
@@ -269,7 +300,11 @@ export async function readJob(
   name: string,
 ): Promise<JobDetail> {
   const cached = cache.get(repo, id);
-  if (cached) return cached;
+  if (cached) {
+    const scanned = await rescan(gh, repo, cached);
+    if (scanned !== cached) cache.put(repo, scanned);
+    return scanned;
+  }
   const job = toJob(await gh.rest<RawJob>(`repos/${repo}/actions/jobs/${id}`, JOB_JQ));
   await explain(gh, repo, job, /java build/i.test(name));
   cache.put(repo, job);

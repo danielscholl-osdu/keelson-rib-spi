@@ -8,15 +8,18 @@
 
 import type { OpHandle, RibActionResult } from "@keelson/shared";
 import { LIFECYCLE_WORKFLOWS, STACK_REPO } from "../config.ts";
+import type { LaneLoad } from "../model/lanes.ts";
 import type { LaneRun, QueueItem } from "../model/queue.ts";
 import { attemptText, runName, type StackModel, stoppedAttempts } from "../model/stack.ts";
 import { plural, stamp } from "../util.ts";
+import { paced, paceText, waitSuffix } from "./rollout.ts";
 import { type ActionItem, type Binding, type Target, type Verb, verbAction } from "./verbs.ts";
 
 export const RERUN_LANES: Verb = {
   id: "rerun",
   label: "Re-run lanes",
   command: (t) => ["run", "rerun", String(t.number), "--failed", "-R", t.repo],
+  paced: true,
 };
 
 export const DISPATCH_REFRESH: Verb = {
@@ -81,6 +84,7 @@ export interface LaneOptions {
   ops: boolean;
   // A wait already holds this item.
   waiting?: { id: string; at: string };
+  load?: LaneLoad;
 }
 
 // Re-run lanes while the stack is deployable; otherwise a wait that re-runs them once it is.
@@ -92,18 +96,34 @@ export function laneActions(item: QueueItem, stack: StackModel, opts: LaneOption
   const n = lanes.length;
   if (stack.deployable.state === "yes") {
     const since = stamp(stack.lastGreen?.updatedAt, opts.now);
+    const busy = new Set(opts.load?.inflight.map((l) => l.repo));
+    const now = paced(
+      targets.filter((t) => !busy.has(t.repo)),
+      opts.load,
+    );
+    const go = lanes.filter((l) => now.targets.some((t) => t.number === l.runId));
+    const k = go.length;
+    const full =
+      k === 0 && opts.load?.cap
+        ? `${opts.load.inflight.length} of ${opts.load.cap} lanes in flight; ${plural(n, "lane")} ${n === 1 ? "waits" : "wait"} for the next press`
+        : undefined;
     return [
-      verbAction(RERUN_LANES, binding, {
-        primary: true,
-        label: `Re-run lanes · ${n}`,
-        pending: `Re-running ${n}…`,
-        title: `Re-run ${plural(n, "failed lane")}`,
-        detail: [
-          `The stack has been deployable${since ? ` since ${since}` : ""}. ${stepText(lanes)}`,
-          laneLine(lanes),
-        ],
-        ...(opts.blocked ? { disabled: opts.blocked } : {}),
-      }),
+      verbAction(
+        RERUN_LANES,
+        { ...binding, targets: k > 0 ? now.targets : targets },
+        {
+          primary: true,
+          label: `Re-run lanes · ${k > 0 ? k : n}${waitSuffix(now.waiting)}`,
+          pending: `Re-running ${k}…`,
+          title: `Re-run ${plural(k, "failed lane")}`,
+          detail: [
+            `The stack has been deployable${since ? ` since ${since}` : ""}. ${stepText(go.length ? go : lanes)}`,
+            ...paceText(opts.load, now.waiting),
+            laneLine(go.length ? go : lanes),
+          ],
+          ...((opts.blocked ?? full) ? { disabled: opts.blocked ?? full } : {}),
+        },
+      ),
     ];
   }
   const disabled =
@@ -123,6 +143,11 @@ export function laneActions(item: QueueItem, stack: StackModel, opts: LaneOption
         detail: [
           `The stack is not deployable now (${stack.deployable.reason}). A wait holds ${n === 1 ? "this lane" : `these ${n} lanes`} and, on the first sweep that reads deployable, re-runs ${n === 1 ? "it" : "them"} through the same calls.`,
           "It stands down without writing if a lifecycle run fails again. A Keelson restart drops the wait and the item stays in the queue.",
+          ...(opts.load?.cap
+            ? [
+                `When it fires, it re-runs only as many lanes as the ${opts.load.cap}-lane cap leaves room for; the rest stay in the queue for the next press.`,
+              ]
+            : []),
           laneLine(lanes),
         ],
         ...(disabled ? { disabled } : {}),

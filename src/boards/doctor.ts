@@ -14,14 +14,18 @@ import {
   type Readiness,
   WORKFLOW_GRANTS,
 } from "../act/readiness.ts";
+import { resolveFleet, resolveLessons } from "../collect/fleet.ts";
 import { FORKS, GITLAB_EVERY_MS, PLANNED, SWEEP_MS, shortRepo } from "../config.ts";
 import { AREAS, type AreaName, type Facts } from "../facts.ts";
+import { withoutNoise } from "../lessons.ts";
+import { laneCap } from "../model/lanes.ts";
 import { clip, plural, stamp } from "../util.ts";
 
 type Section = CanvasBoardView["sections"][number];
 type Health = "ok" | "warn" | "error" | "neutral";
 
 const AREA_LABEL: Record<AreaName, string> = {
+  fleet: "fleet list and lessons",
   github: "GitHub PRs, checks and issues",
   runs: "fork workflow runs",
   approvals: "runs waiting for approval",
@@ -57,6 +61,64 @@ function alertsNote(facts: Facts): string {
     .join(" · ");
 }
 
+const FLEET_SOURCE = {
+  stack: "the stack's forks: list",
+  file: "RIB_SPI_SERVICES_FILE",
+  "built-in": "the built-in list",
+} as const;
+
+function fleetChecks(facts: Facts, now: Date): Check[] {
+  const m = facts.fleet;
+  const fleet = resolveFleet(m.data);
+  const stale = m.error && m.at ? ` · last read ${stamp(m.at, now)}` : "";
+  const mirrors = fleet.services.filter((s) => s.mirror).map((s) => s.id);
+  const unread = fleet.services.filter((s) => s.mirror === null).map((s) => s.id);
+  const lost = fleet.unresolved.map((u) => `${u.service} (${u.why})`);
+  const out: Check[] = [
+    {
+      health: lost.length || unread.length ? "warn" : m.error ? "warn" : "ok",
+      label: "Fleet",
+      value: [
+        `${plural(fleet.services.length, "fork")} from ${FLEET_SOURCE[fleet.source]}${stale}`,
+        mirrors.length ? `mirror, never synced: ${mirrors.join(", ")}` : "",
+        unread.length ? `sync mode unread: ${unread.join(", ")}` : "",
+        lost.length ? `not followed: ${lost.join(", ")}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      ...(lost.length ? { problem: `Fleet: not following ${lost.join(", ")}` } : {}),
+    },
+  ];
+  const parsed = resolveLessons(m.data);
+  const lessons = parsed.lessons;
+  const cap = laneCap();
+  const ignored = lessons
+    ? Object.values(withoutNoise(facts.github.data?.repos ?? {}, lessons).ignored).reduce(
+        (a, b) => a + b,
+        0,
+      )
+    : 0;
+  out.push({
+    health: parsed.warnings.length ? "warn" : lessons ? "ok" : "neutral",
+    label: "Lessons",
+    value: [
+      !m.data
+        ? "not read yet"
+        : m.data.lessons === null
+          ? `none at ${m.data.lessonsFrom}; built-in behavior`
+          : lessons
+            ? `${m.data.lessonsFrom}: ${plural(lessons.noise.length, "noise rule")} (${plural(ignored, "check")} ignored now), ${plural(lessons.failures.length, "failure class", "failure classes")}`
+            : `${m.data.lessonsFrom} unread`,
+      ...parsed.warnings,
+      cap.cap === null
+        ? "fleet buttons unpaced"
+        : `fleet buttons paced to ${cap.cap} lanes (${cap.capFrom})`,
+    ].join(" · "),
+    ...(parsed.warnings.length ? { problem: `Lessons: ${parsed.warnings[0]}` } : {}),
+  });
+  return out;
+}
+
 function checks(facts: Facts, now: Date): Check[] {
   const auth = facts.auth.data;
   const rate = facts.github.data?.rate;
@@ -70,6 +132,7 @@ function checks(facts: Facts, now: Date): Check[] {
   return [
     signIn("gh", auth?.gh),
     signIn("glab", auth?.glab),
+    ...fleetChecks(facts, now),
     {
       health: rate ? (low ? "warn" : "ok") : "neutral",
       label: "GitHub budget",

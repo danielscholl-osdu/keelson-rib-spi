@@ -61,6 +61,7 @@ import { REPO_PREFIX } from "./brief/repos.ts";
 import { checkable, entryAcrossForks, type ForkEntry } from "./collect/filters.ts";
 import { ReleaseReader } from "./collect/releases.ts";
 import { FORKS, INFLIGHT_POLL_MS, SWEEP_MS } from "./config.ts";
+import { DISMISS_ACTION, Dismissals, dismissPayloadSchema, UNDISMISS_ACTION } from "./dismiss.ts";
 import { Gh, Glab } from "./forge.ts";
 import { BADGE_KEY, CONSOLE_KEY, INSPECT_KEY, RELEASE_KEY, RIB_ID } from "./keys.ts";
 import type { QueueItem } from "./model/queue.ts";
@@ -93,6 +94,7 @@ const VIEW_KEYS = [INSPECT_KEY] as const;
 
 let inspect: InspectState = {};
 let actionLog = new ActionLog(undefined);
+let dismissals = new Dismissals(new Store(undefined));
 let readiness: Readiness | undefined;
 const othersCache = new Map<string, { at: number; entries: ForkEntry[] }>();
 // Months the Releases tab lists; older months stay readable through spi_release_notes.
@@ -402,7 +404,14 @@ function wakeWaits(s: Sweeper): void {
 }
 
 function actDeps(s: Sweeper, run: RibExec) {
-  return { exec: run, log: actionLog, resweep: () => resweep(s), now: s.now };
+  return {
+    exec: run,
+    log: actionLog,
+    resweep: () => resweep(s),
+    now: s.now,
+    lanes: () => s.model.lanes,
+    hold: (repos: string[], at: string) => s.holdLanes(repos, at),
+  };
 }
 
 function bind(ctx: RibContext): Sweeper {
@@ -411,10 +420,15 @@ function bind(ctx: RibContext): Sweeper {
   context = ctx;
   exec = ctx.getExec();
   actionLog = new ActionLog(ctx.getDataDir?.());
+  const store = new Store(ctx.getDataDir?.());
+  const quiet = new Dismissals(store);
+  dismissals = quiet;
   const s = new Sweeper({
     exec,
-    store: new Store(ctx.getDataDir?.()),
+    store,
+    dismissed: () => quiet.list(),
     onChange: () => {
+      if (sweeper) quiet.prune(sweeper.model.queue, sweeper.now());
       recomposeAll();
       if (sweeper) wakeWaits(sweeper);
     },
@@ -609,6 +623,31 @@ function startWait(s: Sweeper, payload: unknown): RibActionResult {
   };
 }
 
+// A dismissal is a local file, never a forge write, and holds only the inputs the board drew.
+function dismissAction(s: Sweeper, type: string, payload: unknown): RibActionResult {
+  const parsed = dismissPayloadSchema.safeParse(payload);
+  if (!parsed.success) return { ok: false, error: `${type} needs { id, fingerprint }` };
+  const { id, fingerprint, until } = parsed.data;
+  if (type === UNDISMISS_ACTION) {
+    if (!dismissals.remove(id)) return { ok: false, error: `${id} is not dismissed` };
+    s.rebuild();
+    snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
+    return { ok: true, data: { message: `${id} is back in the queue` } };
+  }
+  const item = s.model.queue.items.find((i) => i.id === id);
+  if (!item) return { ok: false, error: `${id} is not in the queue; the board redraws` };
+  if (item.fingerprint !== fingerprint) {
+    return { ok: false, error: `${id} changed since the board drew it; the board redraws` };
+  }
+  dismissals.add({ id, fingerprint, ...(until ? { until } : {}), at: s.now().toISOString() });
+  s.rebuild();
+  snapshots?.recompose(INSPECT_KEY).catch(() => undefined);
+  return {
+    ok: true,
+    data: { message: `Dismissed ${id} until its inputs change${until ? ` or ${until}` : ""}` },
+  };
+}
+
 const rib: Rib = {
   id: RIB_ID,
   displayName: "SPI",
@@ -714,6 +753,9 @@ const rib: Rib = {
     }
     if (action.type === WAIT_ACTION) {
       return startWait(s, action.payload);
+    }
+    if (action.type === DISMISS_ACTION || action.type === UNDISMISS_ACTION) {
+      return dismissAction(s, action.type, action.payload);
     }
     if (action.type === INSPECT_ACTION) {
       const id = (action.payload as { id?: unknown } | undefined)?.id;

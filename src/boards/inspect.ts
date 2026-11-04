@@ -14,6 +14,8 @@ import { writeBlocked } from "../act/verbs.ts";
 import { type Reading, readItem } from "../brief/index.ts";
 import { REPO_PREFIX } from "../brief/repos.ts";
 import type { EntryState, ForkEntry } from "../collect/filters.ts";
+import { DISMISS_ACTION, UNDISMISS_ACTION } from "../dismiss.ts";
+import { type DismissEntry, fingerprintOf } from "../model/dismiss.ts";
 import type { Model } from "../model/index.ts";
 import { itemClass, nextText } from "../model/next.ts";
 import {
@@ -261,6 +263,7 @@ function verbsOf(item: QueueItem, model: Model, opts: InspectOptions, now: Date)
         swept,
         now,
         ops: opts.ops ?? false,
+        load: model.lanes,
         ...(blocked ? { blocked } : {}),
         ...(opts.waiting ? { waiting: opts.waiting } : {}),
       })
@@ -272,6 +275,55 @@ function evidence(item: QueueItem): Section | undefined {
   return source
     ? { kind: "rows", items: [{ icon: "↗", text: source.value, href: source.href }] }
     : undefined;
+}
+
+function dismissButton(item: QueueItem): ActionItem {
+  return {
+    type: DISMISS_ACTION,
+    label: "Dismiss",
+    pendingLabel: "Dismissing…",
+    payload: { id: item.id, fingerprint: item.fingerprint ?? fingerprintOf(item) },
+    confirm: {
+      title: `Dismiss ${inspectTitle(item)}?`,
+      body: "It leaves the queue and the badge until its inputs change: a new head, run, failure or entry brings it back. The decision is kept in the rib's data dir; nothing is written to GitHub.",
+      confirmLabel: "Dismiss",
+    },
+  };
+}
+
+function dismissedBoard(item: QueueItem, entry: DismissEntry, now: Date): CanvasBoardView {
+  const at = entry.at ? zoned(entry.at, now) : undefined;
+  const until = entry.until ? zoned(entry.until, now) : undefined;
+  const ev = evidence(item);
+  return {
+    view: "board",
+    title: inspectTitle(item),
+    header: { status: { label: "DISMISSED", tone: "neutral" } },
+    sections: [
+      {
+        kind: "rows",
+        items: [
+          {
+            glyph: "neutral",
+            text: `Dismissed${at ? ` at ${at}` : ""}. It stays quiet until its inputs change${until ? ` or ${until}` : ""}.`,
+          },
+          { glyph: "neutral", text: item.text },
+        ],
+      },
+      {
+        kind: "actions",
+        items: [
+          {
+            type: UNDISMISS_ACTION,
+            label: "Bring back",
+            pendingLabel: "Bringing back…",
+            payload: { id: item.id, fingerprint: entry.fingerprint },
+          },
+        ],
+      },
+      ...(ev ? [ev] : []),
+    ],
+  };
 }
 
 export function lastAction(entry: ActionEntry | undefined, now: Date): Section | undefined {
@@ -290,8 +342,12 @@ export function lastAction(entry: ActionEntry | undefined, now: Date): Section |
       ...entry.results
         .filter((r) => r.outcome !== "done")
         .map((r) => ({
-          glyph: (r.outcome === "refused" ? "warn" : "error") as CanvasTone,
-          text: `${r.target} ${r.outcome === "refused" ? "skipped" : "failed"}${r.detail ? `: ${r.detail}` : ""}`,
+          glyph: (r.outcome === "waiting"
+            ? "neutral"
+            : r.outcome === "refused"
+              ? "warn"
+              : "error") as CanvasTone,
+          text: `${r.target} ${r.outcome === "waiting" ? "waits for the next press" : r.outcome === "refused" ? "skipped" : "failed"}${r.detail ? `: ${r.detail}` : ""}`,
         })),
     ],
   };
@@ -388,6 +444,10 @@ export function inspectBoard(
   if (state.selected?.startsWith(MR_PREFIX)) return mrBoard(model, state.selected, now);
   if (state.selected?.startsWith(REPO_PREFIX)) return repoBoard(model, state.selected, now);
   const live = state.selected ? model.queue.items.find((i) => i.id === state.selected) : undefined;
+  const quiet = state.selected
+    ? model.queue.dismissed.find((d) => d.item.id === state.selected)
+    : undefined;
+  if (quiet) return dismissedBoard(quiet.item, quiet.entry, now);
   const item = live ?? state.item;
   if (!item) {
     return {
@@ -469,6 +529,7 @@ export function inspectBoard(
   if (related) sections.push(related);
   const last = lastAction(entry, now);
   if (last) sections.push(last);
+  sections.push({ kind: "actions", items: [dismissButton(item)] });
   return {
     view: "board",
     title: reading.title,

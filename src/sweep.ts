@@ -8,6 +8,7 @@
 
 import type { RibExec } from "@keelson/shared";
 import { z } from "@keelson/shared";
+import { readFleet, resolveFleet, resolveLessons } from "./collect/fleet.ts";
 import { readGithub } from "./collect/github.ts";
 import { emptyLedgerState } from "./collect/ledgers.ts";
 import { emptyRadarState, pruneRadar, type RadarState, readRadar } from "./collect/radar.ts";
@@ -27,7 +28,14 @@ import {
 import { readSecurity } from "./collect/security.ts";
 import { readTemplate, type TemplateState } from "./collect/template.ts";
 import { readUpstream, type UpstreamCompares } from "./collect/upstream.ts";
-import { FORKS, GITLAB_EVERY_MS, type LifecycleKind, REPOS, SECURITY_EVERY_MS } from "./config.ts";
+import {
+  FORKS,
+  GITLAB_EVERY_MS,
+  type LifecycleKind,
+  REPOS,
+  SECURITY_EVERY_MS,
+  setFleet,
+} from "./config.ts";
 import {
   AREAS,
   type AreaName,
@@ -39,7 +47,9 @@ import {
   type RepoFact,
 } from "./facts.ts";
 import { type CallCounter, Gh, Glab } from "./forge.ts";
+import { useLessons } from "./lessons.ts";
 import { failedChecks, javaBuilt } from "./model/checks.ts";
+import type { DismissEntry } from "./model/dismiss.ts";
 import { buildModel, type Model } from "./model/index.ts";
 import type { Store } from "./store.ts";
 import { errorText, pool } from "./util.ts";
@@ -48,6 +58,8 @@ const FACTS_FILE = "facts.json";
 // GitHub stamps a dispatched run a little before or after the call returns.
 const DISPATCH_SKEW_MS = 30_000;
 const DISPATCH_WAIT_MS = 3 * 60_000;
+// A fork a paced verb just wrote to counts as a lane in flight until a sweep can see its run.
+const PRESS_HOLD_MS = 3 * 60_000;
 const CACHE_FILE = "cache.json";
 const PROOF_WALK = 5;
 
@@ -148,6 +160,7 @@ export interface SweeperOptions {
   store: Store;
   onChange: () => void;
   now?: () => Date;
+  dismissed?: () => readonly DismissEntry[];
 }
 
 // One in-process sweep feeds every region and tool, so they all count the same
@@ -163,6 +176,8 @@ export class Sweeper {
   // Sync Template dispatches this rib made, by fork, until a run for each appears.
   // Kept in memory only, so a restart drops the wait.
   private dispatched: Record<string, string> = {};
+  // Forks a paced verb merged or re-ran, by when; also memory only.
+  private pressed: Record<string, string> = {};
 
   constructor(private readonly opts: SweeperOptions) {
     this.now = opts.now ?? (() => new Date());
@@ -175,7 +190,14 @@ export class Sweeper {
     this.detailCache = new DetailCache(this.cache.details);
     const upstreamAt = this.facts.upstream.at ? Date.parse(this.facts.upstream.at) : 0;
     this.gitlabAt = Number.isFinite(upstreamAt) ? upstreamAt : 0;
-    this.model = buildModel(this.facts, this.now());
+    this.applyFleet();
+    this.model = buildModel(this.facts, this.now(), { dismissed: opts.dismissed?.() ?? [] });
+  }
+
+  // The fleet and lessons every collector and the model read, from the last good read.
+  private applyFleet(): void {
+    setFleet(resolveFleet(this.facts.fleet.data).services);
+    useLessons(resolveLessons(this.facts.fleet.data).lessons);
   }
 
   get sweeping(): boolean {
@@ -201,6 +223,19 @@ export class Sweeper {
   expectTemplateRuns(repos: readonly string[], at: string): void {
     for (const repo of repos) this.dispatched[repo] = at;
     this.rebuild();
+  }
+
+  holdLanes(repos: readonly string[], at: string): void {
+    for (const repo of repos) this.pressed[repo] = at;
+    this.rebuild();
+  }
+
+  private heldLanes(): Record<string, string> {
+    const now = this.now().getTime();
+    for (const [repo, at] of Object.entries(this.pressed)) {
+      if (now - Date.parse(at) > PRESS_HOLD_MS) delete this.pressed[repo];
+    }
+    return { ...this.pressed };
   }
 
   // A dispatch is answered by a run created after it; one that never shows stops waiting.
@@ -300,6 +335,8 @@ export class Sweeper {
       const [ghStatus, glabStatus] = await Promise.all([gh.status(), glab.status()]);
       return { gh: ghStatus, glab: glabStatus };
     });
+    await this.area("fleet", () => readFleet(gh, this.facts.fleet.data, started));
+    this.applyFleet();
     await this.area("github", () => readGithub(gh));
     const repos = this.facts.github.data?.repos ?? {};
     await Promise.all([
@@ -453,7 +490,11 @@ export class Sweeper {
       const at = this.pendingDispatch(repo);
       if (at) dispatched[repo] = at;
     }
-    this.model = buildModel(this.facts, this.now(), { dispatched });
+    this.model = buildModel(this.facts, this.now(), {
+      dispatched,
+      pressed: this.heldLanes(),
+      dismissed: this.opts.dismissed?.() ?? [],
+    });
     this.opts.onChange();
   }
 }

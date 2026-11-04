@@ -7,6 +7,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import type { CheckFact, JobDetail, PrFact } from "../facts.ts";
+import { judgeJob, type LessonMatch } from "../lessons.ts";
 import { failedChecks } from "./checks.ts";
 import { pullFailure, summarizeReason } from "./reason.ts";
 
@@ -80,6 +81,8 @@ export interface Failure {
   at: string;
   url?: string;
   hidden: boolean;
+  // What the fleet lessons file says to do about it; undefined without lessons or a read job.
+  lesson?: LessonMatch;
 }
 
 // Steps of the Deploy and Test job that belong to the shared stack, not the
@@ -122,7 +125,13 @@ export function attributeCheck(
     hidden: false,
   };
   const cls = classOf(check.name, prClass, step, detail);
-  return { ...base, cls, hidden: cls === "POLICY" && prClass === "dependabot" };
+  const lesson = cls === "POLICY" || !detail ? undefined : judgeJob(detail);
+  return {
+    ...base,
+    cls,
+    hidden: cls === "POLICY" && prClass === "dependabot",
+    ...(lesson ? { lesson } : {}),
+  };
 }
 
 export function classOf(
