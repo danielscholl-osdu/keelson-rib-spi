@@ -246,7 +246,7 @@ describe("the environment verbs", () => {
     const m = buildModel(laneFacts(), FIXTURE_NOW);
     const [rerun, ...rest] = actionsOf(m, "stack:lanes", { ...SCOPES, ops: true });
     expect(rest).toEqual([]);
-    expect(rerun).toMatchObject({ type: "act", label: "Re-run lanes · 5", tone: "accent" });
+    expect(rerun).toMatchObject({ type: "act", label: "Re-run lanes · 5", tone: "brand" });
     expect(rerun?.confirm?.title).toBe("Re-run 5 failed lanes");
     const body = rerun?.confirm?.body ?? "";
     expect(body).toContain("The stack has been deployable since ");
@@ -288,7 +288,7 @@ describe("the environment verbs", () => {
   test("a failed lifecycle attempt offers both re-dispatches, the one that stopped first", () => {
     const m = buildModel(laneFacts(true), FIXTURE_NOW);
     const [refresh, upgrade] = actionsOf(m, "stack:99000001", SCOPES);
-    expect(refresh).toMatchObject({ label: "Re-dispatch env-refresh", tone: "accent" });
+    expect(refresh).toMatchObject({ label: "Re-dispatch env-refresh", tone: "brand" });
     expect(refresh?.confirm?.body).toContain(
       "gh workflow run env-refresh.yml -R Azure/osdu-spi-stack",
     );
@@ -328,6 +328,6 @@ describe("the environment verbs", () => {
     } as QueueItem;
     const [first] = dispatchActions(held, m.stack, { swept: "s" });
     expect(first?.label).toBe("Re-dispatch env-refresh");
-    expect(first?.tone).toBe("accent");
+    expect(first?.tone).toBe("brand");
   });
 });

@@ -18,11 +18,12 @@ import type { Facts } from "../src/facts";
 import { INSPECT_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
 import { boardActions, FIXTURE_NOW, fixtureFacts, NEW_HEAD, releasedFacts } from "./harness";
+import { settled } from "./states";
 
 const SWEPT = { swept: "2026-10-12T21:58:14.428Z" };
 
 function model(edit?: (f: Facts) => void) {
-  const f = releasedFacts();
+  const f = settled(releasedFacts());
   edit?.(f);
   return buildModel(f, FIXTURE_NOW);
 }
@@ -165,7 +166,7 @@ describe("the rollout inspector's buttons", () => {
     const items = actions(model());
     expect(items.map((i) => i.label)).toEqual([
       "Start rollout · dispatch Sync Template to 5 forks",
-      "Merge approved PRs",
+      "Merge approved PRs · nothing is approved and green yet",
     ]);
     expect(items[0]?.pendingLabel).toBe("Dispatching 5…");
     expect(items[0]?.confirm?.body).toStartWith(
@@ -186,7 +187,7 @@ describe("the rollout inspector's buttons", () => {
   });
 
   test("Merge binds the approved, green PRs at main to the rollout item", () => {
-    const f = fixtureFacts();
+    const f = settled(fixtureFacts());
     ready(f, "Azure/osdu-spi-legal", 33);
     ready(f, "Azure/osdu-spi-schema", 37);
     const [merge] = actions(buildModel(f, FIXTURE_NOW));

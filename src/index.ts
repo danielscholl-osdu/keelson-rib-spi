@@ -67,6 +67,7 @@ import { Gh, Glab } from "./forge.ts";
 import { BADGE_KEY, CONSOLE_KEY, INSPECT_KEY, RELEASE_KEY, RIB_ID } from "./keys.ts";
 import type { QueueItem } from "./model/queue.ts";
 import { isMonth, monthFacts, monthName, releaseMonths } from "./model/releases.ts";
+import { heldText } from "./model/stack.ts";
 import { DRAFT_SYSTEM, draftPrompt, parseDraft } from "./notes/draft.ts";
 import {
   createNotes,
@@ -422,6 +423,7 @@ function actDeps(s: Sweeper, run: RibExec) {
     now: s.now,
     lanes: () => s.model.lanes,
     hold: (repos: string[], at: string) => s.holdLanes(repos, at),
+    held: () => heldText(s.model.stack),
   };
 }
 

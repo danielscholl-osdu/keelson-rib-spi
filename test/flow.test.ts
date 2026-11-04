@@ -13,28 +13,27 @@ import { consoleHtml } from "../src/boards/console";
 import { doctorStatus } from "../src/boards/doctor";
 import { inspectBoard } from "../src/boards/inspect";
 import { buildBriefing } from "../src/brief/index";
+import { nextWhy, upstreamPrs, watchText } from "../src/brief/rollout";
 import type { Facts } from "../src/facts";
 import { INSPECT_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
+import { upstreamOpens } from "../src/model/rollout";
 import { parseRollout, useRollout } from "../src/rollout";
 import { Store } from "../src/store";
 import { Sweeper } from "../src/sweep";
-import {
-  boardActions,
-  boardCard,
-  FIXTURE_NOW,
-  fixtureFacts,
-  NEW_HEAD,
-  releasedFacts,
-} from "./harness";
+import { plural } from "../src/util";
+import { boardActions, boardCard, FIXTURE_NOW, fixtureFacts, NEW_HEAD } from "./harness";
 import {
   doneFacts,
   environmentFacts,
   headSha,
+  heldFacts,
   job,
   merged,
   ready,
+  readyFacts,
   rollingFacts,
+  settled,
   stoppedFacts,
 } from "./states";
 
@@ -59,12 +58,12 @@ describe("a change only on main", () => {
         }),
       ).rollout,
     );
-    const m = buildModel(releasedFacts(), FIXTURE_NOW);
+    const m = buildModel(readyFacts(), FIXTURE_NOW);
     expect(m.rollout).toMatchObject({ phase: "ready", next: "start", total: 5, merged: 0 });
     const item = m.queue.items.find((i) => i.id === "rollout");
     expect(item).toMatchObject({ rung: 1, cls: "ROLLOUT", scope: "fleet" });
     expect(m.queue.items.some((i) => i.id === "template-set")).toBe(false);
-    const b = buildBriefing(m, doctorStatus(releasedFacts(), FIXTURE_NOW), FIXTURE_NOW);
+    const b = buildBriefing(m, doctorStatus(readyFacts(), FIXTURE_NOW), FIXTURE_NOW);
     const focus = b.focus.find((f) => f.id === "rollout");
     expect(focus?.verb).toBe("Start rollout");
     expect(focus?.next).toBe("Start the rollout: dispatch Sync Template to the first 2 forks.");
@@ -76,7 +75,7 @@ describe("a change only on main", () => {
 
   test("Start rollout dispatches the first wave, carrying main's sha, and the rest wait", () => {
     useRollout({ lanes: 2 });
-    const m = buildModel(releasedFacts(), FIXTURE_NOW);
+    const m = buildModel(readyFacts(), FIXTURE_NOW);
     const [start, ...rest] = boardActions(inspect(m));
     expect(start?.label).toBe("Start rollout · dispatch Sync Template to 2 forks");
     const binding = bindingSchema.parse(start?.binding);
@@ -85,16 +84,16 @@ describe("a change only on main", () => {
       ["partition", NEW_HEAD],
       ["entitlements", NEW_HEAD],
     ]);
+    expect(start?.tone).toBe("brand");
     expect(rest.find((a) => a.label.startsWith("Dispatch"))).toMatchObject({
-      label: "Dispatch legal, schema and file",
+      label: "Dispatch legal, schema and file · on the next press",
       disabled: true,
-      reason: "waits for the next press",
     });
   });
 
   test("the console card only opens the inspector", () => {
-    const m = buildModel(releasedFacts(), FIXTURE_NOW);
-    const b = buildBriefing(m, doctorStatus(releasedFacts(), FIXTURE_NOW), FIXTURE_NOW);
+    const m = buildModel(readyFacts(), FIXTURE_NOW);
+    const b = buildBriefing(m, doctorStatus(readyFacts(), FIXTURE_NOW), FIXTURE_NOW);
     const html = consoleHtml(b, FIXTURE_NOW);
     const card = html.slice(html.indexOf('data-detail="rollout"'));
     expect(card.slice(0, card.indexOf("</section>"))).toContain(
@@ -107,16 +106,19 @@ describe("a change only on main", () => {
 describe("a rollout in flight", () => {
   test("merges the approved PRs into the free lanes and holds an ordered fork", () => {
     useRollout({ lanes: 2, ordering: [{ service: "file", after: ["legal", "schema"] }] });
-    const f = fixtureFacts();
+    const f = settled(fixtureFacts());
     merged(f, "partition");
     for (const svc of ["legal", "schema", "file"]) ready(f, svc);
     const m = buildModel(f, FIXTURE_NOW);
     expect(m.rollout).toMatchObject({ phase: "rolling", next: "merge", merged: 1 });
     const row = (svc: string) => m.rollout?.forks.find((x) => x.service === svc);
-    expect(row("partition")?.merge.text).toMatch(/^merged /);
+    expect(row("partition")?.merge.text).toMatch(/^\d{2}:\d{2}$/);
     expect(row("partition")?.main.text).toBe("green");
-    expect(row("legal")?.merge.text).toBe("next press");
-    expect(row("file")?.merge.text).toBe("after legal, schema");
+    expect(row("legal")?.merge).toMatchObject({ text: "next", note: "merges on the next press" });
+    expect(row("file")?.merge).toMatchObject({
+      text: "held",
+      note: "merges after legal and schema",
+    });
     const [merge] = boardActions(inspect(m));
     expect(merge?.label).toBe("Merge 2 of 2 approved: legal and schema");
     expect(bindingSchema.parse(merge?.binding)).toMatchObject({ verb: ROLL_OUT.id });
@@ -124,19 +126,22 @@ describe("a rollout in flight", () => {
 
   test("with one lane free the second merge waits and the button says so", () => {
     useRollout({ lanes: 1 });
-    const f = fixtureFacts();
+    const f = settled(fixtureFacts());
     for (const svc of ["legal", "schema"]) ready(f, svc);
     const m = buildModel(f, FIXTURE_NOW);
     const [merge] = boardActions(inspect(m));
     expect(merge?.label).toBe("Merge 1 of 2 approved: legal · schema waits for a lane");
-    expect(m.rollout?.forks.find((x) => x.service === "schema")?.merge.text).toBe(
-      "waits for a lane",
+    expect(m.rollout?.forks.find((x) => x.service === "schema")?.merge.text).toBe("lane");
+    const next = boardCard(inspect(m), "Next step");
+    expect(next?.title).toBe("Merge legal. One lane is free.");
+    expect(next?.fields?.[0]?.value).toBe(
+      "legal and schema are approved and green. Only one lane is free, so legal merges on this press and schema on the next.",
     );
   });
 
   test("the inspector draws the lane meter, the fork table and the side panels", () => {
     useRollout({ lanes: 5 });
-    const f = fixtureFacts();
+    const f = settled(fixtureFacts());
     merged(f, "partition", { status: "in_progress" });
     const b = inspect(buildModel(f, FIXTURE_NOW));
     const titles = b.sections.map((s) => ("title" in s ? s.title : undefined));
@@ -148,21 +153,26 @@ describe("a rollout in flight", () => {
     if (table?.kind !== "table") throw new Error("fork table");
     expect(table.columns.map((c) => c.label)).toEqual([
       "Fork",
-      "PR",
       "Validation",
       "Review",
       "Merge",
-      "Main run",
+      "Main",
     ]);
+    expect(table.rows[0]?.fork).toMatchObject({ value: "partition" });
     expect(table.rows[0]?.main).toMatchObject({
       badges: [{ text: "running", tone: "info" }],
     });
+    const notes = b.sections[b.sections.indexOf(table) + 1];
+    if (notes?.kind !== "rows") throw new Error("fork notes");
+    expect(notes.items.find((i) => i.text === "entitlements")?.trailing).toBe(
+      "Validation failed on the environment's own hold · needs review",
+    );
   });
 });
 
 describe("a main run that fails after its merge", () => {
   test("without an Environment title stops the line: merges pause and the job is linked", () => {
-    const f = fixtureFacts();
+    const f = settled(fixtureFacts());
     merged(f, "partition", { conclusion: "failure", jobs: [job([])] });
     ready(f, "legal");
     const m = buildModel(f, FIXTURE_NOW);
@@ -175,9 +185,8 @@ describe("a main run that fails after its merge", () => {
     expect(b.header?.status?.label).toBe("P0 · ROLLOUT STOPPED");
     const [primary, ...rest] = boardActions(b);
     expect(primary).toMatchObject({ label: "Merging paused · 1 main run red", disabled: true });
-    expect(rest.map((a) => [a.label, a.reason])).toEqual([
-      ["Retarget the rollout to main", `once a template fix merges · main is still ${HEAD}`],
-      ["Re-run partition's main run", "not offered · real failure"],
+    expect(rest.map((a) => [a.label, a.disabled])).toEqual([
+      [`Retarget to main · once a template fix merges · main is still ${HEAD}`, true],
     ]);
     const next = boardCard(b, "Next step");
     expect(next?.title).toBe("Fix it forward in the template. Merges and dispatches are paused.");
@@ -194,7 +203,7 @@ describe("a main run that fails after its merge", () => {
   });
 
   test("once a fix lands on main, Retarget dispatches every fork whose PR lacks it", () => {
-    const f = fixtureFacts();
+    const f = settled(fixtureFacts());
     merged(f, "partition", { conclusion: "failure", jobs: [job([])] });
     const old = headSha(f);
     const fix = "f1x0000000000000000000000000000000000001";
@@ -242,7 +251,7 @@ describe("a main run that fails after its merge", () => {
   });
 
   test("with an Environment title on attempt 1 it is re-run once, not a stop", () => {
-    const f = fixtureFacts();
+    const f = settled(fixtureFacts());
     const id = merged(f, "partition", {
       conclusion: "failure",
       jobs: [job(["Shared environment did not answer within 20m"])],
@@ -250,7 +259,10 @@ describe("a main run that fails after its merge", () => {
     const m = buildModel(f, FIXTURE_NOW);
     expect(m.rollout?.phase).toBe("rolling");
     expect(m.rollout?.stops).toEqual([]);
-    expect(m.rollout?.forks[0]?.main.text).toBe("environment · attempt 1");
+    expect(m.rollout?.forks[0]?.main).toMatchObject({
+      text: "env",
+      note: "main run hit an environment failure on attempt 1",
+    });
     expect(m.rollout?.next).toBe("rerun");
     const [rerun] = boardActions(inspect(m));
     expect(rerun?.label).toBe("Re-run partition once · environment failure, attempt 1");
@@ -268,7 +280,7 @@ describe("a main run that fails after its merge", () => {
   });
 
   test("an Environment title on a second attempt stops the line", () => {
-    const f = fixtureFacts();
+    const f = settled(fixtureFacts());
     merged(f, "partition", { conclusion: "failure", attempt: 2, jobs: [job(["timeout"], 2)] });
     expect(buildModel(f, FIXTURE_NOW).rollout?.phase).toBe("stopped");
   });
@@ -276,7 +288,7 @@ describe("a main run that fails after its merge", () => {
 
 describe("every fork on the change", () => {
   function done(ago = 60) {
-    const f = fixtureFacts();
+    const f = settled(fixtureFacts());
     for (const svc of ["partition", "entitlements", "legal", "schema", "file"]) {
       merged(f, svc, {}, ago);
     }
@@ -364,6 +376,44 @@ describe("a press against a stale board", () => {
     });
   });
 
+  test("is refused when the environment went on hold after the board drew the merge", async () => {
+    unregister.push(registerVerb(ROLL_OUT));
+    const { exec, writes, reads } = github(NEW_HEAD);
+    const log = new ActionLog(undefined);
+    const res = await act(
+      {
+        verb: ROLL_OUT.id,
+        item: ROLLOUT_ITEM,
+        swept: "s",
+        targets: [
+          {
+            repo: "Azure/osdu-spi-legal",
+            kind: "pr",
+            number: 33,
+            sha: "a".repeat(40),
+            state: "open",
+            label: "legal #33",
+          },
+        ],
+      },
+      {
+        exec,
+        log,
+        resweep: () => undefined,
+        now: () => FIXTURE_NOW,
+        held: () => "env-upgrade in verify",
+      },
+    );
+    expect(res.ok).toBe(false);
+    expect(reads).toEqual([]);
+    expect(writes).toEqual([]);
+    expect(log.lastFor(ROLLOUT_ITEM)?.results[0]).toEqual({
+      target: "legal #33",
+      outcome: "refused",
+      detail: "the environment is held: env-upgrade in verify",
+    });
+  });
+
   test("Fleet Release reads the fleet-release runs before it dispatches", async () => {
     unregister.push(registerVerb(FLEET_RELEASE));
     const { exec, writes, reads } = github(NEW_HEAD);
@@ -419,11 +469,125 @@ describe("the states dev/states.ts replays", () => {
       const r = buildModel(f, FIXTURE_NOW).rollout;
       return [r?.phase, r?.next];
     };
-    expect(phase(releasedFacts())).toEqual(["ready", "start"]);
+    expect(phase(readyFacts())).toEqual(["ready", "start"]);
     expect(phase(rollingFacts())).toEqual(["rolling", "merge"]);
     expect(phase(stoppedFacts())).toEqual(["stopped", "stopped"]);
     expect(phase(environmentFacts())).toEqual(["rolling", "rerun"]);
+    expect(phase(heldFacts())).toEqual(["rolling", "env"]);
     expect(phase(doneFacts())).toEqual(["done", "release"]);
+  });
+});
+
+describe("a held environment", () => {
+  test("pauses every press that deploys and keeps the re-run for after the hold", () => {
+    const m = buildModel(heldFacts(), FIXTURE_NOW);
+    expect(m.rollout).toMatchObject({ next: "env", held: "env-upgrade in verify" });
+    const b = inspect(m);
+    const next = boardCard(b, "Next step");
+    expect(next?.title).toBe(
+      "Wait for the environment: env-upgrade in verify. Nothing that deploys starts until it reads deployable.",
+    );
+    expect(next?.fields?.[0]?.value).toContain(
+      "a re-run now would spend its one attempt on the hold",
+    );
+    expect(next?.fields?.[0]?.value).not.toContain("stays held until");
+    const actions = next?.actions ?? [];
+    expect(actions.every((a) => a.disabled)).toBe(true);
+    expect(actions[0]?.label).toBe("Waiting for the environment · env-upgrade in verify");
+    expect(actions.map((a) => a.label)).toContain(
+      "Re-run partition once · after the environment reads deployable",
+    );
+  });
+
+  test("an approved PR waits on the environment, not on the next press", () => {
+    const f = heldFacts();
+    ready(f, "legal");
+    const m = buildModel(f, FIXTURE_NOW);
+    expect(m.rollout?.next).toBe("env");
+    expect(m.rollout?.forks.find((x) => x.service === "legal")?.merge).toMatchObject({
+      text: "env",
+      note: "merges once the environment is deployable",
+    });
+  });
+});
+
+describe("the words around a rollout", () => {
+  test("an upstream sync that only halts says so instead of nothing queued", () => {
+    const r = buildModel(readyFacts(), FIXTURE_NOW).rollout as NonNullable<
+      ReturnType<typeof buildModel>["rollout"]
+    >;
+    const only = {
+      ...r,
+      schedule: {
+        ...r.schedule,
+        upstreamForks: 0,
+        upstreamMaybe: 0,
+        upstreamHalts: ["entitlements"],
+      },
+    };
+    expect(upstreamPrs(only)).toBe("no PR (entitlements halts instead)");
+    expect(watchText(only, FIXTURE_NOW)).toStartWith(
+      "Upstream sync at 10-13 00:00 opens no PR (entitlements halts instead). ",
+    );
+  });
+
+  test("a sync is filtered-only by its queued commits, not by open upstream MRs", () => {
+    const m = buildModel(readyFacts(), FIXTURE_NOW);
+    const line = m.lines.find((l) => l.fork.id === "legal");
+    if (!line) throw new Error("legal line");
+    const filtered = { bucket: "Filtered" as const, paths: ["docs/a.md"] };
+    const shared = { bucket: "Shared" as const, paths: ["pom.xml"] };
+    const radar = (certain: (typeof filtered)[], possible: (typeof shared)[]) => ({
+      services: {
+        legal: { state: "clean" as const, queued: 1, mrs: 1, certain, possible },
+      },
+    });
+    expect(upstreamOpens([line], radar([filtered], [shared]))).toEqual({
+      upstreamForks: 1,
+      upstreamMaybe: 1,
+      upstreamHalts: [],
+    });
+  });
+
+  test("the rollout's fingerprint tells an owed re-run from an unjudged environment failure", () => {
+    const inputs = (f: Facts) =>
+      buildModel(f, FIXTURE_NOW).queue.items.find((i) => i.id === "rollout")?.inputs ?? [];
+    const owed = inputs(environmentFacts()).find((x) => x.startsWith("partition:"));
+    const unjudged = inputs(heldFacts()).find((x) => x.startsWith("entitlements:"));
+    expect(owed).toContain(":rerun");
+    expect(unjudged).not.toContain(":rerun");
+    expect(unjudged).toContain("Validation failed on the environment's own hold");
+  });
+
+  test("the upstream sync counts only the forks it opens a PR on", () => {
+    const r = buildModel(readyFacts(), FIXTURE_NOW).rollout;
+    expect(r?.schedule).toMatchObject({ upstreamHalts: ["entitlements"] });
+    expect(upstreamPrs(r as NonNullable<typeof r>)).toBe(
+      `${plural(r?.schedule.upstreamForks ?? 0, "PR")} (entitlements halts instead)`,
+    );
+  });
+
+  test("the evidence leads with main's sha and how far the forks trail it", () => {
+    const m = buildModel(readyFacts(), FIXTURE_NOW);
+    const b = buildBriefing(m, doctorStatus(readyFacts(), FIXTURE_NOW), FIXTURE_NOW);
+    const evidence = b.focus.find((f) => f.id === "rollout")?.evidence.map((e) => e.label);
+    expect(evidence?.slice(0, 2)).toEqual(["main c0de000", "forks on ea9a2e1"]);
+  });
+
+  test("a last-good pin from an earlier day carries its date", () => {
+    const b = inspect(buildModel(doneFacts(), FIXTURE_NOW));
+    const pins = b.sections.find((s) => "title" in s && s.title === "Last-good pins");
+    if (pins?.kind !== "rows") throw new Error("pins");
+    expect(pins.items.find((i) => i.text === "legal")?.trailing).toMatch(
+      /^main \w{7} · green \d{2}-\d{2} \d{2}:\d{2}$/,
+    );
+  });
+
+  test("a fork whose name ends in s takes a bare apostrophe", () => {
+    const m = buildModel(stoppedFacts(), FIXTURE_NOW);
+    expect(nextWhy(m.rollout as NonNullable<typeof m.rollout>)).toStartWith(
+      "entitlements' main run failed after its merge.",
+    );
   });
 });
 

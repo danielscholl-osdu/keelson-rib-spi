@@ -7,7 +7,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import type { RolloutFork, RolloutModel } from "../model/rollout.ts";
-import { plural, short, stamp } from "../util.ts";
+import { names, plural, short, stamp, whose } from "../util.ts";
 
 export interface RolloutWords {
   title: string;
@@ -20,12 +20,6 @@ export interface RolloutWords {
   plan: string;
   watch: string;
   reaches: string;
-}
-
-export function names(list: readonly string[]): string {
-  return list.length <= 1
-    ? (list[0] ?? "")
-    : `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
 }
 
 function cap(text: string): string {
@@ -64,12 +58,29 @@ export function planText(r: RolloutModel): string {
   return parts.join(" · ");
 }
 
+// Whether the next upstream sync does anything a rollout should know about.
+export function upstreamSays(r: RolloutModel): boolean {
+  return r.schedule.upstreamForks > 0 || r.schedule.upstreamHalts.length > 0;
+}
+
+// "12 PRs", "up to 12 PRs" or "no PR", and the forks that halt instead.
+export function upstreamPrs(r: RolloutModel): string {
+  const s = r.schedule;
+  const prs =
+    s.upstreamForks === 0
+      ? "no PR"
+      : `${s.upstreamMaybe > 0 ? "up to " : ""}${plural(s.upstreamForks, "PR")}`;
+  return s.upstreamHalts.length > 0
+    ? `${prs} (${names(s.upstreamHalts)} ${s.upstreamHalts.length === 1 ? "halts" : "halt"} instead)`
+    : prs;
+}
+
 export function watchText(r: RolloutModel, now: Date): string {
   const out: string[] = [];
   const up = stamp(r.schedule.upstream, now);
-  if (up && r.schedule.upstreamForks > 0) {
+  if (up && upstreamSays(r)) {
     out.push(
-      `Upstream sync at ${up} opens ${plural(r.schedule.upstreamForks, "PR")}${r.borrows ? " that share these lanes" : ""}.`,
+      `Upstream sync at ${up} opens ${upstreamPrs(r)}${r.borrows && r.schedule.upstreamForks > 0 ? " that share these lanes" : ""}.`,
     );
   }
   const tmpl = stamp(r.schedule.template, now);
@@ -109,6 +120,8 @@ export function nextSentence(r: RolloutModel): string {
       return `Re-run ${names(r.envReruns.map((e) => e.service))} once: an environment failure, and the other lanes have drained.`;
     case "retarget":
       return "Retarget the rollout to main: dispatch Sync Template so each fork's PR carries the fix.";
+    case "env":
+      return `Wait for the environment: ${r.held ?? "it is held"}. Nothing that deploys starts until it reads deployable.`;
     case "stopped":
       return "Fix it forward in the template. Merges and dispatches are paused.";
     case "release":
@@ -129,23 +142,29 @@ export function nextWhy(r: RolloutModel): string {
   if (r.phase === "stopped") {
     const stop = r.stops[0];
     if (!stop) return "";
-    return `${stop.service}'s main run failed after its merge. The failure carries no Environment title, so it counts as a failure of the change. Don't patch the fork by hand.`;
+    return `${whose(stop.service)} main run failed after its merge. The failure carries no Environment title, so it counts as a failure of the change. Don't patch the fork by hand.`;
   }
   if (r.phase === "done") {
     const without = r.total - r.released;
     return `Fleet Release records each fork's latest release in bom.json. Run now, ${without === 0 ? "every fork has released on this template" : `the ${plural(without, "fork")} without a release on this template are listed as excluded with the reason`}. The first run never publishes.`;
   }
   const parts: string[] = [];
+  if (r.next === "env") {
+    parts.push(
+      `Every merge, dispatch and re-run deploys to the shared environment, so each waits until it reads deployable${r.envReruns.length > 0 ? "; a re-run now would spend its one attempt on the hold" : ""}.`,
+    );
+  }
   if (r.next === "merge") {
     const ok = r.mergeNext.concat(r.mergeWaits).map((f) => f.service);
     parts.push(`${names(ok)} ${ok.length === 1 ? "is" : "are"} approved and green.`);
     if (r.mergeWaits.length > 0) {
       parts.push(
-        `Only ${count(r.lanes.room)} ${r.lanes.room === 1 ? "lane is" : "lanes are"} free, so ${forkList(r.mergeWaits)} ${r.mergeWaits.length === 1 ? "merges" : "merge"} on the next press.`,
+        `Only ${count(r.lanes.room)} ${r.lanes.room === 1 ? "lane is" : "lanes are"} free, so ${forkList(r.mergeNext)} ${r.mergeNext.length === 1 ? "merges" : "merge"} on this press and ${forkList(r.mergeWaits)} on the next.`,
       );
     }
   }
   for (const f of r.forks) {
+    if (r.next !== "merge" && r.next !== "wait") break;
     if (f.heldBy.length > 0 && f.carries) {
       parts.push(
         `${f.service} stays held until ${names(f.heldBy)} ${f.heldBy.length === 1 ? "is" : "are"} merged and their main runs are green.`,
@@ -172,6 +191,8 @@ export function verbText(r: RolloutModel): string {
       return "Re-run once";
     case "retarget":
       return "Retarget";
+    case "env":
+      return "Wait for the environment";
     case "stopped":
       return "Fix forward";
     case "release":
@@ -214,7 +235,7 @@ export function rolloutWords(r: RolloutModel, now: Date): RolloutWords {
       ...base,
       title: `Rollout to template ${target} stopped at ${names(r.stops.map((f) => f.service))}`,
       sub: `${r.merged} of ${r.total} merged · ${plural(r.mainGreen, "main run")} green · ${r.stops.length} red · ${plural(held, "fork")} held`,
-      cause: `${stop?.service ?? "A fork"}'s main run failed after its merge, with no Environment title on any failed job.`,
+      cause: `${stop ? whose(stop.service) : "A fork's"} main run failed after its merge, with no Environment title on any failed job.`,
       effect: `Merges and dispatches pause; ${plural(held, "fork")} wait on the fix.`,
     };
   }

@@ -11,7 +11,7 @@ import { rolloutActions, syncTargets, waitSuffix } from "../act/rollout.ts";
 import type { Model } from "../model/index.ts";
 import type { TemplateStep } from "../model/template.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
-import { clip, plural } from "../util.ts";
+import { clip, plural, short } from "../util.ts";
 
 type Section = CanvasBoardView["sections"][number];
 type Row = Extract<Section, { kind: "rows" }>["items"][number];
@@ -56,13 +56,14 @@ function stepText(step: TemplateStep): string {
   return [plural(step.changes.length, "change"), reach, name].filter(Boolean).join(" · ");
 }
 
-export function ladderSection(model: Model): Section | undefined {
+// `bySha` leads each step with its commit, for boards that speak in shas rather than releases.
+export function ladderSection(model: Model, bySha = false): Section | undefined {
   const t = model.template;
   if (t.steps.length === 0) return undefined;
   const total = t.rows.length;
   const items: Row[] = t.steps.map((step) => ({
-    chip: { label: step.label, tone: step.head ? "info" : "neutral" },
-    text: stepText(step),
+    chip: { label: bySha ? short(step.marker) : step.label, tone: step.head ? "info" : "neutral" },
+    text: bySha ? `${step.label} · ${stepText(step)}` : stepText(step),
     trailing: spreadText(step, total),
     action: { type: INSPECT_ACTION, payload: { id: `${STEP_PREFIX}${step.marker}` } },
   }));

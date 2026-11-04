@@ -1,6 +1,6 @@
 // Rollout states built on the recorded sweep, for the tests and for dev/states.ts to replay.
 import type { Facts, JobDetail } from "../src/facts";
-import { FIXTURE_NOW, fixtureFacts } from "./harness";
+import { FIXTURE_NOW, fixtureFacts, releasedFacts } from "./harness";
 
 const MIN = 60_000;
 
@@ -105,9 +105,35 @@ export function job(environment: string[], attempt = 1): JobDetail {
 
 const FORKS = ["partition", "entitlements", "legal", "schema", "file"];
 
+// The recorded env-upgrade, still in verify at the fixture's clock, finishes green two minutes
+// before it: the environment reads deployable again.
+export function settled(f: Facts): Facts {
+  const at = new Date(FIXTURE_NOW.getTime() - 2 * MIN).toISOString();
+  for (const runs of Object.values(f.lifecycle.data ?? {})) {
+    for (const run of runs) {
+      if (run.status === "completed") continue;
+      run.status = "completed";
+      run.conclusion = "success";
+      run.updatedAt = at;
+      run.jobs = run.jobs?.map((j) => ({
+        ...j,
+        status: "completed",
+        conclusion: "success",
+        steps: (j.steps ?? []).map((st) => ({ ...st, status: "completed", conclusion: "success" })),
+      }));
+    }
+  }
+  return f;
+}
+
+// A change only on main, with the environment deployable.
+export function readyFacts(): Facts {
+  return settled(releasedFacts());
+}
+
 // Two forks merged and green, three PRs approved and green: merges wait on lanes and order.
 export function rollingFacts(): Facts {
-  const f = fixtureFacts();
+  const f = settled(fixtureFacts());
   merged(f, "partition", {}, 90);
   merged(f, "entitlements", { status: "in_progress" }, 10);
   for (const svc of ["legal", "schema", "file"]) ready(f, svc);
@@ -116,15 +142,21 @@ export function rollingFacts(): Facts {
 
 // The first merge's main run failed with no Environment title on any failed job.
 export function stoppedFacts(): Facts {
-  const f = fixtureFacts();
+  const f = settled(fixtureFacts());
   merged(f, "partition", {}, 120);
   merged(f, "entitlements", { conclusion: "failure", jobs: [job([])] }, 45);
   ready(f, "legal");
   return f;
 }
 
-// The first merge's main run timed out on the shared environment, attempt 1.
+// The first merge's main run timed out on the shared environment, attempt 1, and the
+// environment is deployable again.
 export function environmentFacts(): Facts {
+  return settled(heldFacts());
+}
+
+// The same timeout while the recorded env-upgrade still holds the environment in verify.
+export function heldFacts(): Facts {
   const f = fixtureFacts();
   merged(f, "partition", {
     conclusion: "failure",
@@ -135,7 +167,7 @@ export function environmentFacts(): Facts {
 
 // Every fork merged, every main run green, one of them on a second attempt.
 export function doneFacts(): Facts {
-  const f = fixtureFacts();
+  const f = settled(fixtureFacts());
   for (const [i, svc] of FORKS.entries()) {
     merged(f, svc, i === 2 ? { attempt: 2 } : {}, 300 - i * 40);
   }

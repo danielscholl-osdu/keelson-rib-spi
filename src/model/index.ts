@@ -18,7 +18,7 @@ import { buildQueue, type Queue } from "./queue.ts";
 import { buildRadar, predictAll, type RadarModel } from "./radar.ts";
 import { buildRepos, type ReposModel } from "./repos.ts";
 import { buildRollout, type RolloutModel } from "./rollout.ts";
-import { buildStack, type StackModel } from "./stack.ts";
+import { buildStack, heldText, type StackModel } from "./stack.ts";
 import { buildTemplate, type TemplateModel } from "./template.ts";
 import { buildWork, type WorkModel } from "./work.ts";
 
@@ -112,6 +112,8 @@ export function buildModel(
     runs: facts.runs.data,
     lanes,
     ordering: activeRollout()?.ordering,
+    held: heldText(stack),
+    radar,
     now,
   });
   const queue = buildQueue({
