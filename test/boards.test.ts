@@ -4,6 +4,7 @@ import { badge, verdictLabel } from "../src/boards/badge";
 import { doctorBoard } from "../src/boards/doctor";
 import { inspectBoard } from "../src/boards/inspect";
 import { radarBreaks } from "../src/boards/radar";
+import { readItem } from "../src/brief/index";
 import { emptyFacts } from "../src/facts";
 import { INSPECT_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
@@ -48,11 +49,11 @@ describe("the queue", () => {
     expect(model.queue.items.map((i) => [`P${i.rung} · ${itemClass(i)}`, verbOf(i)])).toEqual([
       ["P0 · ENV", "Re-dispatch"],
       ["P0 · HALT", "Classify entry"],
+      ["P1 · ROLLOUT", "Open the rollout"],
       ["P1 · TOOLCHAIN", "Absorb toolchain"],
       ["P1 · PORT", "Port"],
       ["P1 · PORT", "Port"],
       ["P1 · GATE", "Approve runs"],
-      ["P2 · READY", "Review, then Roll out"],
       ["P2 · READY", "Review on GitHub"],
     ]);
     for (const item of model.queue.items) {
@@ -60,7 +61,11 @@ describe("the queue", () => {
         inspectBoard(model, { selected: item.id, item }, FIXTURE_NOW),
         "Next step",
       );
-      expect(next?.title).toBe(sentenceOf(nextText(item)));
+      expect(next?.title).toBe(
+        item.kind === "rollout"
+          ? readItem(model, item, FIXTURE_NOW).next
+          : sentenceOf(nextText(item)),
+      );
     }
   });
 });
@@ -148,13 +153,10 @@ describe("a template release the forks have not taken yet", () => {
     return buildModel(f, FIXTURE_NOW);
   }
 
-  test("open PRs keep their position and the item says a newer release is out", () => {
+  test("open PRs keep their position while the rollout targets the release main is on", () => {
     const model = released();
-    const set = model.queue.items.find((i) => i.id === "template-set");
-    expect(set?.text).toStartWith("5 template-sync PRs to v1.2.0 +14 (v1.3.0 is out)");
-    expect(set?.cause.find((c) => c.label === "latest")?.value).toBe(
-      "v1.3.0 is out; these PRs carry the template before it",
-    );
+    expect(model.queue.items.some((i) => i.id === "template-set")).toBe(false);
+    expect(model.rollout?.target.label).toBe("v1.3.0");
     expect(model.lines.map((l) => l.template.target).filter(Boolean)).not.toContain("v1.3.0");
   });
 });

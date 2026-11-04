@@ -30,6 +30,7 @@ import { age, plural, stamp, zoned } from "../util.ts";
 import { names } from "./fold.ts";
 import { MR_PREFIX, mrBoard } from "./radar.ts";
 import { repoBoard } from "./repo.ts";
+import { rolloutBoard } from "./rollout.ts";
 import { ladderSection, rolloutActionItems, STEP_PREFIX, spreadText } from "./template.ts";
 
 type Section = CanvasBoardView["sections"][number];
@@ -61,6 +62,7 @@ export const KIND_TITLE: Record<ItemKind, string> = {
   radar: "next sync predicted",
   port: "upstream change owed a port",
   security: "critical security alert in SPI code",
+  rollout: "template rollout",
 };
 
 // A listed rule is the one to copy; absent forks fold into one line.
@@ -480,6 +482,14 @@ export function inspectBoard(
       header: { status: { label: "CLEARED", tone: "ok" } },
       sections: [{ kind: "rows", items: rows }, ...(ev ? [ev] : [])],
     };
+  }
+  if (item.kind === "rollout" && model.rollout) {
+    const blocked = writeBlocked(model.sweptAt, opts.scopes);
+    const last = lastAction(entry, now);
+    return rolloutBoard(model, model.rollout, item, now, {
+      ...(blocked ? { blocked } : {}),
+      extra: [...(last ? [last] : []), { kind: "actions", items: [dismissButton(item)] }],
+    });
   }
   const reading = readItem(model, item, now);
   const since = age(item.since, now);

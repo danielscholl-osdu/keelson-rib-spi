@@ -123,14 +123,17 @@ describe("the fleet on 12 October", () => {
     );
   });
 
-  test("template-sync PRs blocked only by the stack wait as one set", () => {
-    const set = model.queue.items.find((i) => i.id === "template-set");
-    expect(set?.rung).toBe(2);
-    expect(set?.text).toContain("5 template-sync PRs to v1.2.0 +14");
-    expect(set?.text).toContain("once the stack is deployable");
+  test("template-sync PRs at main read as one rollout, held by the stack", () => {
+    expect(model.queue.items.some((i) => i.id === "template-set")).toBe(false);
+    const item = model.queue.items.find((i) => i.id === "rollout");
+    expect(item?.rung).toBe(1);
+    expect(item?.text).toBe("Rollout to template bb49a03 · 0 of 5 merged");
+    expect(model.rollout?.forks.map((f) => f.validation.text)).toEqual(
+      Array(5).fill("environment · on the stack"),
+    );
   });
 
-  test("once the stack is deployable again, the lanes it failed and the template set say so", () => {
+  test("once the stack is deployable again, the lanes it failed say so beside the rollout", () => {
     const f = fixtureFacts();
     const lc = f.lifecycle.data;
     if (!lc) throw new Error("fixture has lifecycle runs");
@@ -144,8 +147,8 @@ describe("the fleet on 12 October", () => {
     const lanes = items.find((i) => i.id === "stack:lanes");
     expect(lanes?.text).toBe("deployable again; 5 fork lanes failed before it recovered");
     expect(lanes?.note).toBe("re-run now");
-    expect(items.find((i) => i.id === "template-set")?.text).toBe(
-      "5 template-sync PRs to v1.2.0 +14 · mergeable together after the lane re-run · review required",
+    expect(items.find((i) => i.id === "rollout")?.text).toBe(
+      "Rollout to template bb49a03 · 0 of 5 merged",
     );
   });
 

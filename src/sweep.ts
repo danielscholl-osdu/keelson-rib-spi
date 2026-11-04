@@ -6,6 +6,7 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
+import { readFileSync } from "node:fs";
 import type { RibExec } from "@keelson/shared";
 import { z } from "@keelson/shared";
 import { fleetView, readFleet, useFleetView } from "./collect/fleet.ts";
@@ -34,6 +35,7 @@ import {
   type LifecycleKind,
   REPOS,
   ROLLOUT_FILE,
+  replayFile,
   SECURITY_EVERY_MS,
   SERVICES_FILE,
   setFleet,
@@ -57,6 +59,14 @@ import type { Store } from "./store.ts";
 import { errorText, pool } from "./util.ts";
 
 const FACTS_FILE = "facts.json";
+
+function replayFacts(file: string): unknown {
+  try {
+    return JSON.parse(readFileSync(file, "utf8"));
+  } catch {
+    return undefined;
+  }
+}
 // GitHub stamps a dispatched run a little before or after the call returns.
 const DISPATCH_SKEW_MS = 30_000;
 const DISPATCH_WAIT_MS = 3 * 60_000;
@@ -165,6 +175,8 @@ export interface SweeperOptions {
   dismissed?: () => readonly DismissEntry[];
   // The offline overrides; RIB_SPI_SERVICES_FILE and RIB_SPI_ROLLOUT_FILE by default.
   fleetFiles?: { services?: string; rollout?: string };
+  // Recorded facts drawn at their own sweep time instead of a sweep; RIB_SPI_FACTS_FILE by default.
+  replay?: string;
 }
 
 // One in-process sweep feeds every region and tool, so they all count the same
@@ -173,6 +185,7 @@ export class Sweeper {
   facts: Facts;
   model: Model;
   readonly now: () => Date;
+  private readonly replay: string | undefined;
   private readonly fleetFiles: { services?: string; rollout?: string };
   private readonly cache: CacheFile;
   private readonly detailCache: DetailCache;
@@ -187,8 +200,15 @@ export class Sweeper {
   constructor(private readonly opts: SweeperOptions) {
     this.now = opts.now ?? (() => new Date());
     this.fleetFiles = opts.fleetFiles ?? { services: SERVICES_FILE, rollout: ROLLOUT_FILE };
-    const stored = opts.store.read(FACTS_FILE, factsFileSchema);
+    this.replay = opts.replay ?? replayFile();
+    const stored = this.replay
+      ? replayFacts(this.replay)
+      : opts.store.read(FACTS_FILE, factsFileSchema);
     this.facts = { ...emptyFacts(), ...(stored as Partial<Facts> | undefined) };
+    if (this.replay && !opts.now) {
+      const at = Date.parse(this.facts.sweep?.at ?? "");
+      if (Number.isFinite(at)) this.now = () => new Date(at);
+    }
     const cache = opts.store.read(CACHE_FILE, cacheFileSchema) as Partial<CacheFile> | undefined;
     this.cache = cache ? { ...emptyCache(), ...cache } : emptyCache();
     this.cache.radar = { ...emptyRadarState(), ...this.cache.radar };
@@ -216,6 +236,13 @@ export class Sweeper {
   }
 
   sweep(opts: { force?: boolean } = {}): Promise<void> {
+    if (this.replay) {
+      this.facts = { ...emptyFacts(), ...(replayFacts(this.replay) as Partial<Facts> | undefined) };
+      this.applyFleet();
+      this.rebuild();
+      this.opts.onChange();
+      return Promise.resolve();
+    }
     if (!this.running) {
       this.running = this.run(opts.force ?? false).finally(() => {
         this.running = undefined;
@@ -225,6 +252,7 @@ export class Sweeper {
   }
 
   hasInflight(): boolean {
+    if (this.replay) return false;
     const lc = this.facts.lifecycle.data;
     const stack =
       !!lc && [...(lc.refresh ?? []), ...(lc.upgrade ?? [])].some((r) => r.status !== "completed");

@@ -322,7 +322,7 @@ describe("the environment verbs", () => {
   test("a maintenance hold re-dispatches env-refresh first", () => {
     const m = buildModel(laneFacts(), FIXTURE_NOW);
     const held = {
-      ...item("template-set"),
+      ...item("rollout"),
       id: "stack:maintenance",
       kind: "maintenance",
     } as QueueItem;

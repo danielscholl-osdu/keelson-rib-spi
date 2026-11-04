@@ -280,7 +280,7 @@ describe("inspect", () => {
     }
   });
 
-  test("the template-set inspector shows the last rollout verb as its last action", async () => {
+  test("the rollout inspector shows the last rollout verb as its last action", async () => {
     const { ctx, snapshots } = stored();
     rib.registerTools?.(ctx);
     const res = await rib.onAction?.(
@@ -296,7 +296,7 @@ describe("inspect", () => {
       ctx,
     );
     expect(res?.ok).toBe(false);
-    await rib.onAction?.({ type: "inspect", payload: { id: "template-set" } }, ctx);
+    await rib.onAction?.({ type: "inspect", payload: { id: "rollout" } }, ctx);
     const frame = snapshots.latest(INSPECT_KEY)?.data as {
       sections: { title?: string; items?: { text: string }[] }[];
     };

@@ -69,7 +69,7 @@ function detail(f: FocusItem, selected: boolean): string {
   return `<section class="detail" data-detail="${esc(f.id)}"${selected ? "" : " hidden"}>
 <p class="eyebrow"><span class="rung ${rungClass(f)}">P${f.rung}</span> ${esc(f.scope)} <span class="chip ${rungClass(f)}">${esc(f.cls)}</span></p>
 <h3>${esc(f.title)}</h3>
-<dl class="kv"><dt>Cause</dt><dd>${esc(f.cause)}</dd><dt>Effect</dt><dd>${esc(f.effect)}</dd><dt>Next</dt><dd class="next">${esc(f.next)}</dd>${evidence ? `<dt>Evidence</dt><dd class="evidence">${evidence}</dd>` : ""}</dl>
+<dl class="kv"><dt>Cause</dt><dd>${esc(f.cause)}</dd><dt>Effect</dt><dd>${esc(f.effect)}</dd><dt>Next</dt><dd class="next">${esc(f.next)}</dd>${(f.more ?? []).map((m) => `<dt>${esc(m.label)}</dt><dd>${esc(m.text)}</dd>`).join("")}${evidence ? `<dt>Evidence</dt><dd class="evidence">${evidence}</dd>` : ""}</dl>
 <button type="button" class="open" data-inspect="${esc(f.id)}">Open in inspector · ${esc(f.verb)}</button>
 </section>`;
 }
@@ -642,13 +642,11 @@ button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); 
 const SCRIPT = `(function () {
   var k = window.keelson || {};
   function show(row, pane, id, aria) {
+    var panes = document.querySelectorAll("[" + pane + "]");
     var found = false;
-    document.querySelectorAll("[" + pane + "]").forEach(function (d) {
-      var on = d.getAttribute(pane) === id;
-      d.hidden = !on;
-      if (on) found = true;
-    });
+    panes.forEach(function (d) { if (d.getAttribute(pane) === id) found = true; });
     if (!found) return false;
+    panes.forEach(function (d) { d.hidden = d.getAttribute(pane) !== id; });
     document.querySelectorAll("[" + row + "]").forEach(function (r) {
       var on = r.getAttribute(row) === id;
       r.classList.toggle("on", on);

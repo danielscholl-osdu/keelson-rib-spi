@@ -38,12 +38,13 @@ function model(edit?: (f: Facts) => void) {
 }
 
 function inspectSet(m: ReturnType<typeof buildModel>) {
-  const b = inspectBoard(m, { selected: "template-set" }, FIXTURE_NOW);
+  const id = m.queue.items.some((i) => i.id === "rollout") ? "rollout" : "template-set";
+  const b = inspectBoard(m, { selected: id }, FIXTURE_NOW);
   expect(() => expectView(INSPECT_KEY, "board")(b)).not.toThrow();
   return b;
 }
 
-describe("the template-set inspector", () => {
+describe("the rollout inspector", () => {
   test("the ladder names each step by release and says no PR carries the newest yet", () => {
     const ladder = inspectSet(model()).sections.find(
       (s) => s.kind === "rows" && s.title === "Release ladder · newest first",
@@ -68,7 +69,10 @@ describe("the template-set inspector", () => {
     expect(next).toBeGreaterThanOrEqual(0);
     expect(titles.indexOf("Release ladder · newest first")).toBeGreaterThan(next);
     const verbs = boardCard(inspectSet(model()), "Next step")?.actions ?? [];
-    expect(verbs.map((i) => i.label.split(" · ")[0])).toEqual(["Sync all forks", "Roll out"]);
+    expect(verbs.map((i) => i.label.split(" · ")[0])).toEqual([
+      "Start rollout",
+      "Merge approved PRs",
+    ]);
   });
 
   test("with no ladder step the inspector draws the verbs alone", () => {

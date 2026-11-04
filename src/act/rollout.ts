@@ -8,7 +8,10 @@
 
 import { forkOf, SYNC_TEMPLATE_WORKFLOW } from "../config.ts";
 import { type LaneLoad, laneRoom } from "../model/lanes.ts";
-import { ownFailure, type TemplateModel, type TemplateRow } from "../model/template.ts";
+import { heldBecause, type TemplateModel, type TemplateRow } from "../model/template.ts";
+
+export { heldBecause };
+
 import { plural, stamp } from "../util.ts";
 import { type ActionItem, type Target, type Verb, verbAction } from "./verbs.ts";
 
@@ -91,23 +94,6 @@ export function syncTargets(t: TemplateModel, load?: LaneLoad): Paced & { skippe
     eligible.push({ repo: row.repo, kind: "workflow", state: "idle", label: row.service });
   }
   return { ...paced(eligible, load), skipped };
-}
-
-// Why Roll out leaves a fork's PR alone, or undefined when it is ready to merge.
-export function heldBecause(row: TemplateRow): string | undefined {
-  const pr = row.pr;
-  if (!pr) return undefined;
-  if (pr.draft) return "is a draft";
-  const own = ownFailure(row);
-  if (own) return `fails ${own.cls} ${own.check}`;
-  if (row.failures.some((f) => !f.hidden && f.cls === "ENV")) return "is red on the stack";
-  if (row.verdict === "pending") return "has checks running";
-  if (row.verdict === "red") return "is red";
-  if (pr.reviewDecision === "CHANGES_REQUESTED") return "has changes requested";
-  if (pr.reviewDecision === "REVIEW_REQUIRED") return "needs review";
-  if (pr.mergeState === "DIRTY") return "has conflicts";
-  if (pr.mergeState === "BEHIND") return "is behind main";
-  return undefined;
 }
 
 export function rolloutTargets(

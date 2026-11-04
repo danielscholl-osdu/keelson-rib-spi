@@ -23,6 +23,7 @@ import type { LineModel, LinePr } from "./lines.ts";
 import type { RadarModel } from "./radar.ts";
 import { summarizeReason } from "./reason.ts";
 import type { AlertGroup, RepoRow, ReposModel } from "./repos.ts";
+import type { RolloutModel } from "./rollout.ts";
 import {
   attemptText,
   overdue,
@@ -74,7 +75,8 @@ export type ItemKind =
   | "access"
   | "radar"
   | "port"
-  | "security";
+  | "security"
+  | "rollout";
 
 // The entries a halt names, for checking whether other forks will halt on them too.
 export interface HaltEntries {
@@ -115,7 +117,7 @@ export interface QueueItem {
   effects: Effect[];
   cause: Fact[];
   // PORT is owed work: an upstream change to fork-owned code no fork PR carries yet.
-  cls?: FailureClass | "PORT" | "SECURITY";
+  cls?: FailureClass | "PORT" | "SECURITY" | "ROLLOUT";
   halt?: HaltEntries;
   approve?: ApprovePr[];
   lanes?: LaneRun[];
@@ -717,6 +719,64 @@ function templateSetItem(
   };
 }
 
+const ROLLOUT_RUNG: Record<RolloutModel["phase"], Rung> = {
+  ready: 1,
+  rolling: 1,
+  stopped: 0,
+  done: 2,
+};
+
+// One item for osdu-spi main on its way to the fleet, from the first dispatch to the last green main run.
+function rolloutItem(r: RolloutModel, template: TemplateModel): QueueItem {
+  const target = short(r.target.sha);
+  const stop = r.stops[0];
+  const text =
+    r.phase === "ready"
+      ? `Template change on main reaches ${plural(r.total, "fork")} · ${plural(r.reaching, "change")}${r.consequences.length ? ` · ${r.consequences.join(", ")}` : ""} · no PR carries it yet`
+      : r.phase === "stopped"
+        ? `Rollout to template ${target} stopped at ${stop?.service} · ${r.merged} of ${r.total} merged`
+        : r.phase === "done"
+          ? `Every fork runs template ${target} · ${r.total} of ${r.total} merged`
+          : `Rollout to template ${target} · ${r.merged} of ${r.total} merged`;
+  const job = stop?.red?.job;
+  return {
+    id: "rollout",
+    kind: "rollout",
+    rung: ROLLOUT_RUNG[r.phase],
+    scope: "fleet",
+    text,
+    since: r.started ?? template.head?.at,
+    url: r.target.url,
+    effects: [],
+    cause: [
+      { label: "target", value: `${r.target.label} · ${target}`, url: r.target.url },
+      ...(r.from ? [{ label: "forks run", value: `${r.from.label} · ${short(r.from.sha)}` }] : []),
+      { label: "merged", value: `${r.merged} of ${r.total}` },
+    ],
+    cls: "ROLLOUT",
+    ...(stop && (job?.url ?? stop.red?.run.url)
+      ? {
+          links: [
+            {
+              label: `Open the failing job on ${stop.service}`,
+              url: (job?.url ?? stop.red?.run.url) as string,
+            },
+          ],
+        }
+      : {}),
+    inputs: [
+      r.target.sha,
+      r.phase,
+      ...r.forks.map(
+        (f) =>
+          `${f.service}:${f.onTarget ? "on" : ""}:${f.pr ? `pr${f.pr.number}@${f.pr.headSha}` : ""}:${f.validation.text}:${f.mainRun?.id ?? ""}${f.mainRun?.conclusion ?? ""}`,
+      ),
+    ],
+    incident: r.phase === "stopped",
+    blocks: r.total - r.merged,
+  };
+}
+
 // Forks by service name, as the lines table names them; other repositories by short name.
 function repoName(repo: string): string {
   return forkOf(repo)?.id ?? shortRepo(repo);
@@ -1197,6 +1257,7 @@ export function buildQueue(input: {
   stack: StackModel;
   lines: readonly LineModel[];
   template: TemplateModel;
+  rollout?: RolloutModel;
   repos: Record<string, RepoFact>;
   details: Parameters<typeof prFailures>[1];
   approvals: Record<string, WaitingRun[]> | undefined;
@@ -1212,8 +1273,11 @@ export function buildQueue(input: {
   items.push(...radarItems(lines, radar));
   items.push(...portItems(lines, radar, now));
   items.push(...approvalItems(approvals));
-  const set = templateSetItem(template, lines, stack, now);
-  if (set) items.push(set);
+  if (input.rollout) items.push(rolloutItem(input.rollout, template));
+  else {
+    const set = templateSetItem(template, lines, stack, now);
+    if (set) items.push(set);
+  }
   items.push(...releaseItems(repos, details, now));
   items.push(...templatePrItems(repos[TEMPLATE_REPO], details, now));
   const bump = bumpItem(stack);

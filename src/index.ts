@@ -21,6 +21,7 @@ import {
   type SnapshotManager,
 } from "@keelson/shared";
 import { APPROVE_RUNS } from "./act/approve.ts";
+import { FLEET_RELEASE } from "./act/flow.ts";
 import { ActionLog } from "./act/log.ts";
 import { act, parseBinding } from "./act/path.ts";
 import { type Readiness, readReadiness } from "./act/readiness.ts";
@@ -127,7 +128,7 @@ const COMPOSERS: Record<(typeof VIEW_KEYS)[number], Composer> = {
 
 // Rollout verbs log under one item, whichever template-set id the inspector shows.
 function lastKey(selected: string | undefined): string | undefined {
-  return selected === "template-set" ? ROLLOUT_ITEM : selected;
+  return selected === "template-set" || selected === "rollout" ? ROLLOUT_ITEM : selected;
 }
 
 function badgeOf(data: unknown): RibSurfaceBadge {
@@ -460,6 +461,7 @@ function bind(ctx: RibContext): Sweeper {
     registerVerb(APPROVE_RUNS),
     registerVerb(SYNC_FORKS),
     registerVerb(ROLL_OUT),
+    registerVerb(FLEET_RELEASE),
     registerVerb(RERUN_LANES),
     registerVerb(DISPATCH_REFRESH),
     registerVerb(DISPATCH_UPGRADE),

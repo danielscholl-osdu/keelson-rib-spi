@@ -17,7 +17,7 @@ import { rolloutActionItems } from "../src/boards/template";
 import type { Facts } from "../src/facts";
 import { INSPECT_KEY } from "../src/keys";
 import { buildModel } from "../src/model/index";
-import { boardActions, FIXTURE_NOW, NEW_HEAD, releasedFacts } from "./harness";
+import { boardActions, FIXTURE_NOW, fixtureFacts, NEW_HEAD, releasedFacts } from "./harness";
 
 const SWEPT = { swept: "2026-10-12T21:58:14.428Z" };
 
@@ -134,13 +134,11 @@ describe("Roll out", () => {
   });
 });
 
-describe("the template-set inspector's buttons", () => {
+describe("the rollout inspector's buttons", () => {
   function actions(m: ReturnType<typeof model>, scopes?: string[]) {
-    const b = inspectBoard(m, { selected: "template-set" }, FIXTURE_NOW, undefined, { scopes });
+    const b = inspectBoard(m, { selected: "rollout" }, FIXTURE_NOW, undefined, { scopes });
     expect(() => expectView(INSPECT_KEY, "board")(b)).not.toThrow();
-    const found = boardActions(b);
-    if (!found[0]?.label.startsWith("Sync all forks")) throw new Error("rollout actions");
-    return found;
+    return boardActions(b);
   }
 
   test("Sync all forks names up to three forks, then counts", () => {
@@ -163,31 +161,38 @@ describe("the template-set inspector's buttons", () => {
     expect(label(["entitlements", "legal", "schema", "file"])?.label).toBe("Sync all forks · 4");
   });
 
-  test("lead with Sync all forks and Roll out, and say why they cannot run", () => {
+  test("the rollout leads with Start rollout and says why the merge waits", () => {
     const items = actions(model());
-    expect(items.map((i) => i.label)).toEqual(["Sync all forks · 5", "Roll out · 0 ready"]);
+    expect(items.map((i) => i.label)).toEqual([
+      "Start rollout · dispatch Sync Template to 5 forks",
+      "Merge approved PRs",
+    ]);
     expect(items[0]?.pendingLabel).toBe("Dispatching 5…");
     expect(items[0]?.confirm?.body).toStartWith(
-      "Dispatches Sync Template on partition, entitlements, legal, schema and file, so each template-sync PR moves to v1.3.0 now instead of at 10-13 08:00.",
+      "Dispatches Sync Template on partition, entitlements, legal, schema and file, so each fork's template-sync PR carries v1.3.0 (c0de000).",
     );
-    expect(items[1]).toMatchObject({ disabled: true });
-    expect(items[1]?.reason).toStartWith("nothing is ready: ");
+    expect(items[1]).toMatchObject({ disabled: true, reason: "nothing is approved and green yet" });
     expect(actions(model(), ["read:org"])[0]).toMatchObject({
       disabled: true,
       reason: "gh's token lacks the repo scope; run gh auth refresh -s repo",
     });
   });
 
-  test("Roll out binds the ready PRs to the rollout item", () => {
-    const [, roll] = actions(
-      model((f) => {
-        ready(f, "Azure/osdu-spi-legal", 33);
-        ready(f, "Azure/osdu-spi-schema", 37);
-      }),
-    );
-    expect(roll).toMatchObject({ type: "act", label: "Roll out · 2 ready" });
-    expect(roll?.disabled).toBeUndefined();
-    const binding = bindingSchema.parse(roll?.binding);
+  test("a dispatch carries the osdu-spi main it was drawn for", () => {
+    const [start] = actions(model());
+    const binding = bindingSchema.parse(start?.binding);
+    expect(binding).toMatchObject({ verb: SYNC_FORKS.id, item: ROLLOUT_ITEM, ...SWEPT });
+    expect(new Set(binding.targets.map((t) => t.sha))).toEqual(new Set([NEW_HEAD]));
+  });
+
+  test("Merge binds the approved, green PRs at main to the rollout item", () => {
+    const f = fixtureFacts();
+    ready(f, "Azure/osdu-spi-legal", 33);
+    ready(f, "Azure/osdu-spi-schema", 37);
+    const [merge] = actions(buildModel(f, FIXTURE_NOW));
+    expect(merge).toMatchObject({ type: "act", label: "Merge 2 of 2 approved: legal and schema" });
+    expect(merge?.disabled).toBeUndefined();
+    const binding = bindingSchema.parse(merge?.binding);
     expect(binding).toMatchObject({ verb: ROLL_OUT.id, item: ROLLOUT_ITEM, ...SWEPT });
     expect(binding.targets.map((t) => t.label)).toEqual(["legal #33", "schema #37"]);
   });

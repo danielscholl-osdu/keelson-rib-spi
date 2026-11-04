@@ -28,8 +28,9 @@ import {
   stoppedAttempts,
   viewRun,
 } from "../model/stack.ts";
-import { age, clip, plural, span, stamp } from "../util.ts";
+import { age, clip, plural, short, span, stamp } from "../util.ts";
 import { type Repositories, repositoriesOf } from "./repos.ts";
+import { rolloutWords } from "./rollout.ts";
 import { ago as agoText, deployableWords, streakText } from "./words.ts";
 
 export type Tone = "bad" | "warn" | "ok" | "neutral";
@@ -61,6 +62,8 @@ export interface FocusItem {
   next: string;
   verb: string;
   evidence: Link[];
+  // Further labelled lines a cause needs, such as a rollout's plan.
+  more?: { label: string; text: string }[];
 }
 
 export interface ReadyLine {
@@ -262,6 +265,12 @@ function clause(item: QueueItem): string {
       return `Restart Sync Template on ${item.scope}`;
     case "access":
       return `Restore ${item.scope}'s image pulls`;
+    case "rollout":
+      return item.incident
+        ? "Fix the template rollout forward"
+        : item.text.startsWith("Template change on main")
+          ? "Roll out the template change on main"
+          : "Finish the template rollout";
     case "radar": {
       if (item.cls === "TOOLCHAIN") {
         const java = javaOf(item);
@@ -301,17 +310,22 @@ function headlineOf(
   focusable: readonly QueueItem[],
   ready: number,
   next: string | undefined,
+  now: Date,
 ): string {
   const incidents = focusable.filter((i) => i.incident);
   const radar = focusable.filter((i) => i.kind === "radar");
+  const rollout = focusable.filter((i) => i.kind === "rollout" && !i.incident);
   const used = new Set<string>();
   const sentences: string[] = [];
   const seen = new Set<string>();
-  for (const lead of [...incidents, ...radar]) {
+  for (const lead of [...incidents, ...rollout, ...radar]) {
     if (used.has(lead.id)) continue;
     used.add(lead.id);
     let text = clause(lead);
-    if (lead.kind === "radar") {
+    if (lead.kind === "rollout") {
+      const at = stamp(model.rollout?.schedule.template, now);
+      if (model.rollout?.phase === "ready" && at) text += ` before the ${at} template sync`;
+    } else if (lead.kind === "radar") {
       text += next ? ` before the ${next} sync` : " before the next sync";
     } else {
       const follow = followers(lead, radar).filter((r) => !used.has(r.id));
@@ -400,7 +414,7 @@ function problemText(doctor: DoctorView): string {
 }
 
 function factsOf(model: Model, now: Date): BriefFact[] {
-  const { stack, template } = model;
+  const { stack } = model;
   const env: BriefFact = {
     label: "Environment",
     figure: stack.running?.version ?? stack.declared ?? "?",
@@ -433,25 +447,46 @@ function factsOf(model: Model, now: Date): BriefFact[] {
     tone: stopped.length > 0 ? "bad" : "ok",
   };
 
+  return [env, sync, templateFact(model)];
+}
+
+// Counted against osdu-spi main; adoption of the latest release is the second line.
+function templateFact(model: Model): BriefFact {
+  const { template, rollout } = model;
   const tag = template.latestTag;
-  const prs = template.rows.filter((r) => r.pr && (!tag || r.target === tag));
-  const green = prs.filter((r) => r.verdict === "green").length;
-  const approved = prs.filter((r) => r.ready).length;
-  const all = template.read > 0 && template.onRelease === template.read;
-  const tmpl: BriefFact = {
-    label: `Template ${tag ?? template.headLabel}`,
-    figure: `${template.onRelease} of ${template.read}`,
-    sub:
-      prs.length > 0
-        ? `adopted · ${plural(prs.length, "PR")}${green === prs.length ? " green" : ""}, ${approved > 0 ? `${approved} approved` : "review required"}`
-        : "adopted",
-    tone: all ? "ok" : "neutral",
+  const onMain = template.current;
+  const all = template.read > 0 && onMain === template.read;
+  const waiting = rollout && rollout.phase !== "done" ? rollout.reaching : 0;
+  const release = tag ? `${template.onRelease} of ${template.read} on ${tag}` : undefined;
+  return {
+    label: template.head
+      ? `Template · main ${short(template.head.sha)}`
+      : `Template ${template.headLabel}`,
+    figure: `${onMain} of ${template.read}`,
+    sub: [
+      "on main",
+      waiting > 0
+        ? `${plural(waiting, "change")} ${waiting === 1 ? "reaches" : "reach"} the forks`
+        : all
+          ? "nothing waiting to roll out"
+          : undefined,
+      release,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    tone: all ? "ok" : waiting > 0 ? "warn" : "neutral",
   };
-  return [env, sync, tmpl];
 }
 
 function rank(item: QueueItem): number {
-  const within = item.incident ? 0 : item.kind === "radar" ? 1 : item.cls === "PORT" ? 3 : 2;
+  const within =
+    item.incident || item.kind === "rollout"
+      ? 0
+      : item.kind === "radar"
+        ? 1
+        : item.cls === "PORT"
+          ? 3
+          : 2;
   return item.rung * 10 + within;
 }
 
@@ -631,6 +666,29 @@ function focusOf(
       });
       continue;
     }
+    if (item.kind === "rollout" && model.rollout) {
+      const w = rolloutWords(model.rollout, now);
+      out.push({
+        id: item.id,
+        ids: [item.id],
+        rung: item.rung,
+        cls: itemClass(item),
+        scope: item.scope,
+        title: w.title,
+        sub: w.sub,
+        cause: w.cause,
+        effect: w.effect,
+        next: w.next,
+        verb: w.verb,
+        evidence: evidenceOf([item]),
+        more: [
+          { label: "Plan", text: w.plan },
+          ...(w.watch ? [{ label: "Watch", text: w.watch }] : []),
+          ...(w.reaches ? [{ label: "Reaches", text: w.reaches }] : []),
+        ],
+      });
+      continue;
+    }
     const { title, sub } = describe(model, item, stuck, next, now);
     out.push({
       id: item.id,
@@ -727,6 +785,17 @@ function relatedOf(model: Model, item: QueueItem, themes: readonly Theme[]): Rel
 }
 
 export function readItem(model: Model, item: QueueItem, now: Date): Reading {
+  if (item.kind === "rollout" && model.rollout) {
+    const w = rolloutWords(model.rollout, now);
+    return {
+      title: w.title,
+      sub: w.sub,
+      cause: w.cause,
+      effect: w.effect,
+      next: w.next,
+      related: [],
+    };
+  }
   const next = clock(syncAt(now));
   const stuck = model.queue.items.filter((i) => i.incident).sort((a, b) => rank(a) - rank(b));
   const { title, sub } = describe(model, item, stuck, next, now);
@@ -1018,7 +1087,7 @@ function inspectOf(model: Model, t: Theme): string | undefined {
     case "port":
       return items.find((i) => i.kind === "port")?.id;
     case "rollout":
-      return items.find((i) => i.kind === "template-set")?.id;
+      return items.find((i) => i.kind === "rollout" || i.kind === "template-set")?.id;
     default:
       return undefined;
   }
@@ -1159,7 +1228,7 @@ function bandOf(model: Model, index: number, all: readonly FlowCell[][]): FlowBa
     return same && head
       ? band(
           `${head.label} → ${head.target} · a sync PR waits in every fork`,
-          queued("template-set"),
+          queued(model.rollout ? "rollout" : "template-set"),
         )
       : undefined;
   }
@@ -1580,7 +1649,7 @@ export function buildBriefing(model: Model, doctor: DoctorView, now: Date): Brie
   const headline =
     doctor.state === "dark"
       ? `${sentence(problemText(doctor) || "GitHub cannot be read")} Figures are from the last good read.`
-      : headlineOf(model, focusable, readyCount, next);
+      : headlineOf(model, focusable, readyCount, next, now);
   return {
     ...base,
     headline,
