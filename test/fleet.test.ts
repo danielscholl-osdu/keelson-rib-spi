@@ -212,6 +212,8 @@ describe("the fleet list comes from the stack's forks: list", () => {
       "osdu/platform/system/file",
     );
     expect(upstreamProject("https://gitlab.com/osdu/x")).toBeUndefined();
+    expect(upstreamProject("https://communityXopengroup.org/osdu/x")).toBeUndefined();
+    expect(upstreamProject("https://community.opengroup.org.evil.io/osdu/x")).toBeUndefined();
   });
 });
 

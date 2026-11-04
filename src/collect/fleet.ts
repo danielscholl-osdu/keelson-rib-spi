@@ -139,8 +139,15 @@ export async function readFleet(
 
 export function upstreamProject(url: string | undefined): string | undefined {
   if (!url) return undefined;
-  const host = GITLAB_HOST.replaceAll(".", "\\.");
-  return new RegExp(`^https?://${host}/(.+?)(?:\\.git)?/?$`).exec(url.trim())?.[1];
+  let parsed: URL;
+  try {
+    parsed = new URL(url.trim());
+  } catch {
+    return undefined;
+  }
+  if (!/^https?:$/.test(parsed.protocol) || parsed.hostname !== GITLAB_HOST) return undefined;
+  const project = parsed.pathname.replace(/^\/+|\/+$/g, "").replace(/\.git$/, "");
+  return project || undefined;
 }
 
 export interface ResolvedFleet {
