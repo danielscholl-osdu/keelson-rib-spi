@@ -24,6 +24,13 @@ export const targetSchema = z
     pr: z.number().int().positive().optional(),
     sha: z.string().optional(),
     state: z.string().optional(),
+    // The workflow file a dispatch target runs, when it is not the repository's default.
+    workflow: z
+      .string()
+      .regex(/^[\w.-]+\.ya?ml$/)
+      .optional(),
+    // The tracking issue a cascade dispatch passes as its input.
+    issue: z.number().int().positive().optional(),
     label: z.string().min(1),
   })
   .strict();
@@ -44,6 +51,8 @@ export interface Verb {
   label: string;
   // The gh arguments that write to one target, shown verbatim in the confirmation.
   command(target: Target): string[];
+  // A second write to the same target, run only once the first succeeded.
+  followUp?(target: Target): string[];
   // Each target starts a lane on the shared environment, so a press tops up to the lane cap.
   paced?: boolean;
 }
@@ -76,7 +85,9 @@ function quote(arg: string): string {
 }
 
 export function commandText(verb: Verb, target: Target): string {
-  return ["gh", ...verb.command(target)].map(quote).join(" ");
+  const line = (args: string[]) => ["gh", ...args].map(quote).join(" ");
+  const then = verb.followUp?.(target);
+  return then ? `${line(verb.command(target))} && ${line(then)}` : line(verb.command(target));
 }
 
 export interface ButtonOptions {

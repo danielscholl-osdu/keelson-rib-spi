@@ -34,6 +34,7 @@ import {
   WAIT_ACTION,
 } from "./act/rerun.ts";
 import { ROLL_OUT, ROLLOUT_ITEM, SYNC_FORKS } from "./act/rollout.ts";
+import { upstreamVerbs } from "./act/upstream.ts";
 import { ACT_ACTION, registerVerb } from "./act/verbs.ts";
 import { AGENTS, resolveAgent } from "./agent.ts";
 import { badge } from "./boards/badge.ts";
@@ -56,6 +57,7 @@ import {
 } from "./boards/release.ts";
 import { repoTitle } from "./boards/repo.ts";
 import { STEP_PREFIX } from "./boards/template.ts";
+import { upstreamTitle } from "./boards/upstream.ts";
 import { buildBriefing } from "./brief/index.ts";
 import { RELEASE_PREFIX, type ReleaseDoc, releaseDoc, releaseLine } from "./brief/release.ts";
 import { REPO_PREFIX } from "./brief/repos.ts";
@@ -68,6 +70,7 @@ import { BADGE_KEY, CONSOLE_KEY, INSPECT_KEY, RELEASE_KEY, RIB_ID } from "./keys
 import type { QueueItem } from "./model/queue.ts";
 import { isMonth, monthFacts, monthName, releaseMonths } from "./model/releases.ts";
 import { heldText } from "./model/stack.ts";
+import { UPSTREAM_ITEM, UPSTREAM_PREFIX } from "./model/upstream.ts";
 import { DRAFT_SYSTEM, draftPrompt, parseDraft } from "./notes/draft.ts";
 import {
   createNotes,
@@ -465,6 +468,7 @@ function bind(ctx: RibContext): Sweeper {
     registerVerb(ROLL_OUT),
     registerVerb(FLEET_RELEASE),
     registerVerb(RERUN_LANES),
+    ...upstreamVerbs().map(registerVerb),
     registerVerb(DISPATCH_REFRESH),
     registerVerb(DISPATCH_UPGRADE),
   );
@@ -805,12 +809,21 @@ const rib: Rib = {
           },
         };
       }
-      if (id.startsWith(STEP_PREFIX) || id.startsWith(MR_PREFIX) || id.startsWith(REPO_PREFIX)) {
-        const title = id.startsWith(MR_PREFIX)
-          ? mrTitle(s.model, id)
-          : id.startsWith(REPO_PREFIX)
-            ? repoTitle(s.model, id)
-            : stepTitle(s.model, id);
+      if (
+        id.startsWith(STEP_PREFIX) ||
+        id.startsWith(MR_PREFIX) ||
+        id.startsWith(REPO_PREFIX) ||
+        id === UPSTREAM_ITEM ||
+        id.startsWith(UPSTREAM_PREFIX)
+      ) {
+        const title =
+          id === UPSTREAM_ITEM || id.startsWith(UPSTREAM_PREFIX)
+            ? upstreamTitle(s.model, id)
+            : id.startsWith(MR_PREFIX)
+              ? mrTitle(s.model, id)
+              : id.startsWith(REPO_PREFIX)
+                ? repoTitle(s.model, id)
+                : stepTitle(s.model, id);
         if (!title) return { ok: false, error: `${id} has moved; the board redraws` };
         inspect = { selected: id };
         await snapshots?.recompose(INSPECT_KEY).catch(() => undefined);

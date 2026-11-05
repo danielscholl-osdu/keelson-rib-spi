@@ -440,6 +440,26 @@ export class Sweeper {
         if (javaBuilt(jobs)) break;
       }
       entry.mainRunJobs = read;
+      const cascade = entry.cascade[0];
+      if (cascade?.status !== "completed" || cascade.conclusion !== "failure") return;
+      let jobs = this.cache.lifecycle.runJobs[jobsKey(cascade)];
+      try {
+        if (!jobs) {
+          jobs = await readRunJobs(gh, this.detailCache, fork.repo, cascade);
+          this.cache.lifecycle.runJobs[jobsKey(cascade)] = jobs;
+        }
+        entry.cascadeRunJobs = { [String(cascade.id)]: jobs };
+      } catch {
+        // The cascade's failed step stays unread; the stop still shows from its issue.
+      }
+      try {
+        entry.integration = await gh.rest<{ sha: string; at: string }>(
+          `repos/${fork.repo}/commits/fork_integration`,
+          "{sha: .sha, at: .commit.committer.date}",
+        );
+      } catch {
+        // Unread: Re-run cascade waits until a sweep reads fork_integration.
+      }
     });
     return runs;
   }
@@ -485,12 +505,17 @@ export class Sweeper {
     }
     for (const entry of Object.values(this.facts.runs.data ?? {})) {
       for (const run of entry.main) if (entry.mainRunJobs?.[run.id]) liveRuns.add(jobsKey(run));
+      for (const run of entry.cascade)
+        if (entry.cascadeRunJobs?.[run.id]) liveRuns.add(jobsKey(run));
     }
     for (const key of Object.keys(this.cache.lifecycle.runJobs)) {
       if (!liveRuns.has(key)) delete this.cache.lifecycle.runJobs[key];
     }
     for (const [repo, entry] of Object.entries(this.facts.runs.data ?? {})) {
-      for (const jobs of Object.values(entry.mainRunJobs ?? {}))
+      for (const jobs of [
+        ...Object.values(entry.mainRunJobs ?? {}),
+        ...Object.values(entry.cascadeRunJobs ?? {}),
+      ])
         for (const j of jobs) keep.add(`${repo}#${j.id}`);
     }
     this.detailCache.prune(keep);

@@ -205,6 +205,10 @@ export interface ForkRuns {
   main: RunFact[];
   // Jobs of the completed main runs read, newest first, by run id.
   mainRunJobs?: Record<string, JobDetail[]>;
+  // Jobs of the newest cascade run, read only when it failed.
+  cascadeRunJobs?: Record<string, JobDetail[]>;
+  // fork_integration's head, read only while the newest cascade run failed.
+  integration?: { sha: string; at: string };
 }
 
 export interface LifecycleRun extends RunFact {

@@ -69,6 +69,7 @@ export function paceTargets(
 ): { go: Target[]; held: ActionResult[] } {
   const busy = new Set(load.inflight.map((l) => l.repo));
   const room = laneRoom(load);
+  const claimed = load.claims?.length ?? 0;
   const started = new Set<string>();
   const go: Target[] = [];
   const held: ActionResult[] = [];
@@ -81,7 +82,7 @@ export function paceTargets(
         outcome: "waiting",
         detail: load.unread
           ? `lanes unknown until ${load.unread} are read`
-          : `${load.inflight.length + started.size} of ${load.cap} lanes in flight`,
+          : `${load.inflight.length + claimed + started.size} of ${load.cap} lanes in flight${claimed ? " or claimed" : ""}`,
       });
     } else {
       started.add(t.repo);
@@ -138,9 +139,17 @@ async function write(binding: Binding, verb: Verb, deps: ActDeps): Promise<RibAc
       };
     }
     const res = await deps.exec.runText("gh", verb.command(target), { timeoutMs: 60_000 });
-    return res.ok
+    if (!res.ok) return { target: target.label, outcome: "failed", detail: clip(res.error, 200) };
+    const then = verb.followUp?.(target);
+    if (!then) return { target: target.label, outcome: "done" };
+    const next = await deps.exec.runText("gh", then, { timeoutMs: 60_000 });
+    return next.ok
       ? { target: target.label, outcome: "done" }
-      : { target: target.label, outcome: "failed", detail: clip(res.error, 200) };
+      : {
+          target: target.label,
+          outcome: "failed",
+          detail: `the first write landed, the second failed: ${clip(next.error, 180)}`,
+        };
   });
   const results = [...written, ...paced.held];
   const at = deps.now().toISOString();

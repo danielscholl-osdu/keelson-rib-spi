@@ -25,6 +25,7 @@ import {
   type QueueItem,
   type Rung,
 } from "../model/queue.ts";
+import { UPSTREAM_ITEM, UPSTREAM_PREFIX } from "../model/upstream.ts";
 import { INSPECT_ACTION } from "../surfaces.ts";
 import { age, plural, stamp, zoned } from "../util.ts";
 import { names } from "./fold.ts";
@@ -32,6 +33,7 @@ import { MR_PREFIX, mrBoard } from "./radar.ts";
 import { repoBoard } from "./repo.ts";
 import { rolloutBoard } from "./rollout.ts";
 import { ladderSection, rolloutActionItems, STEP_PREFIX, spreadText } from "./template.ts";
+import { upstreamForkBoard, upstreamPlanBoard } from "./upstream.ts";
 
 type Section = CanvasBoardView["sections"][number];
 type Row = Extract<Section, { kind: "rows" }>["items"][number];
@@ -445,6 +447,19 @@ export function inspectBoard(
   if (state.selected?.startsWith(STEP_PREFIX)) return stepBoard(model, state.selected, now);
   if (state.selected?.startsWith(MR_PREFIX)) return mrBoard(model, state.selected, now);
   if (state.selected?.startsWith(REPO_PREFIX)) return repoBoard(model, state.selected, now);
+  if (state.selected === UPSTREAM_ITEM || state.selected?.startsWith(UPSTREAM_PREFIX)) {
+    const blocked = writeBlocked(model.sweptAt, opts.scopes);
+    const last = lastAction(entry, now);
+    const extra = last ? [last] : [];
+    const board =
+      state.selected === UPSTREAM_ITEM
+        ? upstreamPlanBoard(model, now, { ...(blocked ? { blocked } : {}), extra })
+        : upstreamForkBoard(model, state.selected.slice(UPSTREAM_PREFIX.length), now, {
+            ...(blocked ? { blocked } : {}),
+            extra,
+          });
+    if (board) return board;
+  }
   const live = state.selected ? model.queue.items.find((i) => i.id === state.selected) : undefined;
   const quiet = state.selected
     ? model.queue.dismissed.find((d) => d.item.id === state.selected)

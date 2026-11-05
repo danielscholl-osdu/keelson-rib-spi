@@ -22,6 +22,7 @@ bun run check            # Biome lint + format
 bun dev/sweep.ts         # one live sweep with your gh and glab, console and inspectors validated
 bun dev/releases.ts      # one live release read, then a month's notes as html and PDF
 bun dev/states.ts        # the rollout states as facts files; RIB_SPI_FACTS_FILE replays one
+bun dev/upstream-states.ts  # the upstream sync states, the same way
 
 keelson rib add "$PWD"   # install into the keelson home, then `keelson restart`
 ```

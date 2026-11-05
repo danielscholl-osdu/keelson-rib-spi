@@ -28,6 +28,8 @@ export interface LaneLoad {
   inflight: LaneInFlight[];
   // What the rib has not read yet, so it cannot count lanes; a paced press starts nothing.
   unread?: string;
+  // Forks whose cascade runs now: no lane yet, but a green one opens a Sync to Main that borrows.
+  claims?: LaneInFlight[];
 }
 
 export function laneCap(): Pick<LaneLoad, "cap" | "capFrom"> {
@@ -47,10 +49,14 @@ export function laneLoad(input: {
   pressed?: Record<string, string>;
 }): LaneLoad {
   const inflight: LaneInFlight[] = [];
+  const claims: LaneInFlight[] = [];
   for (const fork of FORKS) {
     const runs = input.runs?.[fork.repo];
-    const pending = (input.repos[fork.repo]?.prs ?? []).find((pr) =>
-      latestChecks(pr.checks).some((c) => c.workflow === VALIDATION && c.status !== "COMPLETED"),
+    // fork_upstream builds core only and never borrows the environment.
+    const pending = (input.repos[fork.repo]?.prs ?? []).find(
+      (pr) =>
+        pr.base !== "fork_upstream" &&
+        latestChecks(pr.checks).some((c) => c.workflow === VALIDATION && c.status !== "COMPLETED"),
     );
     const what = (runs?.template ?? []).some((r) => r.status !== "completed")
       ? "Sync Template running"
@@ -64,13 +70,18 @@ export function laneLoad(input: {
               ? "just merged or re-run"
               : undefined;
     if (what) inflight.push({ repo: fork.repo, service: fork.id, what });
+    else if ((runs?.cascade ?? []).some((r) => r.status !== "completed")) {
+      claims.push({ repo: fork.repo, service: fork.id, what: "cascade running" });
+    }
   }
   const unread = !input.runs ? "fork workflow runs" : !input.prsRead ? "PR checks" : undefined;
-  return { ...laneCap(), inflight, ...(unread ? { unread } : {}) };
+  return { ...laneCap(), inflight, claims, ...(unread ? { unread } : {}) };
 }
 
-// How many more forks a press may start.
+// How many more forks a press may start, once every running cascade has taken the lane its
+// Sync to Main will borrow.
 export function laneRoom(load: LaneLoad): number {
   if (load.cap === null) return Number.POSITIVE_INFINITY;
-  return load.unread ? 0 : Math.max(0, load.cap - load.inflight.length);
+  if (load.unread) return 0;
+  return Math.max(0, load.cap - load.inflight.length - (load.claims?.length ?? 0));
 }

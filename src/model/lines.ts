@@ -253,7 +253,8 @@ export function buildLine(input: {
     (i) => i.labels.includes("upstream-sync") && /Upstream Sync/i.test(i.title),
   );
   const conflicts = issues.filter(
-    (i) => i.labels.includes("conflict") || i.labels.includes("cascade-blocked"),
+    (i) =>
+      i !== tracking && (i.labels.includes("conflict") || i.labels.includes("cascade-blocked")),
   );
   const cascadeLabels =
     tracking?.labels.filter(
