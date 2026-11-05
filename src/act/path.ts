@@ -9,7 +9,7 @@
 import type { RibActionResult, RibExec } from "@keelson/shared";
 import { replayFile } from "../config.ts";
 import { Gh } from "../forge.ts";
-import { claimRoom, type LaneLoad, laneRoom } from "../model/lanes.ts";
+import { type LaneLoad, laneRoom } from "../model/lanes.ts";
 import { clip, plural, pool } from "../util.ts";
 import type { ActionLog, ActionResult } from "./log.ts";
 import { changed, readTarget } from "./revalidate.ts";
@@ -66,11 +66,10 @@ export function parseBinding(payload: unknown): Binding | undefined {
 export function paceTargets(
   targets: readonly Target[],
   load: LaneLoad,
-  claims = false,
 ): { go: Target[]; held: ActionResult[] } {
   const busy = new Set(load.inflight.map((l) => l.repo));
-  const room = claims ? claimRoom(load) : laneRoom(load);
-  const claimed = claims ? (load.claims?.length ?? 0) : 0;
+  const room = laneRoom(load);
+  const claimed = load.claims?.length ?? 0;
   const started = new Set<string>();
   const go: Target[] = [];
   const held: ActionResult[] = [];
@@ -83,7 +82,7 @@ export function paceTargets(
         outcome: "waiting",
         detail: load.unread
           ? `lanes unknown until ${load.unread} are read`
-          : `${load.inflight.length + claimed + started.size} of ${load.cap} lanes in flight${claims ? " or claimed" : ""}`,
+          : `${load.inflight.length + claimed + started.size} of ${load.cap} lanes in flight${claimed ? " or claimed" : ""}`,
       });
     } else {
       started.add(t.repo);
@@ -125,7 +124,7 @@ async function write(binding: Binding, verb: Verb, deps: ActDeps): Promise<RibAc
         })),
       }
     : verb.paced && deps.lanes
-      ? paceTargets(binding.targets, deps.lanes(), verb.claims)
+      ? paceTargets(binding.targets, deps.lanes())
       : { go: binding.targets, held: [] };
   // Targets are independent, so one slow or failing write does not hold the others.
   const written: ActionResult[] = await pool(paced.go, TARGETS_AT_ONCE, async (target) => {

@@ -60,7 +60,8 @@ export interface UpstreamView {
   };
   // What the schedule does if nobody presses anything.
   schedule?: { title: string; text: string };
-  next: { title: string; text: string; button: string };
+  // quiet: nothing waits on a press, so the button only opens the plan.
+  next: { title: string; text: string; button: string; quiet: boolean };
   also: { text: string; inspect?: string }[];
   inspect: string;
 }
@@ -135,8 +136,7 @@ function planText(f: UpFork): UpRow["plan"] {
   if (f.role === "pilot") return { text: "Pilot", tone: "ok", kind: "pilot" };
   if (f.role === "held") return { text: "Held", tone: "neutral", kind: "held" };
   if (f.wave) {
-    const after = f.heldBy.length > 0 ? ` · after ${list(f.heldBy)}` : "";
-    return { text: `Wave ${f.wave}${after}`, tone: "neutral", kind: "wave" };
+    return { text: `Wave ${f.wave}`, tone: "neutral", kind: "wave" };
   }
   return { text: f.phase === "current" ? "current" : "·", tone: "neutral", kind: "none" };
 }
@@ -218,9 +218,6 @@ function rowOf(u: UpstreamModel, f: UpFork, step: ReturnType<typeof planStep>): 
     text: c.text,
     tone: TONE[c.tone],
   }));
-  const chosen = step.forks.includes(f);
-  if (chosen && step.kind === "start" && line[0])
-    line[0] = { text: "ready to start", tone: "warn" };
   const row: Omit<UpRow, "detail"> = {
     fork: f.service,
     inspect: `${UPSTREAM_PREFIX}${f.service}`,
@@ -276,7 +273,7 @@ export function stepWhy(u: UpstreamModel, step: ReturnType<typeof planStep>, now
     case "paused":
       return `${names(u.paused?.forks ?? [])} stopped in cascade on the same first error, so the move is the toolchain, not one fork. The rest absorb it before their cascade; forks already past it carry on.`;
     case "env":
-      return "A green cascade opens a Sync to Main that deploys to the shared environment, so Start waits until it reads deployable.";
+      return "A green cascade opens a Sync to Main that deploys to the shared environment, so Start and Re-run cascade wait until it reads deployable.";
     case "early":
       return `Preparing takes no lane and merges nothing. Their Start still waits: ${step.forks[0]?.planWait ?? "for their wave"}.`;
     default:
@@ -491,7 +488,7 @@ function tilesOf(u: UpstreamModel): UpTile[] {
 }
 
 // Board order: what moves first reads first, held and current forks last.
-function order(u: UpstreamModel): UpFork[] {
+export function planOrder(u: UpstreamModel): UpFork[] {
   const rank = (f: UpFork) =>
     f.phase === "done"
       ? 0
@@ -533,7 +530,7 @@ export function upstreamView(u: UpstreamModel, now: Date): UpstreamView {
     mode: u.mode,
     ...words,
     tiles: tilesOf(u),
-    rows: order(u)
+    rows: planOrder(u)
       .filter((f) => f.phase !== "unread" || u.mode === "quiet")
       .map((f) => rowOf(u, f, step)),
     plan: planCard(u),
@@ -544,7 +541,9 @@ export function upstreamView(u: UpstreamModel, now: Date): UpstreamView {
     next: {
       title,
       text: stepWhy(u, step, now),
-      button: `Open in inspector · ${title.split(":")[0]}`,
+      ...(step.kind === "wait" && u.reviews.length === 0 && u.startWaits.length === 0
+        ? { button: "Open the plan", quiet: true }
+        : { button: `Open in inspector · ${title.split(":")[0]}`, quiet: false }),
     },
     also,
     inspect: UPSTREAM_ITEM,

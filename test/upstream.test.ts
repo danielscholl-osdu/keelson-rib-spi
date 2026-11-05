@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { expectView, type RibExec } from "@keelson/shared";
 import { ActionLog } from "../src/act/log";
-import { act } from "../src/act/path";
+import { act, paceTargets } from "../src/act/path";
 import {
   forkActions,
   PREPARE,
@@ -26,7 +26,7 @@ import { builtInFleet, setFleet } from "../src/config";
 import type { Facts } from "../src/facts";
 import { INSPECT_KEY } from "../src/keys";
 import { buildModel, type Model } from "../src/model/index";
-import { wavesOf } from "../src/model/upstream";
+import { errorKey, wavesOf } from "../src/model/upstream";
 import { parseRollout, useRollout } from "../src/rollout";
 import { boardActions } from "./harness";
 import {
@@ -174,6 +174,15 @@ describe("the pilot in cascade", () => {
     expect(fork(m, "file").planWait).toBe("wave 1 starts once partition's cascade is green");
   });
 
+  test("with nothing to press, the console only opens the plan", () => {
+    const f = pilotFacts();
+    const html = consoleHtml(
+      buildBriefing(m, doctorStatus(f, UPSTREAM_NOW), UPSTREAM_NOW),
+      UPSTREAM_NOW,
+    );
+    expect(html).toContain('class="open ghost" data-inspect="upstream">Open the plan</button>');
+  });
+
   test("the headline says what runs and that nothing waits on you", () => {
     const v = buildBriefing(m, doctorStatus(pilotFacts(), UPSTREAM_NOW), UPSTREAM_NOW).flow;
     expect(v.headline).toBe(
@@ -190,7 +199,8 @@ describe("a wave in progress", () => {
     expect(u.startNext.map((f) => f.service)).toEqual(["file", "workflow"]);
     expect(u.reviews.map((f) => f.service)).toEqual(["schema"]);
     expect(fork(m, "entitlements").phase).toBe("review");
-    expect(fork(m, "entitlements").cells.toMain.text).toBe("lane · testing");
+    expect(fork(m, "entitlements").cells.toMain.text).toBe("testing");
+    expect(fork(m, "file").cells.sync.text).toBe("ready");
   });
 
   test("Start merges the sync PR, then dispatches the cascade with its tracking issue", () => {
@@ -236,12 +246,31 @@ describe("one fork stopped with its fix landed", () => {
   });
 });
 
+describe("the same first error", () => {
+  test("matches on the message, not the file and position it names", () => {
+    const a = "[ERROR] /w/storage/src/StorageAzureConfig.java:[42,8] cannot find symbol: class X";
+    const b = "[ERROR] /w/file/src/FileAzureConfig.java:[31,15] cannot find symbol: class X";
+    expect(errorKey(a)).toBe("cannot find symbol: class X");
+    expect(errorKey(a)).toBe(errorKey(b));
+    expect(errorKey("src/Main.java:12: error: package x does not exist")).toBe(
+      "package x does not exist",
+    );
+  });
+
+  test("different messages do not pause the wave", () => {
+    expect(modelOf(stoppedFacts()).upstream.paused).toBeUndefined();
+  });
+});
+
 describe("two forks stopped on the same first error", () => {
   const m = modelOf(pausedFacts());
   const u = m.upstream;
 
   test("pauses the wave and asks the rest to absorb the move", () => {
-    expect(u.paused?.forks).toEqual(["file", "storage"]);
+    expect(u.paused).toEqual({
+      forks: ["file", "storage"],
+      error: "cannot find symbol: class TenantFactory",
+    });
     expect(u.startNext).toEqual([]);
     expect(fork(m, "workflow").planWait).toBe("the wave is paused: absorb the move first");
   });
@@ -261,6 +290,19 @@ describe("the environment held", () => {
     expect(u.startNext).toEqual([]);
     expect(fork(m, "file").wait).toBe("the environment is held");
     expect(u.reviews.map((f) => f.service)).toEqual(["schema"]);
+  });
+
+  test("a landed fix does not open Re-run while the environment is held", () => {
+    const s = fork(m, "storage");
+    expect(s.stop?.fixLanded).toBe(true);
+    expect(u.reruns).toEqual([]);
+    const own = forkActions(u, s, opts(m)).primary;
+    expect(own.disabled).toBe(true);
+    expect(own.label).toBe("Re-run the cascade · the environment is held");
+    const plan = planActions(u, opts(m));
+    expect(plan.secondary.map((a) => a.label)).toContain(
+      "Re-run storage's cascade · the environment is held",
+    );
   });
 
   test("Prepare is not gated on the environment", () => {
@@ -385,4 +427,48 @@ test("the plan board offers every press in the inspector and none in the console
   );
   expect(html).not.toContain("start-upstream");
   expect(html).not.toContain("sync-upstream");
+});
+
+test("the inspector's fork table follows the Flow rows, with one-word pills and no plan column", () => {
+  const f = waveFacts();
+  const m = modelOf(f);
+  const board = inspect(m, UPSTREAM_ITEM);
+  const table = board.sections.find(
+    (x): x is Extract<(typeof board.sections)[number], { kind: "table" }> =>
+      x.kind === "table" && (x.title ?? "").startsWith("Forks"),
+  );
+  if (!table) throw new Error("no fork table");
+  const flow = buildBriefing(m, doctorStatus(f, UPSTREAM_NOW), UPSTREAM_NOW).flow;
+  const rows = table.rows as Record<string, unknown>[];
+  expect(rows.map((r) => (r.fork as { value: string }).value)).toEqual(
+    flow.rows.map((r) => r.fork),
+  );
+  for (const r of rows) {
+    expect(r.plan).toBeUndefined();
+    for (const key of ["sync", "cascade", "toMain", "main"]) {
+      const text = (r[key] as { badges?: { text: string }[] }).badges?.[0]?.text ?? "·";
+      expect(text).not.toContain(" ");
+    }
+  }
+  const file = rows.find((r) => (r.fork as { value: string }).value === "file");
+  expect((file?.sync as { badges?: { text: string }[] } | undefined)?.badges?.[0]?.text).toBe(
+    "ready",
+  );
+  expect(flow.rows.find((r) => r.fork === "file")?.line[0]?.text).toBe("ready");
+});
+
+test("a template rollout press leaves room for the lanes running cascades claim", () => {
+  const t = (n: number) => ({
+    repo: `Azure/osdu-spi-f${n}`,
+    kind: "workflow" as const,
+    state: "idle",
+    label: `f${n}`,
+  });
+  const { go, held } = paceTargets([t(1), t(2), t(3)], {
+    cap: 3,
+    inflight: [{ repo: "Azure/osdu-spi-x", service: "x", what: "PR Validation" }],
+    claims: [{ repo: "Azure/osdu-spi-y", service: "y", what: "cascade running" }],
+  });
+  expect(go.map((x) => x.label)).toEqual(["f1"]);
+  expect(held[0]?.detail).toBe("3 of 3 lanes in flight or claimed");
 });

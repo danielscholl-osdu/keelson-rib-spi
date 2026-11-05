@@ -78,13 +78,10 @@ export function laneLoad(input: {
   return { ...laneCap(), inflight, claims, ...(unread ? { unread } : {}) };
 }
 
-// How many more forks a press may start.
+// How many more forks a press may start, once every running cascade has taken the lane its
+// Sync to Main will borrow.
 export function laneRoom(load: LaneLoad): number {
   if (load.cap === null) return Number.POSITIVE_INFINITY;
-  return load.unread ? 0 : Math.max(0, load.cap - load.inflight.length);
-}
-
-// The room left once every running cascade has taken the lane its Sync to Main will borrow.
-export function claimRoom(load: LaneLoad): number {
-  return Math.max(0, laneRoom(load) - (load.claims?.length ?? 0));
+  if (load.unread) return 0;
+  return Math.max(0, load.cap - load.inflight.length - (load.claims?.length ?? 0));
 }

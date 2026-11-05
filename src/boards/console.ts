@@ -199,7 +199,7 @@ function planDetail(v: UpstreamView): string {
 <p class="eyebrow">Next step</p>
 <h3>${esc(v.next.title)}</h3>
 ${v.next.text ? `<p>${esc(v.next.text)}</p>` : ""}
-<button type="button" class="open" data-inspect="${esc(v.inspect)}">${esc(v.next.button)}</button>
+<button type="button" class="open${v.next.quiet ? " ghost" : ""}" data-inspect="${esc(v.inspect)}">${esc(v.next.button)}</button>
 ${also ? `<p class="dl">Also waiting</p><ul class="items">${also}</ul>` : ""}
 </section>`;
   }
@@ -539,6 +539,7 @@ h2 { margin: 18px 0 4px; font-size: 21px; line-height: 1.3; font-weight: 650; le
 .evidence { font-family: var(--mono); font-size: 12px; color: var(--muted); }
 .open { justify-self: start; margin-top: 16px; font: inherit; font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 7px; border: 1px solid var(--accent); color: var(--card); background: var(--accent); cursor: pointer; }
 .open:hover { filter: brightness(1.08); }
+.open.ghost { color: var(--accent); background: none; }
 :root:not([data-theme="light"]) :is(.tab, .stamp, .when) { color: color-mix(in srgb, var(--fg) 45%, var(--muted)); }
 :root:not([data-theme="light"]) .ev.s-held { background: color-mix(in srgb, var(--warn) 30%, transparent); }
 :root:not([data-theme="light"]) .relfacts .fact { background: color-mix(in srgb, var(--card-2) 85%, var(--card)); }

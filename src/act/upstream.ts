@@ -7,7 +7,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 import { CASCADE_WORKFLOW, SYNC_UPSTREAM_WORKFLOW } from "../config.ts";
-import { claimRoom, type LaneLoad } from "../model/lanes.ts";
+import { type LaneLoad, laneRoom } from "../model/lanes.ts";
 import {
   planStep,
   UPSTREAM_ITEM,
@@ -15,7 +15,7 @@ import {
   type UpFork,
   type UpstreamModel,
 } from "../model/upstream.ts";
-import { names, plural, stamp } from "../util.ts";
+import { names, plural, stamp, whose } from "../util.ts";
 import { type ActionItem, type Target, type Verb, verbAction } from "./verbs.ts";
 
 export { UPSTREAM_ITEM, UPSTREAM_PREFIX };
@@ -38,7 +38,6 @@ export const START: Verb = {
   command: (t) => ["pr", "merge", String(t.number), "-R", t.repo, "--merge"],
   followUp: cascadeArgs,
   paced: true,
-  claims: true,
 };
 
 export const DISPATCH_CASCADE: Verb = {
@@ -46,7 +45,6 @@ export const DISPATCH_CASCADE: Verb = {
   label: "Dispatch cascade",
   command: cascadeArgs,
   paced: true,
-  claims: true,
 };
 
 export const RERUN_CASCADE: Verb = {
@@ -54,7 +52,6 @@ export const RERUN_CASCADE: Verb = {
   label: "Re-run cascade",
   command: cascadeArgs,
   paced: true,
-  claims: true,
 };
 
 export function prepareTarget(f: UpFork): Target {
@@ -326,8 +323,9 @@ export function planActions(
     if (u.reruns.length > 0) {
       secondary.push(cascadeAction(RERUN_CASCADE, u, u.reruns, { ...base, now: opts.now }));
     }
-    for (const f of u.stops.filter((s) => s.wait)) {
-      secondary.push(waiting(`Re-run ${f.service}'s cascade`, f.wait as string));
+    for (const f of u.stops) {
+      const why = f.wait ?? f.planWait;
+      if (why) secondary.push(waiting(`Re-run ${whose(f.service)} cascade`, why));
     }
   }
   return blockAll({ primary, secondary }, opts.blocked);
@@ -340,7 +338,7 @@ export function forkActions(
   opts: { swept: string; load: LaneLoad; now: Date; blocked?: string },
 ): UpstreamActions {
   const base = { swept: opts.swept, item: `${UPSTREAM_PREFIX}${f.service}` };
-  const room = claimRoom(opts.load);
+  const room = laneRoom(opts.load);
   const anyway =
     f.held === "snapshot"
       ? [

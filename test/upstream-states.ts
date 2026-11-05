@@ -324,7 +324,9 @@ export function envHeld(f: Facts): Facts {
 }
 
 const STORAGE_ERROR =
-  "[ERROR] StorageAzureConfig.java:[42,8] cannot find symbol: class TenantFactory";
+  "[ERROR] /home/runner/work/osdu-spi-storage/provider/storage-azure/src/main/java/org/opengroup/osdu/storage/provider/azure/StorageAzureConfig.java:[42,8] cannot find symbol: class TenantFactory";
+const FILE_ERROR =
+  "[ERROR] /home/runner/work/osdu-spi-file/provider/file-azure/src/main/java/org/opengroup/osdu/file/provider/azure/FileAzureConfig.java:[31,15] cannot find symbol: class TenantFactory";
 
 // 1 · The recorded sweep: nothing started, the plan proposed.
 export function planReadyFacts(): Facts {
@@ -364,13 +366,13 @@ export function stoppedFacts(): Facts {
 // 5 · storage and file fail the cascade on the same first error: the wave pauses.
 export function pausedFacts(): Facts {
   const f = waveFacts();
-  stopped(f, "file", STORAGE_ERROR);
+  stopped(f, "file", FILE_ERROR);
   return f;
 }
 
-// 6 · The wave state while an env-upgrade holds the environment.
+// 6 · An env-upgrade holds the environment while storage's fix has landed: Start and Re-run wait.
 export function heldFacts(): Facts {
-  return envHeld(waveFacts());
+  return envHeld(stoppedFacts());
 }
 
 export const UPSTREAM_STATES: Record<string, () => Facts> = {

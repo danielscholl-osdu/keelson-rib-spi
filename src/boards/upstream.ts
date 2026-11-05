@@ -8,7 +8,14 @@
 
 import type { CanvasBoardView, CanvasTone } from "@keelson/shared";
 import { forkActions, planActions, type UpstreamActions } from "../act/upstream.ts";
-import { carriesText, LINE_COLUMNS, stepWhy, tag, upstreamView } from "../brief/upstream.ts";
+import {
+  carriesText,
+  LINE_COLUMNS,
+  planOrder,
+  stepWhy,
+  tag,
+  upstreamView,
+} from "../brief/upstream.ts";
 import type { Model } from "../model/index.ts";
 import type { Cell, CellTone } from "../model/rollout.ts";
 import {
@@ -51,13 +58,47 @@ function inspectRow(id: string): Pick<Row, "action"> {
   return { action: { type: INSPECT_ACTION, payload: { id } } };
 }
 
+// The words a one-word pill leaves out, one line per fork that has any.
+function lineNotes(forks: readonly UpFork[]): Section | undefined {
+  const items = forks.flatMap((f) => {
+    const why =
+      f.stop?.error ??
+      f.wait ??
+      f.planWait ??
+      [f.cells.toMain, f.cells.main, f.cells.cascade, f.cells.sync].find((c) => c.note)?.note;
+    return why
+      ? [{ text: f.service, trailing: why, ...inspectRow(`${UPSTREAM_PREFIX}${f.service}`) }]
+      : [];
+  });
+  return items.length > 0 ? { kind: "rows", title: "Why each fork waits", items } : undefined;
+}
+
+// The radar's buckets for the queued commits, the same words the rollout's reach list uses.
+function carriesSection(model: Model, f: UpFork): Section | undefined {
+  const svc = model.radar.services[f.service];
+  if (!svc || !f.behind) return undefined;
+  const items = svc.certain.map((v) => ({
+    chip: {
+      label: v.bucket,
+      tone: v.bucket === "Halt" ? ("error" as const) : ("neutral" as const),
+    },
+    text: v.value ?? v.entry ?? plural(v.paths.length, "path"),
+    trailing: plural(v.paths.length, "path"),
+  }));
+  if (items.length === 0) return undefined;
+  return {
+    kind: "rows",
+    title: `What the next sync carries · ${plural(f.behind, "commit")}`,
+    items,
+  };
+}
+
 function lineTable(forks: readonly UpFork[], title: string): Section {
   return {
     kind: "table",
     title,
     columns: [
       { key: "fork", label: "Fork" },
-      { key: "plan", label: "Plan" },
       { key: "sync", label: LINE_COLUMNS[0] as string },
       { key: "cascade", label: LINE_COLUMNS[1] as string },
       { key: "toMain", label: LINE_COLUMNS[2] as string },
@@ -65,7 +106,6 @@ function lineTable(forks: readonly UpFork[], title: string): Section {
     ],
     rows: forks.map((f) => ({
       fork: { value: f.service, href: f.url },
-      plan: tag(f) || "·",
       sync: badge(f.cells.sync),
       cascade: badge(f.cells.cascade),
       toMain: badge(f.cells.toMain),
@@ -307,12 +347,10 @@ export function upstreamPlanBoard(
   }
   const meter = laneMeter(u);
   if (meter) sections.push(meter);
-  sections.push(
-    lineTable(
-      u.forks.filter((f) => f.phase !== "current" && f.phase !== "unread"),
-      `Forks · ${plural(planned, "fork")} in ${plural(waves, "wave")}`,
-    ),
-  );
+  const shown = planOrder(u).filter((f) => f.phase !== "current" && f.phase !== "unread");
+  sections.push(lineTable(shown, `Forks · ${plural(planned, "fork")} in ${plural(waves, "wave")}`));
+  const notes = lineNotes(shown);
+  if (notes) sections.push(notes);
   const w = wavesSection(u);
   if (w) sections.push(w);
   const held = heldSection(u);
@@ -544,7 +582,7 @@ export function upstreamForkBoard(
       ? [{ value: "Open the fork's filter", href: f.halt.url }]
       : []),
     ...(f.templatePr
-      ? [{ value: `Template PR #${f.templatePr.number}`, href: f.templatePr.url }]
+      ? [{ value: `Start waits for template PR #${f.templatePr.number}`, href: f.templatePr.url }]
       : []),
   ];
   const sub = [
@@ -582,6 +620,8 @@ export function upstreamForkBoard(
     });
   }
   sections.push(lineRows(f));
+  const carries = carriesSection(model, f);
+  if (carries) sections.push(carries);
   const waits = u.ordering.filter((o) => o.after.includes(f.service)).map((o) => o.service);
   if (waits.length > 0 || f.heldBy.length > 0) {
     sections.push({

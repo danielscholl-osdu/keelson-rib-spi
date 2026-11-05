@@ -10,7 +10,7 @@ import { githubUrl, REFERENCE_FORK, SYNC_UPSTREAM_CRON } from "../config.ts";
 import type { ForkRuns, JobDetail, PastPrFact, RunFact } from "../facts.ts";
 import type { OrderRule } from "../rollout.ts";
 import { latestChecks, prVerdict } from "./checks.ts";
-import { claimRoom, type LaneLoad, laneRoom } from "./lanes.ts";
+import { type LaneLoad, laneRoom } from "./lanes.ts";
 import type { LineModel } from "./lines.ts";
 import type { RadarModel } from "./radar.ts";
 import type { Cell, CellTone } from "./rollout.ts";
@@ -244,7 +244,12 @@ function phaseOf(
 function cellsOf(f: UpFork): UpFork["cells"] {
   const sync = (() => {
     if (f.phase === "halted") {
-      return cell(f.halt?.open ? "halted" : "will halt", "bad", f.halt?.url);
+      return cell(
+        "halt",
+        "bad",
+        f.halt?.url,
+        f.halt?.open ? "the sync halted" : "the next sync halts",
+      );
     }
     if (f.phase === "preparing") return cell("preparing", "run");
     if (f.syncPr) {
@@ -259,11 +264,15 @@ function cellsOf(f: UpFork): UpFork["cells"] {
     return DASH;
   })();
   const cascade = (() => {
-    if (f.phase === "merged")
-      return cell("not started", "warn", undefined, "cascade not dispatched");
+    if (f.phase === "merged") return cell("waiting", "warn", undefined, "cascade not dispatched");
     if (f.phase === "cascading") return cell("running", "run", f.cascadeRun?.url);
     if (f.stop) {
-      return cell(f.stop.label, "bad", f.stop.run?.url ?? f.stop.issue?.url);
+      return cell(
+        f.stop.label === "conflict" ? "conflict" : "failed",
+        "bad",
+        f.stop.run?.url ?? f.stop.issue?.url,
+        f.stop.label,
+      );
     }
     if (["review", "main", "red", "done"].includes(f.phase)) return cell("green", "ok");
     return DASH;
@@ -271,14 +280,12 @@ function cellsOf(f: UpFork): UpFork["cells"] {
   const toMain = (() => {
     if (f.toMain) {
       const p = f.toMain;
-      if (p.validating)
-        return cell("lane · testing", "run", p.url, "Sync to Main validates on a lane");
+      if (p.validating) return cell("testing", "run", p.url, "Sync to Main validates on a lane");
       if (p.review === "REVIEW_REQUIRED" || p.review === "CHANGES_REQUESTED") {
-        return cell("needs review", "warn", p.url);
+        return cell("review", "warn", p.url, "needs a review on GitHub");
       }
-      return cell("auto-merge", "ok", p.url, "auto-merges when green");
+      return cell("merging", "ok", p.url, "auto-merges when green");
     }
-    if (f.stop) return cell("not opened", "idle");
     if (["main", "red", "done"].includes(f.phase)) return cell("merged", "ok", f.merged?.url);
     return DASH;
   })();
@@ -286,7 +293,7 @@ function cellsOf(f: UpFork): UpFork["cells"] {
     if (!["main", "red", "done"].includes(f.phase)) return DASH;
     const run = f.mainRun;
     if (!run) return cell("unread", "idle");
-    if (run.status !== "completed") return cell("lane · testing", "run", run.url);
+    if (run.status !== "completed") return cell("testing", "run", run.url, "main run on a lane");
     return run.conclusion === "success"
       ? cell("green", "ok", run.url)
       : cell("red", "bad", run.url);
@@ -398,6 +405,15 @@ function forkOf(
   return fork;
 }
 
+// The first error without the file and position it names, so the same break in two forks matches.
+export function errorKey(error: string): string {
+  return error
+    .replace(/^\s*\[(?:ERROR|WARNING)\]\s*/i, "")
+    .replace(/^\S+?:(?:\[\d+(?:,\d+)?\]|\d+(?::\d+)?):?\s*/, "")
+    .replace(/^(?:error|warning):\s*/i, "")
+    .trim();
+}
+
 // Forks in board order, each wave at most `cap` forks; a fork ordered after another in the
 // same list waits for a later wave.
 export function wavesOf(
@@ -503,7 +519,7 @@ export function buildUpstream(input: {
   // Two forks failing the cascade on the same first error point at the move, not the fork.
   const byError = new Map<string, string[]>();
   for (const f of stops) {
-    const e = f.stop?.error;
+    const e = f.stop?.error ? errorKey(f.stop.error) : undefined;
     if (e) byError.set(e, [...(byError.get(e) ?? []), f.service]);
   }
   const shared = [...byError.entries()].find(([, list]) => list.length >= 2);
@@ -561,23 +577,29 @@ export function buildUpstream(input: {
   }
 
   const claims = (lanes.claims ?? []).length;
-  let room = claimRoom(lanes);
+  // A green cascade opens a Sync to Main that borrows a lane, so every cascade press shares the room.
+  let room = laneRoom(lanes);
+  const laneWait = lanes.unread
+    ? `lanes unknown until ${lanes.unread} are read`
+    : "waits for a lane";
+  const fits = (f: UpFork): boolean => {
+    if (room > 0) {
+      room--;
+      return true;
+    }
+    f.planWait = laneWait;
+    return false;
+  };
+  const dispatches = forks.filter((f) => f.verb === "dispatch" && !f.wait).filter(fits);
+  const reruns = stops.filter((f) => f.verb === "rerun" && !f.wait).filter(fits);
   const startNext: UpFork[] = [];
   const startWaits: UpFork[] = [];
   for (const f of forks) {
     if (f.verb !== "start" || f.wait || f.planWait) continue;
-    if (room > 0) {
-      startNext.push(f);
-      room--;
-    } else {
-      startWaits.push(f);
-      f.planWait = lanes.unread
-        ? `lanes unknown until ${lanes.unread} are read`
-        : "waits for a lane";
-    }
+    if (fits(f)) startNext.push(f);
+    else startWaits.push(f);
   }
-  const reruns = stops.filter((f) => f.verb === "rerun" && !f.wait);
-  const dispatches = forks.filter((f) => f.verb === "dispatch" && !f.wait);
+  for (const f of startNext) f.cells.sync = { ...f.cells.sync, text: "ready", tone: "warn" };
   const prepareNext = forks.filter((f) => f.verb === "prepare" && !f.wait && !f.planWait);
   const nextWave = gate === "open" ? 2 : 1;
   const prepareLater = forks.filter(
@@ -628,7 +650,7 @@ export function buildUpstream(input: {
       cap: lanes.cap,
       busy: lanes.inflight.length,
       claims,
-      room: Number.isFinite(laneRoom(lanes)) ? claimRoom(lanes) : inPlan.length,
+      room: Number.isFinite(laneRoom(lanes)) ? laneRoom(lanes) : inPlan.length,
       ...(lanes.unread ? { unread: lanes.unread } : {}),
       holders: lanes.inflight.map((l) => l.service),
     },
@@ -678,7 +700,9 @@ export function planStep(u: UpstreamModel): { kind: PlanStepKind; forks: UpFork[
   if (u.prepareNext.length > 0) return { kind: "prepare", forks: u.prepareNext };
   if (u.reruns.length > 0) return { kind: "rerun", forks: u.reruns };
   if (u.paused) return { kind: "paused", forks: [] };
-  const env = u.forks.filter((f) => f.verb === "start" && f.wait === "the environment is held");
+  const env = u.forks.filter(
+    (f) => f.verb === "start" && !f.held && f.wait === "the environment is held",
+  );
   if (u.envHeld && env.length > 0) return { kind: "env", forks: env };
   if (u.prepareLater.length > 0) return { kind: "early", forks: u.prepareLater };
   return { kind: "wait", forks: u.startWaits };

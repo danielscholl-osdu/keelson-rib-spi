@@ -55,8 +55,6 @@ export interface Verb {
   followUp?(target: Target): string[];
   // Each target starts a lane on the shared environment, so a press tops up to the lane cap.
   paced?: boolean;
-  // Running cascades count against the room too: each will open a Sync to Main that borrows.
-  claims?: boolean;
 }
 
 // Why no verb can write now, before any one verb's own reason.
