@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/danielscholl-osdu/keelson-rib-spi/compare/v1.6.0...v1.7.0) (2026-11-05)
+
+
+### Added
+
+* **upstream:** add upstream sync plan and verbs to Flow view ([#31](https://github.com/danielscholl-osdu/keelson-rib-spi/issues/31)) ([59d6895](https://github.com/danielscholl-osdu/keelson-rib-spi/commit/59d6895d140e9482ed788a3307177855d10883f0))
+
 ## [1.6.0](https://github.com/danielscholl-osdu/keelson-rib-spi/compare/v1.5.0...v1.6.0) (2026-11-04)
 
 
