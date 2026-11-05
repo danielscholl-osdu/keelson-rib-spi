@@ -154,6 +154,7 @@ function nextText(u: UpstreamModel, f: UpFork, step: ReturnType<typeof planStep>
       return strong("main red · open", "bad");
     case "review":
       if (f.verb === "review") return strong("Review · GitHub", "warn");
+      if (f.toMain?.red) return strong("Sync to Main red · open", "bad");
       return plain(f.toMain?.validating ? "auto-merges when green" : "auto-merges");
     case "stopped":
       return f.verb === "rerun" && !f.wait
@@ -341,10 +342,15 @@ function scheduleCard(u: UpstreamModel, now: Date): UpstreamView["schedule"] {
 
 function planningWords(u: UpstreamModel): { headline: string; sub: string } {
   const moving = u.moving.length;
+  const unread = u.unread > 0 ? ` ${plural(u.unread, "fork")} unread.` : "";
   const lead =
-    u.behind === 0
-      ? "Every fork carries upstream."
-      : `${plural(u.commits, "upstream commit")} ${u.commits === 1 ? "waits" : "wait"} across ${plural(u.behind, "fork")}.`;
+    u.unread > 0 && u.unread === u.forks.length
+      ? "Upstream isn't read yet, so nothing is planned."
+      : u.behind === 0
+        ? u.unread > 0
+          ? `No fork read so far is behind upstream.${unread}`
+          : "Every fork carries upstream."
+        : `${plural(u.commits, "upstream commit")} ${u.commits === 1 ? "waits" : "wait"} across ${plural(u.behind, "fork")}.${unread}`;
   const pilot =
     moving > 1
       ? ` ${moving} forks move ${library(u)}, so start with one pilot.`
@@ -435,10 +441,12 @@ function tilesOf(u: UpstreamModel): UpTile[] {
     return [
       {
         label: "Behind upstream",
-        value: `${u.behind} of ${u.forks.length}`,
+        value: u.unread === u.forks.length ? "?" : `${u.behind} of ${u.forks.length}`,
         sub: u.range
-          ? `${u.range[0] === u.range[1] ? u.range[0] : `${u.range[0]} to ${u.range[1]}`} commits · ${u.commits} in all`
-          : "nothing queued",
+          ? `${u.range[0] === u.range[1] ? u.range[0] : `${u.range[0]} to ${u.range[1]}`} commits · ${u.commits} in all${u.unread ? ` · ${u.unread} unread` : ""}`
+          : u.unread
+            ? `${u.unread} unread`
+            : "nothing queued",
         tone: "neutral",
       },
       {

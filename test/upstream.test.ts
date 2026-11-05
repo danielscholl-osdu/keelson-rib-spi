@@ -2,7 +2,9 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { expectView, type RibExec } from "@keelson/shared";
 import { ActionLog } from "../src/act/log";
 import { act, paceTargets } from "../src/act/path";
+import { changed } from "../src/act/revalidate";
 import {
+  cascadeTarget,
   forkActions,
   PREPARE,
   planActions,
@@ -37,6 +39,7 @@ import {
   planReadyFacts,
   prepared,
   stoppedFacts,
+  templateDone,
   UPSTREAM_NOW,
   UPSTREAM_SERVICES,
   UPSTREAM_STATES,
@@ -471,4 +474,63 @@ test("a template rollout press leaves room for the lanes running cascades claim"
   });
   expect(go.map((x) => x.label)).toEqual(["f1"]);
   expect(held[0]?.detail).toBe("3 of 3 lanes in flight or claimed");
+});
+
+describe("proof before a step counts", () => {
+  test("a Sync to Main merge with no main run read stays on main and keeps its dependents waiting", () => {
+    const f = waveFacts();
+    const runs = f.runs.data?.["Azure/osdu-spi-partition"];
+    if (runs) runs.main = runs.main.filter((r) => r.id < 990_000);
+    const m = modelOf(f);
+    expect(fork(m, "partition").phase).toBe("main");
+    expect(fork(m, "partition").cells.main.text).toBe("waiting");
+    expect(m.upstream.done.map((x) => x.service)).toEqual(["indexer-queue"]);
+  });
+
+  test("a sync PR with no checks yet does not offer Start", () => {
+    const f = templateDone(upstreamFacts());
+    prepared(f, "partition");
+    const pr = f.github.data?.repos["Azure/osdu-spi-partition"]?.prs.find((p) =>
+      p.head.startsWith("sync/upstream-"),
+    );
+    if (pr) pr.checks = [];
+    const m = modelOf(f);
+    expect(fork(m, "partition").wait).toBe("its sync PR has no checks yet");
+    expect(m.upstream.startNext).toEqual([]);
+  });
+
+  test("an approved Sync to Main with red checks is a stop, not an auto-merge", () => {
+    const f = waveFacts();
+    const pr = f.github.data?.repos["Azure/osdu-spi-entitlements"]?.prs.find((p) =>
+      p.head.startsWith("release/upstream-"),
+    );
+    if (pr)
+      pr.checks = pr.checks.map((c) => ({ ...c, status: "COMPLETED", conclusion: "FAILURE" }));
+    const m = modelOf(f);
+    expect(fork(m, "entitlements").cells.toMain.text).toBe("red");
+    const row = buildBriefing(m, doctorStatus(f, UPSTREAM_NOW), UPSTREAM_NOW).flow.rows.find(
+      (r) => r.fork === "entitlements",
+    );
+    expect(row?.next.text).toBe("Sync to Main red · open");
+  });
+
+  test("an unread upstream is not a fleet that carries it", () => {
+    const f = upstreamFacts();
+    f.upstream = { ...f.upstream, data: undefined };
+    const m = modelOf(f);
+    expect(m.upstream.unread).toBe(13);
+    const v = buildBriefing(m, doctorStatus(f, UPSTREAM_NOW), UPSTREAM_NOW).flow;
+    expect(v.headline).not.toContain("Every fork carries upstream");
+    expect(v.tiles[0]?.value).toBe("?");
+  });
+
+  test("a cascade press is refused once a newer cascade run exists", () => {
+    const m = modelOf(stoppedFacts());
+    const t = cascadeTarget(fork(m, "storage"));
+    expect(t.number).toBe(fork(m, "storage").cascadeRun?.id);
+    expect(changed(t, { state: "idle", run: t.number })).toBeUndefined();
+    expect(changed(t, { state: "idle", run: (t.number ?? 0) + 1 })).toBe(
+      `cascade run ${(t.number ?? 0) + 1} ran after the board drew`,
+    );
+  });
 });

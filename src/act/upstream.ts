@@ -82,6 +82,8 @@ export function cascadeTarget(f: UpFork): Target {
     kind: "workflow",
     workflow: CASCADE_WORKFLOW,
     state: "idle",
+    // The newest cascade run as drawn; a run after it means the board's reason is stale.
+    ...(f.cascadeRun ? { number: f.cascadeRun.id } : {}),
     ...(f.tracking ? { issue: f.tracking.number } : {}),
     label: f.service,
   };

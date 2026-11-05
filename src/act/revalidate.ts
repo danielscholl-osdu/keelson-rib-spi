@@ -22,6 +22,8 @@ import type { Target } from "./verbs.ts";
 export interface Seen {
   sha?: string;
   state?: string;
+  // The newest cascade run, for a cascade dispatch.
+  run?: number;
 }
 
 // The state a target is in on GitHub now, in the same terms the board stamps.
@@ -29,11 +31,14 @@ export async function readTarget(gh: Gh, t: Target): Promise<Seen> {
   if (t.kind === "workflow" && t.workflow === SYNC_UPSTREAM_WORKFLOW)
     return readSyncUpstream(gh, t);
   if (t.kind === "workflow" && t.workflow === CASCADE_WORKFLOW) {
-    const statuses = await gh.rest<string[]>(
+    const runs = await gh.rest<{ id: number; status: string }[]>(
       `repos/${t.repo}/actions/workflows/${CASCADE_WORKFLOW}/runs?per_page=5`,
-      "[.workflow_runs[].status]",
+      "[.workflow_runs[] | {id, status}]",
     );
-    return { state: statuses.some((st) => st !== "completed") ? "running" : "idle" };
+    return {
+      state: runs.some((r) => r.status !== "completed") ? "running" : "idle",
+      ...(runs[0] ? { run: runs[0].id } : {}),
+    };
   }
   if (t.kind === "workflow") {
     // The stack's lifecycle workflows share concurrency group env-shared, so either one busy counts.
@@ -113,5 +118,8 @@ export function changed(t: Target, now: Seen): string | undefined {
     return `${what} moved ${short(t.sha)} → ${short(now.sha)}`;
   }
   if (t.state && now.state && t.state !== now.state) return `now ${now.state}, was ${t.state}`;
+  if (t.workflow === CASCADE_WORKFLOW && now.run !== undefined && now.run !== t.number) {
+    return `cascade run ${now.run} ran after the board drew`;
+  }
   return undefined;
 }

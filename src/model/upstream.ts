@@ -72,7 +72,14 @@ export interface UpFork {
   tracking?: { number: number; url: string; labels: string[] };
   cascadeRun?: RunFact;
   stop?: UpStop;
-  toMain?: { number: number; url: string; headSha: string; review?: string; validating: boolean };
+  toMain?: {
+    number: number;
+    url: string;
+    headSha: string;
+    review?: string;
+    validating: boolean;
+    red: boolean;
+  };
   merged?: { number: number; url: string; at: string };
   mainRun?: RunFact;
   templatePr?: { number: number; url: string };
@@ -103,6 +110,8 @@ export interface UpstreamModel {
   mode: "planning" | "flight" | "quiet";
   forks: UpFork[];
   behind: number;
+  // Forks whose upstream lag is unread; behind and commits count only the rest.
+  unread: number;
   commits: number;
   range?: [number, number];
   moving: UpFork[];
@@ -206,6 +215,7 @@ function toMainOf(line: LineModel): UpFork["toMain"] {
     headSha: p.headSha,
     ...(p.reviewDecision ? { review: p.reviewDecision } : {}),
     validating,
+    red: prVerdict(p) === "red",
   };
 }
 
@@ -232,8 +242,11 @@ function phaseOf(
   if (f.merged && now.getTime() - Date.parse(f.merged.at) <= ROUND_MS) {
     const run = f.mainRun;
     if (run && run.status !== "completed") return "main" as const;
-    if (!f.behind)
-      return run && run.conclusion !== "success" ? ("red" as const) : ("done" as const);
+    // Done needs measured zero lag and a green main run; a merge without its run read stays on main.
+    if (f.behind === 0) {
+      if (!run) return "main" as const;
+      return run.conclusion === "success" ? ("done" as const) : ("red" as const);
+    }
   }
   if (f.halt?.open) return "halted" as const;
   if (f.behind === undefined) return "unread" as const;
@@ -280,6 +293,7 @@ function cellsOf(f: UpFork): UpFork["cells"] {
   const toMain = (() => {
     if (f.toMain) {
       const p = f.toMain;
+      if (p.red) return cell("red", "bad", p.url, "Sync to Main checks red; it won't auto-merge");
       if (p.validating) return cell("testing", "run", p.url, "Sync to Main validates on a lane");
       if (p.review === "REVIEW_REQUIRED" || p.review === "CHANGES_REQUESTED") {
         return cell("review", "warn", p.url, "needs a review on GitHub");
@@ -292,7 +306,7 @@ function cellsOf(f: UpFork): UpFork["cells"] {
   const main = (() => {
     if (!["main", "red", "done"].includes(f.phase)) return DASH;
     const run = f.mainRun;
-    if (!run) return cell("unread", "idle");
+    if (!run) return cell("waiting", "idle", undefined, "no main run read for the merge yet");
     if (run.status !== "completed") return cell("testing", "run", run.url, "main run on a lane");
     return run.conclusion === "success"
       ? cell("green", "ok", run.url)
@@ -530,6 +544,7 @@ export function buildUpstream(input: {
     if (f.phase !== "prepared" || !f.syncPr) return undefined;
     if (f.syncPr.verdict === "red") return "its sync PR is red";
     if (f.syncPr.verdict === "pending") return "its sync PR is still building";
+    if (f.syncPr.verdict !== "green") return "its sync PR has no checks yet";
     if (!f.tracking) return "no tracking issue read for its sync PR";
     if (f.templatePr) return `template first: #${f.templatePr.number} is open`;
     if (f.heldBy.length > 0)
@@ -631,6 +646,7 @@ export function buildUpstream(input: {
     mode: moving.length > 0 ? "flight" : inPlan.length > 0 ? "planning" : "quiet",
     forks,
     behind: behindForks.length,
+    unread: forks.filter((f) => f.behind === undefined).length,
     commits: counts.reduce((a, b) => a + b, 0),
     ...(counts.length > 0
       ? { range: [Math.min(...counts), Math.max(...counts)] as [number, number] }
